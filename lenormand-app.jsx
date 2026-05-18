@@ -42,9 +42,55 @@ export default function LenormandApp() {
   const [question, setQuestion] = useState("");
   const [randomMode, setRandomMode] = useState(false);
   // Quiz state
-  const [quizCards, setQuizCards] = useState(null); // {c1, c2, correct, options}
-  const [quizAnswer, setQuizAnswer] = useState(null); // null | "correct" | "wrong"
+  const [quizCards, setQuizCards] = useState(null);
+  const [quizAnswer, setQuizAnswer] = useState(null);
   const [quizScore, setQuizScore] = useState({right:0, wrong:0});
+  const [currentStreak, setCurrentStreak] = useState(0);
+
+  // Highscore from localStorage
+  const loadStats = () => {
+    try {
+      const s = JSON.parse(localStorage.getItem("lenormand_stats") || "{}");
+      return {
+        bestStreak: s.bestStreak || 0,
+        totalRight: s.totalRight || 0,
+        totalQuestions: s.totalQuestions || 0,
+        streakDays: s.streakDays || 0,
+        lastPlayed: s.lastPlayed || null
+      };
+    } catch { return {bestStreak:0, totalRight:0, totalQuestions:0, streakDays:0, lastPlayed:null}; }
+  };
+  const [stats, setStats] = useState(loadStats);
+
+  const saveStats = (newStats) => {
+    try { localStorage.setItem("lenormand_stats", JSON.stringify(newStats)); } catch {}
+    setStats(newStats);
+  };
+
+  const updateStats = (isCorrect, newStreak) => {
+    const today = new Date().toDateString();
+    const s = loadStats();
+    const lastDay = s.lastPlayed;
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    
+    let streakDays = s.streakDays || 0;
+    if (lastDay === today) {
+      // already played today, streak unchanged
+    } else if (lastDay === yesterday) {
+      streakDays += 1; // consecutive day!
+    } else if (lastDay !== today) {
+      streakDays = 1; // reset or first day
+    }
+
+    const newS = {
+      bestStreak: Math.max(s.bestStreak, newStreak),
+      totalRight: s.totalRight + (isCorrect ? 1 : 0),
+      totalQuestions: s.totalQuestions + 1,
+      streakDays,
+      lastPlayed: today
+    };
+    saveStats(newS);
+  };
   const [signifikator, setSignifikator] = useState(null);
   const [matrixCards, setMatrixCards] = useState(Array(9).fill(null)); // 9 positions, pos 4 = signifikator
   const [activePos, setActivePos] = useState(null); // which position is being filled
@@ -552,8 +598,22 @@ export default function LenormandApp() {
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Lenormand Quiz</div>
               <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Welche Deutung passt?</div>
-              <div style={{ fontSize:12, color:"#5a4a34" }}>
+                <div style={{ fontSize:12, color:"#5a4a34", marginBottom:12 }}>
                 ✓ {quizScore.right} richtig &nbsp;·&nbsp; ✗ {quizScore.wrong} falsch
+                {currentStreak >= 2 && <span style={{color:"#d4b878"}}> &nbsp;·&nbsp; 🔥 {currentStreak} in Folge</span>}
+              </div>
+              <div style={{ display:"flex", justifyContent:"center", gap:16, flexWrap:"wrap" }}>
+                {[
+                  ["🏆", "Bester Streak", stats.bestStreak + " richtig"],
+                  ["📊", "Gesamt", stats.totalRight + " / " + stats.totalQuestions],
+                  ["🔥", "Tage-Streak", stats.streakDays + " Tage"]
+                ].map(([icon, label, val]) => (
+                  <div key={label} style={{ background:"rgba(200,169,110,0.05)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"8px 16px", textAlign:"center", minWidth:90 }}>
+                    <div style={{ fontSize:18 }}>{icon}</div>
+                    <div style={{ fontSize:9, color:"#7a6040", letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>{label}</div>
+                    <div style={{ fontSize:13, color:"#c8a96e", marginTop:2 }}>{val}</div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -591,8 +651,18 @@ export default function LenormandApp() {
                   return (
                     <button key={i} onClick={() => {
                       if (quizAnswer) return;
-                      if (isCorrect) { setQuizAnswer("correct"); setQuizScore(s => ({...s, right:s.right+1})); }
-                      else { setQuizAnswer("wrong"); setQuizScore(s => ({...s, wrong:s.wrong+1})); }
+                      if (isCorrect) {
+                        const newStreak = currentStreak + 1;
+                        setCurrentStreak(newStreak);
+                        setQuizAnswer("correct");
+                        setQuizScore(s => ({...s, right:s.right+1}));
+                        updateStats(true, newStreak);
+                      } else {
+                        setCurrentStreak(0);
+                        setQuizAnswer("wrong");
+                        setQuizScore(s => ({...s, wrong:s.wrong+1}));
+                        updateStats(false, 0);
+                      }
                     }}
                       style={{ background:bg, border:`1px solid ${border}`, borderRadius:8, padding:"12px 16px", cursor:quizAnswer?"default":"pointer", color, fontFamily:"Georgia,serif", fontSize:13, textAlign:"left", lineHeight:1.6, transition:"all 0.3s" }}>
                       {isSelected && isCorrect && "✓ "}{opt.length > 150 ? opt.slice(0,150)+"…" : opt}
