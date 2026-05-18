@@ -51,14 +51,15 @@ export default function LenormandApp() {
   const loadStats = () => {
     try {
       const s = JSON.parse(localStorage.getItem("lenormand_stats") || "{}");
+      const today = new Date().toDateString();
       return {
-        bestStreak: s.bestStreak || 0,
-        totalRight: s.totalRight || 0,
-        totalQuestions: s.totalQuestions || 0,
+        bestScore: s.bestScore || 0,
+        todayRight: s.lastPlayed === today ? (s.todayRight || 0) : 0,
+        todayTotal: s.lastPlayed === today ? (s.todayTotal || 0) : 0,
         streakDays: s.streakDays || 0,
         lastPlayed: s.lastPlayed || null
       };
-    } catch { return {bestStreak:0, totalRight:0, totalQuestions:0, streakDays:0, lastPlayed:null}; }
+    } catch { return {bestScore:0, todayRight:0, todayTotal:0, streakDays:0, lastPlayed:null}; }
   };
   const [stats, setStats] = useState(loadStats);
 
@@ -67,7 +68,7 @@ export default function LenormandApp() {
     setStats(newStats);
   };
 
-  const updateStats = (isCorrect, newStreak) => {
+  const updateStats = (isCorrect, sessionRight, sessionTotal) => {
     const today = new Date().toDateString();
     const s = loadStats();
     const lastDay = s.lastPlayed;
@@ -77,15 +78,18 @@ export default function LenormandApp() {
     if (lastDay === today) {
       // already played today, streak unchanged
     } else if (lastDay === yesterday) {
-      streakDays += 1; // consecutive day!
-    } else if (lastDay !== today) {
-      streakDays = 1; // reset or first day
+      streakDays += 1;
+    } else {
+      streakDays = 1;
     }
 
+    const todayRight = (lastDay === today ? (s.todayRight || 0) : 0) + (isCorrect ? 1 : 0);
+    const todayTotal = (lastDay === today ? (s.todayTotal || 0) : 0) + 1;
+
     const newS = {
-      bestStreak: Math.max(s.bestStreak, newStreak),
-      totalRight: s.totalRight + (isCorrect ? 1 : 0),
-      totalQuestions: s.totalQuestions + 1,
+      bestScore: Math.max(s.bestScore || 0, sessionRight),
+      todayRight,
+      todayTotal,
       streakDays,
       lastPlayed: today
     };
@@ -604,8 +608,8 @@ export default function LenormandApp() {
               </div>
               <div style={{ display:"flex", justifyContent:"center", gap:16, flexWrap:"wrap" }}>
                 {[
-                  ["🏆", "Bester Streak", stats.bestStreak + " richtig"],
-                  ["📊", "Gesamt", stats.totalRight + " / " + stats.totalQuestions],
+                  ["🏆", "Bester Score", stats.bestScore + " richtig"],
+                  ["📊", "Heute", stats.todayRight + " / " + stats.todayTotal],
                   ["🔥", "Tage-Streak", stats.streakDays + " Tage"]
                 ].map(([icon, label, val]) => (
                   <div key={label} style={{ background:"rgba(200,169,110,0.05)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"8px 16px", textAlign:"center", minWidth:90 }}>
@@ -655,13 +659,19 @@ export default function LenormandApp() {
                         const newStreak = currentStreak + 1;
                         setCurrentStreak(newStreak);
                         setQuizAnswer("correct");
-                        setQuizScore(s => ({...s, right:s.right+1}));
-                        updateStats(true, newStreak);
+                        setQuizScore(s => {
+                          const nr = s.right+1;
+                          const nt = s.right+s.wrong+1;
+                          updateStats(true, nr, nt);
+                          return {...s, right:nr};
+                        });
                       } else {
                         setCurrentStreak(0);
                         setQuizAnswer("wrong");
-                        setQuizScore(s => ({...s, wrong:s.wrong+1}));
-                        updateStats(false, 0);
+                        setQuizScore(s => {
+                          updateStats(false, s.right, s.right+s.wrong+1);
+                          return {...s, wrong:s.wrong+1};
+                        });
                       }
                     }}
                       style={{ background:bg, border:`1px solid ${border}`, borderRadius:8, padding:"12px 16px", cursor:quizAnswer?"default":"pointer", color, fontFamily:"Georgia,serif", fontSize:13, textAlign:"left", lineHeight:1.6, transition:"all 0.3s" }}>
