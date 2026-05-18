@@ -37,6 +37,44 @@ export default function LenormandApp() {
   const [search, setSearch] = useState("");
   const [cardDetail, setCardDetail] = useState(null);
   // Matrix mode
+  // --- Zugangsschutz ---
+  const checkAccess = () => {
+    try {
+      const pw = localStorage.getItem("lenormand_pw");
+      if (pw === "MST992324") return "granted";
+      const first = localStorage.getItem("lenormand_first");
+      if (!first) {
+        localStorage.setItem("lenormand_first", new Date().toISOString());
+        return "trial";
+      }
+      const days = (Date.now() - new Date(first).getTime()) / 86400000;
+      if (days < 14) return "trial";
+      return "expired";
+    } catch { return "trial"; }
+  };
+  const [access, setAccess] = useState(checkAccess);
+  const [pwInput, setPwInput] = useState("");
+  const [pwError, setPwError] = useState(false);
+
+  const tryPassword = () => {
+    if (pwInput.trim() === "MST992324") {
+      try { localStorage.setItem("lenormand_pw", "MST992324"); } catch {}
+      setAccess("granted");
+      setPwError(false);
+    } else {
+      setPwError(true);
+    }
+  };
+
+  const getDaysLeft = () => {
+    try {
+      const first = localStorage.getItem("lenormand_first");
+      if (!first) return 14;
+      const days = Math.floor((Date.now() - new Date(first).getTime()) / 86400000);
+      return Math.max(0, 14 - days);
+    } catch { return 14; }
+  };
+
   const [matrixView, setMatrixView] = useState("question"); // question | signifikator | layout | result
   const [question, setQuestion] = useState("");
   const [randomMode, setRandomMode] = useState(false);
@@ -242,6 +280,38 @@ export default function LenormandApp() {
 
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
+
+      {access === "expired" && (
+        <div style={{ position:"fixed", inset:0, background:"linear-gradient(160deg,#080512,#0f0a1a)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", zIndex:1000, padding:24 }}>
+          <div style={{ fontSize:40, marginBottom:16 }}>🔐</div>
+          <h2 style={{ color:"#c8a96e", fontWeight:"normal", fontSize:22, marginBottom:8, textAlign:"center" }}>Lenormand Matrix</h2>
+          <p style={{ color:"#7a6040", fontSize:13, marginBottom:24, textAlign:"center", maxWidth:320 }}>
+            Deine 14-tägige Probezeit ist abgelaufen.<br/>Gib dein Passwort ein um weiterzumachen.
+          </p>
+          <input type="password" placeholder="Passwort eingeben…" value={pwInput}
+            onChange={e => { setPwInput(e.target.value); setPwError(false); }}
+            onKeyDown={e => e.key === "Enter" && tryPassword()}
+            style={{ width:"100%", maxWidth:280, padding:"10px 16px", background:"rgba(200,169,110,0.06)", border:`1px solid ${pwError ? "#c87a6a" : "rgba(200,169,110,0.3)"}`, borderRadius:8, color:"#e8dcc8", fontFamily:"Georgia,serif", fontSize:14, outline:"none", marginBottom:8, boxSizing:"border-box", textAlign:"center" }} />
+          {pwError && <div style={{ color:"#c87a6a", fontSize:11, marginBottom:8 }}>Falsches Passwort</div>}
+          <button onClick={tryPassword}
+            style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", marginBottom:24 }}>
+            Freischalten
+          </button>
+          <a href="https://www.annabenoir.de" target="_blank" rel="noopener noreferrer"
+            style={{ fontSize:11, color:"#5a4a34", textDecoration:"none" }}>
+            Passwort kaufen → www.AnnaBenoir.de
+          </a>
+        </div>
+      )}
+
+      {access === "trial" && (
+        <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:"1px solid rgba(200,169,110,0.2)", padding:"8px 16px", textAlign:"center", fontSize:11, color:"#9a8060" }}>
+          ✦ Probezeit: noch {getDaysLeft()} Tage kostenlos &nbsp;·&nbsp;
+          <a href="https://www.annabenoir.de" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
+            Jetzt freischalten →
+          </a>
+        </div>
+      )}
 
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", background:"radial-gradient(ellipse at 15% 15%,rgba(180,120,60,0.07) 0%,transparent 45%),radial-gradient(ellipse at 85% 85%,rgba(60,40,100,0.08) 0%,transparent 45%)" }}/>
 
