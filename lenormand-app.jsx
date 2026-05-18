@@ -164,7 +164,7 @@ export default function LenormandApp() {
   ) : null;
 
   return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#e8dcc8" }}>
+    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
 
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", background:"radial-gradient(ellipse at 15% 15%,rgba(180,120,60,0.07) 0%,transparent 45%),radial-gradient(ellipse at 85% 85%,rgba(60,40,100,0.08) 0%,transparent 45%)" }}/>
 
@@ -208,7 +208,7 @@ export default function LenormandApp() {
               <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", marginBottom:10, textTransform:"uppercase" }}>
                 {mode==="situation"?"Situations-Deutung":"Personen-Deutung"} · {CARDS[selected[0]].name} + {CARDS[selected[1]].name}
               </div>
-              <div style={{ fontSize:16, lineHeight:1.9, color:"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.25)", paddingLeft:14 }}>{showResult}</div>
+              <div style={{ fontSize:17, lineHeight:1.95, color:"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.25)", paddingLeft:14 }}>{showResult}</div>
               <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
                 <div style={{ fontSize:9, letterSpacing:3, color:"#5a4a30", marginBottom:6, textTransform:"uppercase" }}>Keywords</div>
                 <div style={{ fontSize:11, color:"#8a7860", lineHeight:1.6 }}><span style={{color:gold}}>{CARDS[selected[0]].name}:</span> {CARDS[selected[0]].kw}</div>
@@ -229,7 +229,7 @@ export default function LenormandApp() {
                 <button key={num} onClick={() => !isDisabled && toggleCard(num)}
                   style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:isDisabled?"default":"pointer", opacity:isDisabled?0.22:1, color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
                   <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                  <div style={{ fontSize:10, marginTop:4, lineHeight:1.25 }}><span style={{color:"#7a6040"}}>{num}.</span> {CARDS[num].name}</div>
+                  <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:"#9a8060"}}>{num}.</span> <span style={{color:"#d4c4a0"}}>{CARDS[num].name}</span></div>
                 </button>
               );
             })}
@@ -279,7 +279,7 @@ export default function LenormandApp() {
                   onMouseEnter={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.35)"; e.currentTarget.style.color=gold; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
                   <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                  <div style={{ fontSize:10, marginTop:4, lineHeight:1.25 }}><span style={{color:"#7a6040"}}>{num}.</span> {CARDS[num].name}</div>
+                  <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:"#9a8060"}}>{num}.</span> <span style={{color:"#d4c4a0"}}>{CARDS[num].name}</span></div>
                 </button>
               ))}
             </div>
@@ -485,7 +485,7 @@ export default function LenormandApp() {
                     border: `1px solid ${isSignifikator ? gold : isKombi ? "rgba(200,169,110,0.2)" : "rgba(200,169,110,0.1)"}`,
                     borderRadius:8, padding:"10px 8px"
                   }}>
-                    <div style={{ fontSize:8, letterSpacing:2, color: isKombi ? "rgba(200,169,110,0.6)" : "#5a4a34", textTransform:"uppercase", marginBottom:5 }}>
+                    <div style={{ fontSize:10, letterSpacing:2, color: isKombi ? "rgba(212,184,120,0.8)" : "#8a7050", textTransform:"uppercase", marginBottom:5 }}>
                       {mode === "personen" ? ["Sternzeichen","Haarfarbe","Charakter","Figur","Signifikator","Beruf/Berufung","Größe","Alter","Woher"][pos] : POSITION_LABELS[pos]}{isKombi && mode !== "personen" ? " ✦" : ""}
                     </div>
                     {card && (
@@ -502,7 +502,7 @@ export default function LenormandApp() {
                       </div>
                     )}
                     {isKombi && comboText && (
-                      <div style={{ fontSize:10, color:"#c4b490", lineHeight:1.7 }}>{comboText}</div>
+                      <div style={{ fontSize:13, color:"#d8c8a0", lineHeight:1.75 }}>{comboText}</div>
                     )}
                     {isKombi && !card && (
                       <div style={{ fontSize:9, color:"#3a2a18", fontStyle:"italic" }}>–</div>
@@ -514,7 +514,7 @@ export default function LenormandApp() {
                       <div style={{ fontSize:9, color:"#3a2a18", fontStyle:"italic" }}>–</div>
                     )}
                     {fixedText && (
-                      <div style={{ fontSize:10, color:"#a09080", lineHeight:1.7 }}>{fixedText}</div>
+                      <div style={{ fontSize:13, color:"#c0b090", lineHeight:1.75 }}>{fixedText}</div>
                     )}
                   </div>
                 );
