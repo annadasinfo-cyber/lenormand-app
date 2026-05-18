@@ -171,7 +171,7 @@ export default function LenormandApp() {
       {/* Header */}
       <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
         <div style={{ fontSize:10, letterSpacing:6, color:"#7a6040", marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
-        <h1 style={{ fontSize:"clamp(20px,5vw,30px)", fontWeight:"normal", color:gold, margin:"0 0 4px", letterSpacing:2, textShadow:"0 0 30px rgba(200,169,110,0.25)" }}>Lenormand Matrix</h1>
+        <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color:gold, margin:"0 0 4px", letterSpacing:2, textShadow:"0 0 30px rgba(200,169,110,0.25)" }}>Lenormand Matrix</h1>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {[["picker","🃏 Kombinationen"],["matrix","⬛ Matrix"],["personen","👤 Person"],["random","🎲 Zufall"],["cards","📖 Alle Karten"]].map(([v,l]) => (
             <button key={v} onClick={() => {
@@ -179,14 +179,14 @@ export default function LenormandApp() {
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
                 else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { setView(v); if(v!==view) reset(); } }
               }}
-              style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"5px 12px", borderRadius:4, cursor:"pointer", fontSize:11, letterSpacing:1, fontFamily:"Georgia,serif" }}>
+              style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
               {l}
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ maxWidth:860, margin:"0 auto", padding:"18px 14px 60px" }}>
+      <div style={{ maxWidth:1100, margin:"0 auto", padding:"24px 24px 60px" }}>
 
         {/* ── KOMBINATIONEN ── */}
         {view === "picker" && (<>
@@ -208,7 +208,7 @@ export default function LenormandApp() {
               <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", marginBottom:10, textTransform:"uppercase" }}>
                 {mode==="situation"?"Situations-Deutung":"Personen-Deutung"} · {CARDS[selected[0]].name} + {CARDS[selected[1]].name}
               </div>
-              <div style={{ fontSize:15, lineHeight:1.85, color:"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.25)", paddingLeft:14 }}>{showResult}</div>
+              <div style={{ fontSize:16, lineHeight:1.9, color:"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.25)", paddingLeft:14 }}>{showResult}</div>
               <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
                 <div style={{ fontSize:9, letterSpacing:3, color:"#5a4a30", marginBottom:6, textTransform:"uppercase" }}>Keywords</div>
                 <div style={{ fontSize:11, color:"#8a7860", lineHeight:1.6 }}><span style={{color:gold}}>{CARDS[selected[0]].name}:</span> {CARDS[selected[0]].kw}</div>
@@ -221,15 +221,15 @@ export default function LenormandApp() {
             <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
               style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))", gap:6 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
             {filteredCards().map(num => {
               const isSel = selected.includes(num);
               const isDisabled = selected.length === 2 && !isSel;
               return (
                 <button key={num} onClick={() => !isDisabled && toggleCard(num)}
                   style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:isDisabled?"default":"pointer", opacity:isDisabled?0.22:1, color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
-                  <div style={{ fontSize:18 }}>{SYMBOLS[num]}</div>
-                  <div style={{ fontSize:7.5, marginTop:2, lineHeight:1.25 }}><span style={{color:"#7a6040"}}>{num}.</span> {CARDS[num].name}</div>
+                  <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
+                  <div style={{ fontSize:10, marginTop:4, lineHeight:1.25 }}><span style={{color:"#7a6040"}}>{num}.</span> {CARDS[num].name}</div>
                 </button>
               );
             })}
@@ -272,14 +272,14 @@ export default function LenormandApp() {
               <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
                 style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(80px,1fr))", gap:6 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
               {filteredCards().map(num => (
                 <button key={num} onClick={() => { selectSignifikator(num); setSearch(""); }}
                   style={{ background:"rgba(200,169,110,0.015)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:7, padding:"8px 4px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif", transition:"all 0.18s" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.35)"; e.currentTarget.style.color=gold; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
-                  <div style={{ fontSize:18 }}>{SYMBOLS[num]}</div>
-                  <div style={{ fontSize:7.5, marginTop:2, lineHeight:1.25 }}><span style={{color:"#7a6040"}}>{num}.</span> {CARDS[num].name}</div>
+                  <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
+                  <div style={{ fontSize:10, marginTop:4, lineHeight:1.25 }}><span style={{color:"#7a6040"}}>{num}.</span> {CARDS[num].name}</div>
                 </button>
               ))}
             </div>
