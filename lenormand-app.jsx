@@ -624,7 +624,7 @@ export default function LenormandApp() {
                 // Situation matrix fields per position
                 const sitKeys = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
                 // Personen matrix fields per position
-                const perKeys = ["sternzeichen", null, "charakter", "figur", null, "beruf", "groesse", "alter", "woher"];
+                const perKeys = ["sternzeichen", "haarfarbe", "charakter", "figur", null, "beruf", "groesse", "alter", "woher"];
                 const activeKeys = mode === "personen" ? perKeys : sitKeys;
                 const cardForText = card ? (mode === "personen" ? PERSON_MATRIX[String(card)] : MATRIX[String(card)]) : null;
                 const fixedText = activeKeys[pos] && cardForText ? cardForText[activeKeys[pos]] : null;
