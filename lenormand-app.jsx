@@ -38,10 +38,14 @@ export default function LenormandApp() {
   const [cardDetail, setCardDetail] = useState(null);
   // Matrix mode
   // --- Zugangsschutz ---
+  const VALID_PASSWORDS = [
+    "MST-3612-2026",
+  ];
+
   const checkAccess = () => {
     try {
       const pw = localStorage.getItem("lenormand_pw");
-      if (pw === "MST992324") return "granted";
+      if (VALID_PASSWORDS.includes(pw)) return "granted";
       const first = localStorage.getItem("lenormand_first");
       if (!first) {
         localStorage.setItem("lenormand_first", new Date().toISOString());
@@ -57,8 +61,8 @@ export default function LenormandApp() {
   const [pwError, setPwError] = useState(false);
 
   const tryPassword = () => {
-    if (pwInput.trim() === "MST992324") {
-      try { localStorage.setItem("lenormand_pw", "MST992324"); } catch {}
+    if (VALID_PASSWORDS.includes(pwInput.trim())) {
+      try { localStorage.setItem("lenormand_pw", pwInput.trim()); } catch {}
       setAccess("granted");
       setPwError(false);
     } else {
@@ -307,7 +311,7 @@ export default function LenormandApp() {
       {access === "trial" && (
         <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:"1px solid rgba(200,169,110,0.2)", padding:"8px 16px", textAlign:"center", fontSize:11, color:"#9a8060" }}>
           ✦ Probezeit: noch {getDaysLeft()} Tage kostenlos &nbsp;·&nbsp;
-          <a href="https://www.annabenoir.de" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
+          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
             Jetzt freischalten →
           </a>
         </div>
