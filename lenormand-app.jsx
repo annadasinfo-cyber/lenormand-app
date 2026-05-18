@@ -41,6 +41,10 @@ export default function LenormandApp() {
   const [matrixView, setMatrixView] = useState("question"); // question | signifikator | layout | result
   const [question, setQuestion] = useState("");
   const [randomMode, setRandomMode] = useState(false);
+  // Quiz state
+  const [quizCards, setQuizCards] = useState(null); // {c1, c2, correct, options}
+  const [quizAnswer, setQuizAnswer] = useState(null); // null | "correct" | "wrong"
+  const [quizScore, setQuizScore] = useState({right:0, wrong:0});
   const [signifikator, setSignifikator] = useState(null);
   const [matrixCards, setMatrixCards] = useState(Array(9).fill(null)); // 9 positions, pos 4 = signifikator
   const [activePos, setActivePos] = useState(null); // which position is being filled
@@ -102,6 +106,25 @@ export default function LenormandApp() {
     setActivePos(null);
     setMatrixView("result");
     setRandomMode(false);
+  };
+
+  const startQuiz = () => {
+    // Pick 2 random cards in random order
+    const shuffled = [...CARD_NUMS].sort(() => Math.random() - 0.5);
+    const [a, b] = [shuffled[0], shuffled[1]];
+    // Random order - sometimes c1 is bigger, sometimes smaller
+    const [c1, c2] = Math.random() > 0.5 ? [a, b] : [b, a];
+    const lo = Math.min(c1,c2), hi = Math.max(c1,c2);
+    const correct = COMBOS[lo+"-"+hi] || "";
+    // Pick 3 wrong answers from other combos
+    const wrongKeys = Object.keys(COMBOS)
+      .filter(k => k !== lo+"-"+hi)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+    const options = [correct, ...wrongKeys.map(k => COMBOS[k])]
+      .sort(() => Math.random() - 0.5);
+    setQuizCards({c1, c2, correct, options});
+    setQuizAnswer(null);
   };
 
   const startRandom = () => {
@@ -173,7 +196,7 @@ export default function LenormandApp() {
         <div style={{ fontSize:10, letterSpacing:6, color:"#7a6040", marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
         <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color:gold, margin:"0 0 4px", letterSpacing:2, textShadow:"0 0 30px rgba(200,169,110,0.25)" }}>Lenormand Matrix</h1>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
-          {[["picker","🃏 Kombinationen"],["matrix","⬛ Matrix"],["personen","👤 Person"],["random","🎲 Zufall"],["cards","📖 Alle Karten"]].map(([v,l]) => (
+          {[["picker","🃏 Kombinationen"],["matrix","⬛ Matrix"],["personen","👤 Person"],["random","🎲 Zufall"],["cards","📖 Alle Karten"],["quiz","🎓 Quiz"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
@@ -522,6 +545,83 @@ export default function LenormandApp() {
             </div>
           </>)}
         </>)}
+
+        {/* ── QUIZ ── */}
+        {view === "quiz" && (
+          <div>
+            <div style={{ textAlign:"center", marginBottom:20 }}>
+              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Lenormand Quiz</div>
+              <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Welche Deutung passt?</div>
+              <div style={{ fontSize:12, color:"#5a4a34" }}>
+                ✓ {quizScore.right} richtig &nbsp;·&nbsp; ✗ {quizScore.wrong} falsch
+              </div>
+            </div>
+
+            {!quizCards && (
+              <div style={{ textAlign:"center", marginTop:20 }}>
+                <button onClick={startQuiz}
+                  style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"12px 32px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  🎓 Quiz starten
+                </button>
+              </div>
+            )}
+
+            {quizCards && (<>
+              {/* Card pair */}
+              <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:24 }}>
+                {[quizCards.c1, quizCards.c2].map((num, i) => (
+                  <div key={i} style={{ width:120, padding:"16px 12px", border:`1.5px solid ${gold}`, borderRadius:10, textAlign:"center", background:"rgba(200,169,110,0.05)" }}>
+                    <div style={{ fontSize:36 }}>{SYMBOLS[num]}</div>
+                    <div style={{ fontSize:11, color:gold, marginTop:6 }}>{num}. {CARDS[num].name}</div>
+                    <div style={{ fontSize:9, color:"#7a6040", marginTop:4, lineHeight:1.4 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Options */}
+              <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:20 }}>
+                {quizCards.options.map((opt, i) => {
+                  const isCorrect = opt === quizCards.correct;
+                  const isSelected = quizAnswer !== null;
+                  let bg = "rgba(200,169,110,0.03)";
+                  let border = "rgba(200,169,110,0.15)";
+                  let color = "#c0b090";
+                  if (isSelected && isCorrect) { bg = "rgba(80,160,80,0.12)"; border = "#5a9a5a"; color = "#90d090"; }
+                  else if (isSelected && !isCorrect) { bg = "rgba(200,169,110,0.03)"; border = "rgba(200,169,110,0.1)"; color = "#6a5a44"; }
+                  return (
+                    <button key={i} onClick={() => {
+                      if (quizAnswer) return;
+                      if (isCorrect) { setQuizAnswer("correct"); setQuizScore(s => ({...s, right:s.right+1})); }
+                      else { setQuizAnswer("wrong"); setQuizScore(s => ({...s, wrong:s.wrong+1})); }
+                    }}
+                      style={{ background:bg, border:`1px solid ${border}`, borderRadius:8, padding:"12px 16px", cursor:quizAnswer?"default":"pointer", color, fontFamily:"Georgia,serif", fontSize:13, textAlign:"left", lineHeight:1.6, transition:"all 0.3s" }}>
+                      {isSelected && isCorrect && "✓ "}{opt.length > 150 ? opt.slice(0,150)+"…" : opt}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Result + Next */}
+              {quizAnswer && (
+                <div style={{ textAlign:"center" }}>
+                  <div style={{ fontSize:14, color: quizAnswer==="correct" ? "#90d090" : "#c87a6a", marginBottom:12 }}>
+                    {quizAnswer==="correct" ? "🎉 Richtig!" : "❌ Leider falsch!"}
+                  </div>
+                  {quizAnswer === "wrong" && (
+                    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"12px 16px", marginBottom:16, fontSize:13, color:"#c0b090", textAlign:"left", lineHeight:1.6 }}>
+                      <div style={{ fontSize:9, color:"#7a6040", letterSpacing:3, textTransform:"uppercase", marginBottom:6 }}>Die richtige Antwort:</div>
+                      {quizCards.correct}
+                    </div>
+                  )}
+                  <button onClick={startQuiz}
+                    style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
+                    Nächste Frage →
+                  </button>
+                </div>
+              )}
+            </>)}
+          </div>
+        )}
 
         {/* ── ALLE KARTEN ── */}
         {view === "cards" && (
