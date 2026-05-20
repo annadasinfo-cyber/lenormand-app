@@ -895,7 +895,7 @@ export default function LenormandApp() {
             style={{ background:"rgba(200,169,110,0.12)", border:"1px solid rgba(200,169,110,0.4)", color:"#c8a96e", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             ✨ Frag Anna
           </a>
-          <a href="https://www.annabenoir.de/kontakt" target="_blank" rel="noopener noreferrer"
+          <a href="https://www.annabenoir.de/app-fehlermeldungen" target="_blank" rel="noopener noreferrer"
             style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             🐞 Fehler melden
           </a>
