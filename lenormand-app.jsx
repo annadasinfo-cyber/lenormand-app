@@ -360,7 +360,16 @@ export default function LenormandApp() {
         <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color:gold, margin:"0 0 4px", letterSpacing:2, textShadow:"0 0 30px rgba(200,169,110,0.25)" }}>Lenormand Matrix</h1>
         <div style={{ fontSize:10, color:"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
-          {[["picker","🃏 Kombinationen"],["matrix","⬛ Matrix"],["personen","👤 Person"],["random","🎲 Zufall"],["cards","📖 Alle Karten"],["quiz","🎓 Quiz"]].map(([v,l]) => (
+          {/* Reihe 1 */}
+          {[["liesmich","📖 LIESMICH"],["random","🔮 FRAG MICH"],["matrix","⬛ MATRIX"],["personen","👤 PERSON"]].map(([v,l]) => (
+            <button key={v} onClick={() => { if(view==="quiz"&&v!=="quiz"){setQuizCards(null);setQuizAnswer(null);} setView(v); if(v!==view) reset(); }}
+              style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
+              {l}
+            </button>
+          ))}
+        </div>
+        <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
+          {[["picker","🃏 KOMBINATIONEN"],["cards","📖 ALLE KARTEN"],["quiz","🎓 QUIZ"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
@@ -376,6 +385,29 @@ export default function LenormandApp() {
       <div style={{ maxWidth:1100, margin:"0 auto", padding:"24px 24px 60px" }}>
 
         {/* ── KOMBINATIONEN ── */}
+        {/* ── LIESMICH ── */}
+        {view === "liesmich" && (
+          <div style={{ maxWidth:700, margin:"0 auto" }}>
+            <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.18)", borderRadius:12, padding:"28px 32px", marginBottom:24 }}>
+              <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:16 }}>Einleitung</div>
+              {("Willkommen in der Welt der Mlle Lenormand.\n\nPassend zum 10-jährigen Jubiläum der Lenormand Matrix gehen wir mit der Zeit — und verwandeln das Buch in ein Erlebnis.\n\nDas Lenormand ist eine sehr alte, ehrliche und vor allem alltagstaugliche Sprache der Symbole. Sie spricht nicht immer das aus, was wir hören wollen. Aber sie sagt immer das, was wir brauchen.\n\nWas mich an den Lenormand-Karten am meisten gewurmt hat, war dass sie auf der einen Seite so viele Informationen zu bieten haben — man aber die Hälfte mindestens übersieht, wenn man sie nicht alle auswendig kann. Ich wollte mich nicht geschlagen geben. Nicht von diesen Karten!\n\nAlso habe ich mich durch die Massen an Informationen gewühlt, sortiert — und sie in einer Matrix zusammengeschrieben, damit du mit ihr sicher, sanft und sehr, sehr schnell arbeiten kannst.\n\nIn dieser App findest du alle 1260 Kombinationen, die Situations-Matrix und die Personen-Matrix — und ein Quiz, damit du die Karten wirklich lernst. Nicht auswendig. Sondern mit dem Herzen.\n\nIn einem magischen Universum wird nichts dem Zufall überlassen. Auch nicht, dass du hier gelandet bist.\n\nMein Name ist Anna Benoir — und ich lege die Karten. 🎴").split("\n\n").map((para, i) => (
+                <p key={i} style={{ fontSize:15, lineHeight:1.9, color:"#d4c4a0", marginBottom:16, fontFamily:"Georgia,serif" }}>
+                  {para}
+                </p>
+              ))}
+            </div>
+            <div style={{ borderRadius:12, overflow:"hidden", marginBottom:24, position:"relative", paddingTop:"56.25%" }}>
+              <iframe
+                src="https://www.youtube.com/embed/N9sWhC_j_qE"
+                title="Anna Benoir - Lenormand Matrix"
+                style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        )}
+
         {view === "picker" && (<>
 
           <div style={{ display:"flex", gap:12, justifyContent:"center", alignItems:"center", marginBottom:18, minHeight:80 }}>
