@@ -259,7 +259,7 @@ export default function LenormandApp() {
   };
 
   const startRandom = () => {
-    setView("matrix");
+    setView("fragmich");
     setMode("situation");
     setMatrixView("question");
     setRandomMode(true);
@@ -362,7 +362,12 @@ export default function LenormandApp() {
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {/* Reihe 1 */}
           {[["liesmich","📖 LIESMICH"],["random","🔮 FRAG MICH"],["matrix","⬛ MATRIX"],["personen","👤 PERSON"]].map(([v,l]) => (
-            <button key={v} onClick={() => { if(view==="quiz"&&v!=="quiz"){setQuizCards(null);setQuizAnswer(null);} setView(v); if(v!==view) reset(); }}
+            <button key={v} onClick={() => {
+                if(v==="random") { startRandom(); }
+                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
+                else if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
+                else { setView(v); if(v!==view) reset(); }
+              }}
               style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
               {l}
             </button>
@@ -457,7 +462,7 @@ export default function LenormandApp() {
         </>)}
 
         {/* ── MATRIX ── */}
-        {(view === "matrix" || view === "personen") && (<>
+        {(view === "matrix" || view === "personen" || view === "fragmich") && (<>
           {/* Step 0: Frage eingeben */}
           {matrixView === "question" && (<>
             <div style={{ textAlign:"center", marginBottom:20 }}>
