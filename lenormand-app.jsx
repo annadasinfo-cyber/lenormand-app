@@ -43,6 +43,9 @@ export default function LenormandApp() {
   const [search, setSearch] = useState("");
   const [cardDetail, setCardDetail] = useState(null);
   // Matrix mode
+  // --- Splash Screen ---
+  const [showSplash, setShowSplash] = useState(true);
+
   // --- Zugangsschutz ---
   const VALID_PASSWORDS = [
     "MST-3612-2026",
@@ -319,6 +322,32 @@ export default function LenormandApp() {
 
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
+
+      {/* Splash Screen */}
+      {showSplash && (
+        <div
+          onClick={() => setShowSplash(false)}
+          style={{
+            position:"fixed", inset:0, zIndex:2000, cursor:"pointer",
+            background:"#080512",
+            display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center"
+          }}>
+          <img
+            src="https://static.wixstatic.com/media/3da789_d5f73c7c7d084824ab5cee702c8b54d2~mv2.jpeg"
+            alt="Lenormand Matrix"
+            style={{ width:"100%", height:"100%", objectFit:"cover", position:"absolute", inset:0 }}
+          />
+          <div style={{
+            position:"absolute", bottom:"8%", left:0, right:0,
+            textAlign:"center", animation:"pulse 2s ease-in-out infinite"
+          }}>
+            <div style={{ fontSize:13, color:"rgba(200,169,110,0.9)", letterSpacing:4, fontFamily:"Georgia,serif" }}>
+              ✦ Tippe um zu beginnen ✦
+            </div>
+          </div>
+          <style>{`@keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }`}</style>
+        </div>
+      )}
 
       {access === "expired" && (
         <div style={{ position:"fixed", inset:0, background:"linear-gradient(160deg,#080512,#0f0a1a)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", zIndex:1000, padding:24 }}>
