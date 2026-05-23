@@ -333,19 +333,26 @@ export default function LenormandApp() {
             display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center"
           }}>
           <img
-            src="https://static.wixstatic.com/media/3da789_d5f73c7c7d084824ab5cee702c8b54d2~mv2.jpeg"
+            src="https://static.wixstatic.com/media/3da789_562d2114d18648b18a73c6e16b60ee48~mv2.jpeg"
             alt="Lenormand Matrix"
             style={{ width:"100%", height:"100%", objectFit:"cover", position:"absolute", inset:0 }}
           />
           <div style={{
             position:"absolute", bottom:"8%", left:0, right:0,
-            textAlign:"center", animation:"pulse 2s ease-in-out infinite"
+            textAlign:"center"
           }}>
-            <div style={{ fontSize:13, color:"rgba(200,169,110,0.9)", letterSpacing:4, fontFamily:"Georgia,serif" }}>
+            <div style={{
+              fontSize:14, color:"#c8a96e", letterSpacing:4,
+              fontFamily:"Georgia,serif",
+              textShadow:"0 0 20px rgba(200,169,110,0.8)",
+              padding:"12px 20px",
+              background:"rgba(0,0,0,0.4)",
+              display:"inline-block",
+              borderRadius:20
+            }}>
               ✦ Tippe um zu beginnen ✦
             </div>
           </div>
-          <style>{`@keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }`}</style>
         </div>
       )}
 
