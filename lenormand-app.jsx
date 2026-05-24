@@ -872,15 +872,19 @@ export default function LenormandApp() {
                       } else {
                         setCurrentStreak(0);
                         setQuizAnswer("wrong");
-                        // Find which cards this wrong answer belongs to
-                        const wrongKey = Object.keys(COMBOS).find(k => {
-                          const lo = Math.min(parseInt(k.split("-")[0]), parseInt(k.split("-")[1]));
-                          const hi = Math.max(parseInt(k.split("-")[0]), parseInt(k.split("-")[1]));
-                          return COMBOS[k] === opt || (quizMode === "kombis" && trimCombo(COMBOS[k]) === opt);
-                        });
-                        const wrongCombo = wrongKey
-                          ? `${CARDS[wrongKey.split("-")[0]].name} + ${CARDS[wrongKey.split("-")[1]].name}`
-                          : null;
+                        let wrongCombo = null;
+                        if (quizMode === "kombis") {
+                          const wrongKey = Object.keys(COMBOS).find(k => trimCombo(COMBOS[k]) === opt || COMBOS[k] === opt);
+                          wrongCombo = wrongKey
+                            ? `${CARDS[wrongKey.split("-")[0]].name} + ${CARDS[wrongKey.split("-")[1]].name}`
+                            : null;
+                        } else if (quizMode === "zeit") {
+                          const wrongKey = Object.keys(TIME_QUIZ).find(k => TIME_QUIZ[k] === opt);
+                          wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
+                        } else if (quizMode === "person") {
+                          const wrongKey = Object.keys(PERSON_SIG).find(k => PERSON_SIG[k] === opt);
+                          wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
+                        }
                         setQuizCards(prev => ({...prev, selectedWrong: opt, selectedWrongCombo: wrongCombo}));
                         setQuizScore(s => {
                           updateStats(false, s.right, s.right+s.wrong+1);
