@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import React from "react";
 
 const CARDS={"1":{"name":"Der Reiter","kw":"Nachrichten, Neuigkeiten, Projekte, Pläne, Transportmittel, eventuell ein junger Mann"},"2":{"name":"Der Klee","kw":"Kleines Glück, schnelles Eingreifen, Schutz vor negativen Energien"},"3":{"name":"Das Schiff","kw":"Reise, Geschäft, Erbschaft, Transport, Expansion, Verstehen, Toleranz"},"4":{"name":"Das Haus","kw":"Themen die dir momentan am wichtigsten sind, Heim, Familie, Immobilien"},"5":{"name":"Der Baum","kw":"Wachstum, Reife, Gesundheit, langer Zeitraum, Natur, Geduld"},"6":{"name":"Die Wolken","kw":"Helle oder dunkle Seite, Unklarheiten, Hindernisse, Rückschläge, älterer Herr"},"7":{"name":"Die Schlange","kw":"Mutter, Intelligenz, Versuchung, Konkurrenz, Umwege, Gift und Heilmittel"},"8":{"name":"Der Sarg","kw":"Ende, Abschluss, Blockade, Stille, was nicht mehr lebt"},"9":{"name":"Die Blumen","kw":"Glück, Freude, Schönheit, Einladung, Überraschung, Frau, Blumen"},"10":{"name":"Die Sense","kw":"Trennung, Schnitt, Entscheidung, Ernte, Gefahr, Absage"},"11":{"name":"Die Ruten","kw":"Diskussionen, Gespräche, Streit, Ideen, Kommunikation"},"12":{"name":"Die Vögel","kw":"Gespräche, Gerüchte, Nervosität, Stress, Anrufe, Lärm"},"13":{"name":"Das Kind","kw":"Neuanfang, Kind, Unschuld, Wunscherfüllung, Überraschung"},"14":{"name":"Der Fuchs","kw":"Hinterlist, Betrug, Intrigen, Schläue, Klugheit, Instinkt, Arbeit"},"15":{"name":"Der Bär","kw":"Durchsetzungskraft, Besitz, Schutz, Kraft, Aggression, Chef, Finanzen"},"16":{"name":"Die Sterne","kw":"Wünsche, Träume, Spiritualität, Hoffnung, Erfolg, große Projekte"},"17":{"name":"Die Störche","kw":"Veränderungen, Umzug, Bewegung, Transformation, Neubeginn"},"18":{"name":"Der Hund","kw":"Treue, Freundschaft, Unterstützung, Beständigkeit, Vertrauen"},"19":{"name":"Der Turm","kw":"Grenze, Einsamkeit, Isolation, Behörde, Institution, Distanz"},"20":{"name":"Der Park","kw":"Gesellschaft, Öffentlichkeit, Events, Netzwerk, wo Menschen sich begegnen"},"21":{"name":"Der Berg","kw":"Hindernisse, langer Aufstieg, Anstrengung, Feind, Blockade"},"22":{"name":"Die Wege","kw":"Entscheidungen, Alternativen, Kreuzweg, Richtungswechsel"},"23":{"name":"Die Mäuse","kw":"Verlust, Kummer, Krankheit, Diebstahl, Angst, Nagen, Parasiten"},"24":{"name":"Das Herz","kw":"Liebe, Herz, Gefühle, Leidenschaft, Glück, Zuneigung"},"25":{"name":"Der Ring","kw":"Beziehungen, Ehe, Bindung, Partnerschaft, Vertrag, Versprechen"},"26":{"name":"Das Buch","kw":"Geheimnis, Wissen, Studium, Ausbildung, Überraschung, im Verborgenen"},"27":{"name":"Der Brief","kw":"Persönliche Botschaften, Brief, SMS, E-Mail, Dokumente"},"28":{"name":"Der Herr","kw":"Männliche Person, sehr persönlich, aktiv, extrovertiert"},"29":{"name":"Die Dame","kw":"Weibliche Person, sehr persönlich, passiv, introvertiert"},"30":{"name":"Die Lilien","kw":"Familie, Moral, Alter, Sexualität, Winter, Lilien, Reinheit"},"31":{"name":"Die Sonne","kw":"Energie, Glücksfälle, Erfolg, wahre Liebe, Kraft, Licht, Sommer"},"32":{"name":"Der Mond","kw":"Ruhm, Ehre, Anerkennung, Innenleben, Seele, Intuition, Mond"},"33":{"name":"Der Schlüssel","kw":"Mit Sicherheit, Erfolg, gutes Gelingen, Neubeginn, Schlüssel zur Antwort"},"34":{"name":"Die Fische","kw":"Geld, Glück, Wohlstand, Zufriedenheit, Ressourcen, Fülle"},"35":{"name":"Der Anker","kw":"Beruf, Arbeit, Stabilität, Heimathafen, Beständigkeit, Anker"},"36":{"name":"Das Kreuz","kw":"Bedeutungsvolle Ereignisse, Schicksal, Bestimmung, Prüfung, Karma"}};
 const SYMBOLS={"1":"🐎","2":"🍀","3":"⛵","4":"🏠","5":"🌳","6":"☁️","7":"🐍","8":"⚰️","9":"💐","10":"⚔️","11":"🪄","12":"🐦","13":"👶","14":"🦊","15":"🐻","16":"⭐","17":"🦢","18":"🐕","19":"🗼","20":"🌳","21":"⛰️","22":"🛤️","23":"🐭","24":"❤️","25":"💍","26":"📖","27":"✉️","28":"🎩","29":"👒","30":"🌸","31":"☀️","32":"🌙","33":"🗝️","34":"🐟","35":"⚓","36":"✝️"};
@@ -34,6 +35,57 @@ const POSITION_LABELS = [
 const KOMBI_POSITIONS = [1, 5, 7]; // positions that show combinations
 const MATRIX_FIELDS = ["gendanken", "ist_situation", "rat_der_engel", "warnung", "signifikator", "nahe_zukunft", "wo_es_herkommt", "unbewusste_zukunft", "ergebnis_und_wann"];
 const MATRIX_KEYS = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
+
+function ConfettiCanvas() {
+  const canvasRef = React.useRef(null);
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const colors = ["#c8a96e","#d4b878","#f0e8d8","#ffffff","#b89aff","#ff9ad4","#9affe0","#ffed4a"];
+    const pieces = Array.from({length:150}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * -canvas.height,
+      w: 5 + Math.random()*8,
+      h: 8 + Math.random()*14,
+      color: colors[Math.floor(Math.random()*colors.length)],
+      speed: 2 + Math.random()*4,
+      angle: Math.random()*360,
+      spin: (Math.random()-0.5)*4,
+      wobble: Math.random()*2,
+      wobbleSpeed: 0.05 + Math.random()*0.1,
+      wobblePos: Math.random()*Math.PI*2,
+    }));
+    let running = true;
+    const draw = () => {
+      if (!running) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      pieces.forEach(p => {
+        p.y += p.speed;
+        p.wobblePos += p.wobbleSpeed;
+        p.angle += p.spin;
+        const wx = p.x + Math.sin(p.wobblePos) * 15;
+        if (p.y > canvas.height + 20) {
+          p.y = -20;
+          p.x = Math.random() * canvas.width;
+        }
+        ctx.save();
+        ctx.translate(wx, p.y);
+        ctx.rotate(p.angle * Math.PI/180);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+        ctx.restore();
+      });
+      requestAnimationFrame(draw);
+    };
+    draw();
+    return () => { running = false; };
+  }, []);
+  return <canvas ref={canvasRef} style={{ position:"absolute", inset:0, width:"100%", height:"100%" }}/>;
+}
+
 
 export default function LenormandApp() {
   const [view, setView] = useState("liesmich");
@@ -336,34 +388,13 @@ export default function LenormandApp() {
       {/* Konfetti */}
       {showConfetti && (
         <div onClick={() => setShowConfetti(false)} style={{ position:"fixed", inset:0, pointerEvents:"all", zIndex:3000, overflow:"hidden", cursor:"pointer" }}>
+          <ConfettiCanvas />
           <style>{`
-            @keyframes confettiRain {
-              0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-              100% { transform: translateY(105vh) rotate(600deg); opacity: 0.8; }
-            }
             @keyframes recordPulse {
               0%,100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
               50% { transform: translate(-50%,-50%) scale(1.08); opacity:0.9; }
             }
           `}</style>
-          {Array.from({length:120}, (_,i) => {
-            const colors = ["#c8a96e","#d4b878","#f0e8d8","#ffffff","#b89aff","#ff9ad4","#9affe0","#ffed4a"];
-            const size = 5 + Math.random()*8;
-            const duration = 1.5 + Math.random()*2;
-            const delay = (Math.random()*duration * -1);
-            return (
-              <div key={i} style={{
-                position:"absolute",
-                left: (Math.random()*105 - 2) + "%",
-                top: "-20px",
-                width: size + "px",
-                height: size * (Math.random()>0.5 ? 1 : 2.5) + "px",
-                background: colors[Math.floor(Math.random()*colors.length)],
-                borderRadius: Math.random()>0.5 ? "50%" : "2px",
-                animation: `confettiRain ${duration}s linear ${delay}s infinite`,
-              }}/>
-            );
-          })}
           <div style={{
             position:"fixed",
             top:"40%", left:"50%",
