@@ -48,7 +48,7 @@ export default function LenormandApp() {
 
   // --- Zugangsschutz ---
   const VALID_PASSWORDS = [
-    "MST-3612-2026",
+    "MStH992324",
   ];
 
   const checkAccess = () => {
