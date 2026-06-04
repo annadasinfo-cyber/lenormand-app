@@ -335,7 +335,7 @@ export default function LenormandApp() {
 
       {/* Konfetti */}
       {showConfetti && (
-        <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:3000, overflow:"hidden" }}>
+        <div onClick={() => setShowConfetti(false)} style={{ position:"fixed", inset:0, pointerEvents:"all", zIndex:3000, overflow:"hidden", cursor:"pointer" }}>
           <style>{`
             @keyframes confettiFall {
               0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
@@ -851,14 +851,7 @@ export default function LenormandApp() {
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Lenormand Quiz</div>
 
-              <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:14, flexWrap:"wrap" }}>
-                {[["kombis","🃏 Kombinationen"],["zeit","⏰ Zeitrahmen"],["person","👤 Personen"]].map(([m,l]) => (
-                  <button key={m} onClick={() => { setQuizMode(m); setQuizCards(null); setQuizAnswer(null); setCurrentStreak(0); }}
-                    style={{ background:quizMode===m?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${quizMode===m?gold:"rgba(200,169,110,0.2)"}`, color:quizMode===m?gold:"#7a6040", padding:"6px 14px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                    {l}
-                  </button>
-                ))}
-              </div>
+
 
               <div style={{ fontSize:16, color:gold, marginBottom:4 }}>
                 {quizMode==="kombis" ? "Welche Deutung passt?" : quizMode==="zeit" ? "Wann tritt es ein?" : "Wer ist diese Person?"}
@@ -887,14 +880,17 @@ export default function LenormandApp() {
                   const best = typeof stats.bestScore === "object" ? (stats.bestScore[m] || 0) : (stats.bestScore || 0);
                   const isActive = quizMode === m;
                   return (
-                    <div key={m} style={{
-                      background: isActive ? "rgba(200,169,110,0.12)" : "rgba(200,169,110,0.03)",
-                      border: `1px solid ${isActive ? "#c8a96e" : "rgba(200,169,110,0.15)"}`,
-                      borderRadius:8, padding:"8px 14px", textAlign:"center", minWidth:80
-                    }}>
-                      <div style={{ fontSize:16 }}>{icon}</div>
+                    <div key={m}
+                      onClick={() => { setQuizMode(m); setQuizCards(null); setQuizAnswer(null); setCurrentStreak(0); }}
+                      style={{
+                        background: isActive ? "rgba(200,169,110,0.12)" : "rgba(200,169,110,0.03)",
+                        border: `1px solid ${isActive ? "#c8a96e" : "rgba(200,169,110,0.15)"}`,
+                        borderRadius:8, padding:"10px 18px", textAlign:"center", minWidth:90,
+                        cursor:"pointer", transition:"all 0.2s"
+                      }}>
+                      <div style={{ fontSize:18 }}>{icon}</div>
                       <div style={{ fontSize:8, color: isActive ? "#c8a96e" : "#7a6040", letterSpacing:2, textTransform:"uppercase", marginTop:2 }}>{label}</div>
-                      <div style={{ fontSize:14, color: isActive ? "#c8a96e" : "#9a8060", marginTop:2, fontWeight: isActive ? "bold" : "normal" }}>🏆 {best}</div>
+                      <div style={{ fontSize:15, color: isActive ? "#c8a96e" : "#9a8060", marginTop:3, fontWeight: isActive ? "bold" : "normal" }}>🏆 {best}</div>
                     </div>
                   );
                 })}
@@ -954,7 +950,6 @@ export default function LenormandApp() {
                             : (stats.bestScore || 0);
                           if (nr > currentBest) {
                             setShowConfetti(true);
-                            setTimeout(() => setShowConfetti(false), 3000);
                           }
                           return {...s, right:nr};
                         });
