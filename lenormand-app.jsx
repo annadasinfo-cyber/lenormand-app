@@ -337,33 +337,30 @@ export default function LenormandApp() {
       {showConfetti && (
         <div onClick={() => setShowConfetti(false)} style={{ position:"fixed", inset:0, pointerEvents:"all", zIndex:3000, overflow:"hidden", cursor:"pointer" }}>
           <style>{`
-            @keyframes confettiFloat {
-              0%   { transform: translateY(0px) rotate(0deg); }
-              25%  { transform: translateY(-30px) rotate(90deg); }
-              50%  { transform: translateY(10px) rotate(180deg); }
-              75%  { transform: translateY(-20px) rotate(270deg); }
-              100% { transform: translateY(0px) rotate(360deg); }
+            @keyframes confettiRain {
+              0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+              100% { transform: translateY(105vh) rotate(600deg); opacity: 0.8; }
             }
             @keyframes recordPulse {
               0%,100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
               50% { transform: translate(-50%,-50%) scale(1.08); opacity:0.9; }
             }
           `}</style>
-          {Array.from({length:80}, (_,i) => {
-            const colors = ["#c8a96e","#d4b878","#f0e8d8","#ffffff","#b89aff","#ff9ad4","#9affe0"];
-            const size = 6 + Math.random()*10;
-            const left = (Math.random()*100) + "%";
-            const top = (Math.random()*100) + "%";
+          {Array.from({length:120}, (_,i) => {
+            const colors = ["#c8a96e","#d4b878","#f0e8d8","#ffffff","#b89aff","#ff9ad4","#9affe0","#ffed4a"];
+            const size = 5 + Math.random()*8;
+            const duration = 1.5 + Math.random()*2;
+            const delay = (Math.random()*duration * -1);
             return (
               <div key={i} style={{
                 position:"absolute",
-                left: left,
-                top: top,
+                left: (Math.random()*105 - 2) + "%",
+                top: "-20px",
                 width: size + "px",
-                height: size + "px",
+                height: size * (Math.random()>0.5 ? 1 : 2.5) + "px",
                 background: colors[Math.floor(Math.random()*colors.length)],
-                borderRadius: Math.random()>0.4 ? "50%" : "2px",
-                animation: `confettiFloat ${1.5+Math.random()*2}s ease-in-out ${Math.random()*0.5}s infinite`,
+                borderRadius: Math.random()>0.5 ? "50%" : "2px",
+                animation: `confettiRain ${duration}s linear ${delay}s infinite`,
               }}/>
             );
           })}
