@@ -336,28 +336,52 @@ export default function LenormandApp() {
       {/* Konfetti */}
       {showConfetti && (
         <div style={{ position:"fixed", inset:0, pointerEvents:"none", zIndex:3000, overflow:"hidden" }}>
-          {Array.from({length:60}, (_,i) => (
-            <div key={i} style={{
-              position:"absolute",
-              left: Math.random()*100 + "%",
-              top: "-20px",
-              width: 8 + Math.random()*8 + "px",
-              height: 8 + Math.random()*8 + "px",
-              background: ["#c8a96e","#d4b878","#ffffff","#f0e8d8","#9a6aff"][Math.floor(Math.random()*5)],
-              borderRadius: Math.random()>0.5 ? "50%" : "0",
-              animation: `fall ${1.5+Math.random()*2}s linear ${Math.random()*1}s forwards`,
-              transform: `rotate(${Math.random()*360}deg)`
-            }}/>
-          ))}
-          <div style={{ position:"absolute", top:"30%", left:0, right:0, textAlign:"center" }}>
-            <div style={{ fontSize:28, color:"#c8a96e", fontFamily:"Georgia,serif", textShadow:"0 0 20px rgba(200,169,110,0.8)", animation:"pulse 0.5s ease-in-out infinite" }}>
-              🏆 NEUER REKORD! 🏆
+          <style>{`
+            @keyframes confettiFall {
+              0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+              100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+            }
+            @keyframes recordPulse {
+              0%,100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
+              50% { transform: translate(-50%,-50%) scale(1.08); opacity:0.9; }
+            }
+          `}</style>
+          {Array.from({length:80}, (_,i) => {
+            const colors = ["#c8a96e","#d4b878","#f0e8d8","#ffffff","#b89aff","#ff9ad4","#9affe0"];
+            const size = 6 + Math.random()*10;
+            return (
+              <div key={i} style={{
+                position:"absolute",
+                left: (Math.random()*110 - 5) + "%",
+                top: "-15px",
+                width: size + "px",
+                height: size + "px",
+                background: colors[Math.floor(Math.random()*colors.length)],
+                borderRadius: Math.random()>0.4 ? "50%" : "2px",
+                animation: `confettiFall ${1.2+Math.random()*2.5}s ease-in ${Math.random()*0.8}s forwards`,
+              }}/>
+            );
+          })}
+          <div style={{
+            position:"fixed",
+            top:"40%", left:"50%",
+            transform:"translate(-50%,-50%)",
+            textAlign:"center",
+            animation:"recordPulse 0.6s ease-in-out infinite",
+            background:"rgba(8,5,18,0.85)",
+            border:"2px solid #c8a96e",
+            borderRadius:16,
+            padding:"24px 40px",
+            boxShadow:"0 0 40px rgba(200,169,110,0.4)"
+          }}>
+            <div style={{ fontSize:40, marginBottom:8 }}>🏆</div>
+            <div style={{ fontSize:22, color:"#c8a96e", fontFamily:"Georgia,serif", letterSpacing:2, marginBottom:4 }}>
+              NEUER REKORD!
+            </div>
+            <div style={{ fontSize:13, color:"#a09070", fontFamily:"Georgia,serif" }}>
+              {quizMode === "kombis" ? "Kombinationen" : quizMode === "zeit" ? "Zeitrahmen" : "Personen"}
             </div>
           </div>
-          <style>{`
-            @keyframes fall { to { transform: translateY(110vh) rotate(720deg); opacity:0; } }
-            @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
-          `}</style>
         </div>
       )}
 
@@ -843,9 +867,10 @@ export default function LenormandApp() {
                 ✓ {quizScore.right} richtig &nbsp;·&nbsp; ✗ {quizScore.wrong} falsch
                 {currentStreak >= 2 && <span style={{color:"#d4b878"}}> &nbsp;·&nbsp; 🔥 {currentStreak} in Folge</span>}
               </div>
-              <div style={{ display:"flex", justifyContent:"center", gap:16, flexWrap:"wrap" }}>
+              {/* Stats Übersicht */}
+              <div style={{ display:"flex", justifyContent:"center", gap:10, flexWrap:"wrap", marginBottom:8 }}>
+                {/* Heute + Streak */}
                 {[
-                  ["🏆", "Bester Score", (typeof stats.bestScore === "object" ? (stats.bestScore[quizMode] || 0) : stats.bestScore) + " richtig"],
                   ["📊", "Heute", stats.todayRight + " / " + stats.todayTotal],
                   ["🔥", "Tage-Streak", stats.streakDays + " Tage"]
                 ].map(([icon, label, val]) => (
@@ -855,6 +880,24 @@ export default function LenormandApp() {
                     <div style={{ fontSize:13, color:"#c8a96e", marginTop:2 }}>{val}</div>
                   </div>
                 ))}
+              </div>
+              {/* Separate Highscores */}
+              <div style={{ display:"flex", justifyContent:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
+                {[["kombis","🃏","Kombis"], ["zeit","⏰","Zeiten"], ["person","👤","Personen"]].map(([m, icon, label]) => {
+                  const best = typeof stats.bestScore === "object" ? (stats.bestScore[m] || 0) : (stats.bestScore || 0);
+                  const isActive = quizMode === m;
+                  return (
+                    <div key={m} style={{
+                      background: isActive ? "rgba(200,169,110,0.12)" : "rgba(200,169,110,0.03)",
+                      border: `1px solid ${isActive ? "#c8a96e" : "rgba(200,169,110,0.15)"}`,
+                      borderRadius:8, padding:"8px 14px", textAlign:"center", minWidth:80
+                    }}>
+                      <div style={{ fontSize:16 }}>{icon}</div>
+                      <div style={{ fontSize:8, color: isActive ? "#c8a96e" : "#7a6040", letterSpacing:2, textTransform:"uppercase", marginTop:2 }}>{label}</div>
+                      <div style={{ fontSize:14, color: isActive ? "#c8a96e" : "#9a8060", marginTop:2, fontWeight: isActive ? "bold" : "normal" }}>🏆 {best}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
