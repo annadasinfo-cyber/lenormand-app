@@ -337,9 +337,12 @@ export default function LenormandApp() {
       {showConfetti && (
         <div onClick={() => setShowConfetti(false)} style={{ position:"fixed", inset:0, pointerEvents:"all", zIndex:3000, overflow:"hidden", cursor:"pointer" }}>
           <style>{`
-            @keyframes confettiFall {
-              0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-              100% { transform: translateY(105vh) rotate(720deg); opacity: 0; }
+            @keyframes confettiFloat {
+              0%   { transform: translateY(0px) rotate(0deg); }
+              25%  { transform: translateY(-30px) rotate(90deg); }
+              50%  { transform: translateY(10px) rotate(180deg); }
+              75%  { transform: translateY(-20px) rotate(270deg); }
+              100% { transform: translateY(0px) rotate(360deg); }
             }
             @keyframes recordPulse {
               0%,100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
@@ -349,16 +352,18 @@ export default function LenormandApp() {
           {Array.from({length:80}, (_,i) => {
             const colors = ["#c8a96e","#d4b878","#f0e8d8","#ffffff","#b89aff","#ff9ad4","#9affe0"];
             const size = 6 + Math.random()*10;
+            const left = (Math.random()*100) + "%";
+            const top = (Math.random()*100) + "%";
             return (
               <div key={i} style={{
                 position:"absolute",
-                left: (Math.random()*110 - 5) + "%",
-                top: "-15px",
+                left: left,
+                top: top,
                 width: size + "px",
                 height: size + "px",
                 background: colors[Math.floor(Math.random()*colors.length)],
                 borderRadius: Math.random()>0.4 ? "50%" : "2px",
-                animation: `confettiFall ${1.2+Math.random()*2.5}s ease-in ${Math.random()*0.8}s forwards`,
+                animation: `confettiFloat ${1.5+Math.random()*2}s ease-in-out ${Math.random()*0.5}s infinite`,
               }}/>
             );
           })}
