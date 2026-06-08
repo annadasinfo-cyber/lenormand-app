@@ -96,6 +96,7 @@ export default function LenormandApp() {
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState("");
   const [cardDetail, setCardDetail] = useState(null);
+  const [openSection, setOpenSection] = useState("2er");
   // Matrix mode
   // --- Splash Screen ---
   const [showSplash, setShowSplash] = useState(true);
@@ -1058,7 +1059,7 @@ export default function LenormandApp() {
               </div>
               {/* Separate Highscores */}
               <div style={{ display:"flex", justifyContent:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
-                {[["kombis","🃏","Kombis"], ["zeit","⏰","Zeiten"], ["person","👤","Personen"], ["3er","🔺","3er"], ["4er","🔷","4er"], ["karte","🔮","Karten"]].map(([m, icon, label]) => {
+                {[["karte","🔮","Karten"], ["person","👤","Personen"], ["zeit","⏰","Zeiten"], ["kombis","🃏","2er"], ["3er","🔺","3er"], ["4er","🔷","4er"]].map(([m, icon, label]) => {
                   const best = typeof stats.bestScore === "object" ? (stats.bestScore[m] || 0) : (stats.bestScore || 0);
                   const isActive = quizMode === m;
                   return (
@@ -1245,15 +1246,99 @@ export default function LenormandApp() {
                     <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", marginTop:16, paddingTop:16 }}/>
                   </div>
                 )}
-                <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", marginBottom:12, textTransform:"uppercase" }}>Kombinationen</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
-                  {CARD_NUMS.filter(n => n !== cardDetail).map(n => {
-                    const combo = getCombo(cardDetail, n);
-                    if (!combo) return null;
+                <div style={{ marginTop:8 }}>
+                  {/* Akkordeon-Header Helper */}
+                  {[
+                    { key:"2er", label:"🃏 2er Kombinationen" },
+                    { key:"3er", label:"🔺 3er Kombinationen" },
+                    { key:"4er", label:"🔷 4er Kombinationen" },
+                  ].map(({ key, label }) => {
+                    const isOpen = openSection === key;
                     return (
-                      <div key={n} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:9 }}>
-                        <div style={{ fontSize:11, color:gold, marginBottom:3 }}>{SYMBOLS[n]} {n}. {CARDS[n].name}</div>
-                        <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{combo}</div>
+                      <div key={key} style={{ marginBottom:6 }}>
+                        {/* Akkordeon-Kopf */}
+                        <button onClick={() => setOpenSection(isOpen ? null : key)}
+                          style={{ width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center", background: isOpen ? "rgba(200,169,110,0.1)" : "rgba(200,169,110,0.03)", border:`1px solid ${isOpen ? "rgba(200,169,110,0.4)" : "rgba(200,169,110,0.15)"}`, borderRadius: isOpen ? "6px 6px 0 0" : 6, padding:"10px 14px", cursor:"pointer", fontFamily:"Georgia,serif", color: isOpen ? gold : "#7a6040", fontSize:12, letterSpacing:1, transition:"all 0.2s" }}>
+                          <span>{label}</span>
+                          <span style={{ fontSize:10 }}>{isOpen ? "▲" : "▼"}</span>
+                        </button>
+
+                        {/* Akkordeon-Inhalt */}
+                        {isOpen && (
+                          <div style={{ border:"1px solid rgba(200,169,110,0.15)", borderTop:"none", borderRadius:"0 0 6px 6px", padding:"12px 14px", background:"rgba(10,7,18,0.3)" }}>
+
+                            {/* 2er */}
+                            {key === "2er" && (
+                              <div style={{ display:"flex", flexDirection:"column", gap:9 }}>
+                                {CARD_NUMS.filter(n => n !== cardDetail).map(n => {
+                                  const combo = getCombo(cardDetail, n);
+                                  if (!combo) return null;
+                                  return (
+                                    <div key={n} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:9 }}>
+                                      <div style={{ fontSize:11, color:gold, marginBottom:3 }}>{SYMBOLS[n]} {n}. {CARDS[n].name}</div>
+                                      <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{combo}</div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* 3er */}
+                            {key === "3er" && (() => {
+                              const matching = CLUSTERS["3er"].filter(c => c.karten.includes(cardDetail));
+                              if (matching.length === 0) return (
+                                <div style={{ fontSize:12, color:"#5a4a34", fontStyle:"italic" }}>
+                                  Keine bekannten 3er-Cluster für diese Karte.
+                                </div>
+                              );
+                              return (
+                                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                                  {matching.map((c, i) => (
+                                    <div key={i} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:10 }}>
+                                      <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                                        {c.karten.map((k, ki) => (
+                                          <span key={ki} style={{ fontSize:10, color: k === cardDetail ? gold : "#9a8a72" }}>
+                                            {SYMBOLS[k]} {CARDS[k].name}{ki < c.karten.length-1 ? " ·" : ""}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
+                                      <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+
+                            {/* 4er */}
+                            {key === "4er" && (() => {
+                              const matching = CLUSTERS["4er"].filter(c => c.karten.includes(cardDetail));
+                              if (matching.length === 0) return (
+                                <div style={{ fontSize:12, color:"#5a4a34", fontStyle:"italic" }}>
+                                  Keine bekannten 4er-Cluster für diese Karte.
+                                </div>
+                              );
+                              return (
+                                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                                  {matching.map((c, i) => (
+                                    <div key={i} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:10 }}>
+                                      <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
+                                        {c.karten.map((k, ki) => (
+                                          <span key={ki} style={{ fontSize:10, color: k === cardDetail ? gold : "#9a8a72" }}>
+                                            {SYMBOLS[k]} {CARDS[k].name}{ki < c.karten.length-1 ? " ·" : ""}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
+                                      <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+
+                          </div>
+                        )}
                       </div>
                     );
                   })}
