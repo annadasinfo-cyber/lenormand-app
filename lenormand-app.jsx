@@ -148,12 +148,14 @@ export default function LenormandApp() {
   // Quiz state
   const [quizMode, setQuizMode] = useState("kombis");
   const [comboView, setComboView] = useState("2er");
-  const [comboSelected, setComboSelected] = useState([]); // kombis | zeit | person
+  const [comboSelected, setComboSelected] = useState([]);
   const [quizCards, setQuizCards] = useState(null);
   const [quizAnswer, setQuizAnswer] = useState(null);
   const [quizScore, setQuizScore] = useState({right:0, wrong:0});
   const [currentStreak, setCurrentStreak] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [trainMode, setTrainMode] = useState(false);
+  const [trainRevealed, setTrainRevealed] = useState(false);
 
   // Highscore from localStorage
   const loadStats = () => {
@@ -297,28 +299,6 @@ export default function LenormandApp() {
     setQuizAnswer(null);
   };
 
-  const start3erQuiz = () => {
-    const all = CLUSTERS["3er"];
-    const shuffled = [...all].sort(() => Math.random() - 0.5);
-    const correct = shuffled[0];
-    const wrongOptions = shuffled.slice(1, 4).map(c => c.text);
-    const options = [correct.text, ...wrongOptions].sort(() => Math.random() - 0.5);
-    setQuizCards({c1: correct.karten[0], c2: correct.karten[1], c3: correct.karten[2], correct: correct.text, options, mode: "3er", label: correct.label, karten: correct.karten});
-    setQuizAnswer(null);
-  };
-
-  const start4erQuiz = () => {
-    const all = CLUSTERS["4er"];
-    const shuffled = [...all].sort(() => Math.random() - 0.5);
-    const correct = shuffled[0];
-    // Fill up wrong options from 3er if not enough 4er
-    const wrong3er = CLUSTERS["3er"].sort(() => Math.random() - 0.5).slice(0, 3).map(c => c.text);
-    const wrongOptions = [...shuffled.slice(1).map(c => c.text), ...wrong3er].slice(0, 3);
-    const options = [correct.text, ...wrongOptions].sort(() => Math.random() - 0.5);
-    setQuizCards({c1: correct.karten[0], c2: correct.karten[1], c3: correct.karten[2], c4: correct.karten[3], correct: correct.text, options, mode: "4er", label: correct.label, karten: correct.karten});
-    setQuizAnswer(null);
-  };
-
   const startKarteQuiz = () => {
     const keys = Object.keys(CARDS);
     const shuffled = [...keys].sort(() => Math.random() - 0.5);
@@ -328,9 +308,34 @@ export default function LenormandApp() {
     const options = [correct, ...wrongKeys.map(k => CARDS[k].kw)].sort(() => Math.random() - 0.5);
     setQuizCards({c1: parseInt(correctKey), c2: null, correct, options, mode: "karte"});
     setQuizAnswer(null);
+    setTrainRevealed(false);
+  };
+
+  const start3erQuiz = () => {
+    const all = CLUSTERS["3er"];
+    const shuffled = [...all].sort(() => Math.random() - 0.5);
+    const correct = shuffled[0];
+    const wrongOptions = shuffled.slice(1, 4).map(c => c.text);
+    const options = [correct.text, ...wrongOptions].sort(() => Math.random() - 0.5);
+    setQuizCards({c1: correct.karten[0], c2: correct.karten[1], correct: correct.text, options, mode: "3er", label: correct.label, karten: correct.karten});
+    setQuizAnswer(null);
+    setTrainRevealed(false);
+  };
+
+  const start4erQuiz = () => {
+    const all = CLUSTERS["4er"];
+    const shuffled = [...all].sort(() => Math.random() - 0.5);
+    const correct = shuffled[0];
+    const wrong3er = [...CLUSTERS["3er"]].sort(() => Math.random() - 0.5).slice(0, 3).map(c => c.text);
+    const wrongOptions = [...shuffled.slice(1).map(c => c.text), ...wrong3er].slice(0, 3);
+    const options = [correct.text, ...wrongOptions].sort(() => Math.random() - 0.5);
+    setQuizCards({c1: correct.karten[0], c2: correct.karten[1], correct: correct.text, options, mode: "4er", label: correct.label, karten: correct.karten});
+    setQuizAnswer(null);
+    setTrainRevealed(false);
   };
 
   const startCurrentQuiz = () => {
+    setTrainRevealed(false);
     if (quizMode === "kombis") startQuiz();
     else if (quizMode === "zeit") startZeitQuiz();
     else if (quizMode === "person") startPersonQuiz();
@@ -647,11 +652,13 @@ export default function LenormandApp() {
           {(comboView === "3er" || comboView === "4er") && (() => {
             const maxCards = comboView === "3er" ? 3 : 4;
             const needed = maxCards - comboSelected.length;
+            // Find matching cluster
             const cluster = CLUSTERS[comboView].find(c =>
               comboSelected.length === maxCards &&
               c.karten.every(k => comboSelected.includes(k)) &&
               comboSelected.every(k => c.karten.includes(k))
             );
+            // Fallback: 2er combo of first two selected cards
             const fallback2er = comboSelected.length >= 2 ? (() => {
               const [a,b] = comboSelected;
               const lo = Math.min(a,b), hi = Math.max(a,b);
@@ -659,18 +666,18 @@ export default function LenormandApp() {
             })() : null;
 
             return (<>
-              {/* Kartenslots — gleiche Größe wie 2er */}
-              <div style={{ display:"flex", gap:12, justifyContent:"center", alignItems:"center", marginBottom:18, flexWrap:"wrap", minHeight:80 }}>
+              {/* Kartenslots */}
+              <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", marginBottom:18, flexWrap:"wrap" }}>
                 {Array.from({length:maxCards}).map((_,i) => {
                   const num = comboSelected[i];
                   return (
-                    <div key={i} style={{ width:92, height:126, border:`1.5px solid ${num?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:num?"rgba(200,169,110,0.04)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
+                    <div key={i} style={{ width:80, height:112, border:`1.5px solid ${num?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:num?"rgba(200,169,110,0.04)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
                       {num ? (<>
-                        <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                        <div style={{ fontSize:9, color:gold, textAlign:"center", padding:"3px 4px", lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
+                        <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
+                        <div style={{ fontSize:8, color:gold, textAlign:"center", padding:"2px 3px", lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
                         <button onClick={() => setComboSelected(prev => prev.filter(k => k !== num))}
-                          style={{ position:"absolute", top:3, right:3, background:"rgba(200,169,110,0.08)", border:"none", color:gold, cursor:"pointer", borderRadius:"50%", width:15, height:15, fontSize:8, lineHeight:"15px", padding:0 }}>✕</button>
-                      </>) : <div style={{ color:"#2a1a0a", fontSize:9 }}>Karte {i+1}</div>}
+                          style={{ position:"absolute", top:2, right:2, background:"rgba(200,169,110,0.08)", border:"none", color:gold, cursor:"pointer", borderRadius:"50%", width:14, height:14, fontSize:8, lineHeight:"14px", padding:0 }}>✕</button>
+                      </>) : <div style={{ color:"#3a2a0a", fontSize:8 }}>Karte {i+1}</div>}
                     </div>
                   );
                 })}
@@ -680,41 +687,24 @@ export default function LenormandApp() {
               {comboSelected.length === maxCards && (
                 <div style={{ marginBottom:16 }}>
                   {cluster ? (
-                    <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.18)", borderRadius:10, padding:"18px 22px", marginBottom:20 }}>
-                      <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", marginBottom:10, textTransform:"uppercase" }}>
-                        {comboView} · Erweiterte Bedeutung · {comboSelected.map(k => CARDS[k].name).join(" + ")}
-                      </div>
+                    <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 20px" }}>
+                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>{comboView} · Erweiterte Bedeutung</div>
                       <div style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:"1px solid rgba(200,169,110,0.3)", borderRadius:4, padding:"2px 8px", fontSize:9, color:gold, marginBottom:10, letterSpacing:0.5 }}>{cluster.label}</div>
-                      <div style={{ fontSize:17, lineHeight:1.95, color:"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.25)", paddingLeft:14 }}>{cluster.text}</div>
-                      <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
-                        <div style={{ fontSize:9, letterSpacing:3, color:"#5a4a30", marginBottom:6, textTransform:"uppercase" }}>Keywords</div>
-                        {comboSelected.map(k => (
-                          <div key={k} style={{ fontSize:11, color:"#8a7860", lineHeight:1.6 }}><span style={{color:gold}}>{CARDS[k].name}:</span> {CARDS[k].kw}</div>
-                        ))}
-                      </div>
+                      <div style={{ fontSize:16, lineHeight:1.9, color:"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:14 }}>{cluster.text}</div>
                     </div>
                   ) : (
-                    <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.18)", borderRadius:10, padding:"18px 22px", marginBottom:20 }}>
-                      <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", marginBottom:10, textTransform:"uppercase" }}>
-                        {comboView} · {comboSelected.map(k => CARDS[k].name).join(" + ")}
-                      </div>
+                    <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:10, padding:"14px 18px" }}>
                       <div style={{ fontSize:12, color:"#9a8060", fontStyle:"italic", marginBottom:12, lineHeight:1.6 }}>
                         ✦ Diese Konstellation hat keine eigene Bedeutungsebene — doch die Karten sprechen trotzdem. Die ersten zwei Karten erzählen:
                       </div>
                       {fallback2er ? (
-                        <div style={{ fontSize:17, lineHeight:1.95, color:"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.25)", paddingLeft:14 }}>{fallback2er}</div>
+                        <div style={{ fontSize:15, lineHeight:1.9, color:"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>{fallback2er}</div>
                       ) : (
                         <div style={{ fontSize:13, color:"#5a4a34", fontStyle:"italic" }}>Keine 2er-Kombination gefunden.</div>
                       )}
-                      <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
-                        <div style={{ fontSize:9, letterSpacing:3, color:"#5a4a30", marginBottom:6, textTransform:"uppercase" }}>Keywords</div>
-                        {comboSelected.map(k => (
-                          <div key={k} style={{ fontSize:11, color:"#8a7860", lineHeight:1.6 }}><span style={{color:gold}}>{CARDS[k].name}:</span> {CARDS[k].kw}</div>
-                        ))}
-                      </div>
                     </div>
                   )}
-                  <button onClick={() => setComboSelected([])} style={{ marginTop:2, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
+                  <button onClick={() => setComboSelected([])} style={{ marginTop:10, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
                 </div>
               )}
 
@@ -725,27 +715,28 @@ export default function LenormandApp() {
                 </div>
               )}
 
-              {/* Kartengitter — immer sichtbar, gewählte markiert */}
-              <div style={{ marginBottom:12 }}>
-                <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                  style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
-              </div>
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
-                {filteredCards().map(num => {
-                  const isSel = comboSelected.includes(num);
-                  const isDisabled = comboSelected.length >= maxCards && !isSel;
-                  return (
-                    <button key={num} onClick={() => {
-                      if (isSel) setComboSelected(prev => prev.filter(k => k !== num));
-                      else if (comboSelected.length < maxCards) setComboSelected(prev => [...prev, num]);
-                    }}
-                      style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:isDisabled?"default":"pointer", opacity:isDisabled?0.22:1, color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
-                      <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                      <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:"#9a8060"}}>{num}.</span> <span style={{color:"#d4c4a0"}}>{CARDS[num].name}</span></div>
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Kartengitter */}
+              {comboSelected.length < maxCards && (<>
+                <div style={{ marginBottom:12 }}>
+                  <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
+                    style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
+                  {filteredCards().map(num => {
+                    const isSel = comboSelected.includes(num);
+                    return (
+                      <button key={num} onClick={() => {
+                        if (isSel) setComboSelected(prev => prev.filter(k => k !== num));
+                        else if (comboSelected.length < maxCards) setComboSelected(prev => [...prev, num]);
+                      }}
+                        style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
+                        <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
+                        <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:"#9a8060"}}>{num}.</span> <span style={{color:"#d4c4a0"}}>{CARDS[num].name}</span></div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>)}
             </>);
           })()}
         </>)}
@@ -1045,7 +1036,7 @@ export default function LenormandApp() {
 
 
               <div style={{ fontSize:16, color:gold, marginBottom:4 }}>
-                {quizMode==="kombis" ? "Welche Deutung passt?" : quizMode==="zeit" ? "Wann tritt es ein?" : quizMode==="person" ? "Wer ist diese Person?" : (quizMode==="3er" || quizMode==="4er") ? "Was bedeutet diese Kombination?" : "Was bedeutet diese Karte?"}
+                {quizMode==="kombis" ? "Welche Deutung passt?" : quizMode==="zeit" ? "Wann tritt es ein?" : quizMode==="person" ? "Wer ist diese Person?" : "Was bedeutet diese Karte?"}
               </div>
                 <div style={{ fontSize:12, color:"#5a4a34", marginBottom:12 }}>
                 ✓ {quizScore.right} richtig &nbsp;·&nbsp; ✗ {quizScore.wrong} falsch
@@ -1067,7 +1058,7 @@ export default function LenormandApp() {
               </div>
               {/* Separate Highscores */}
               <div style={{ display:"flex", justifyContent:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
-                {[["kombis","🃏","Kombis"], ["zeit","⏰","Zeiten"], ["person","👤","Personen"], ["karte","🔮","Karten"], ["3er","🔺","3er"], ["4er","🔷","4er"]].map(([m, icon, label]) => {
+                {[["kombis","🃏","Kombis"], ["zeit","⏰","Zeiten"], ["person","👤","Personen"], ["3er","🔺","3er"], ["4er","🔷","4er"], ["karte","🔮","Karten"]].map(([m, icon, label]) => {
                   const best = typeof stats.bestScore === "object" ? (stats.bestScore[m] || 0) : (stats.bestScore || 0);
                   const isActive = quizMode === m;
                   return (
@@ -1091,11 +1082,21 @@ export default function LenormandApp() {
             {!quizCards && (
               <div style={{ textAlign:"center", marginTop:8 }}>
                 <div style={{ fontSize:13, color:"#7a6040", marginBottom:14, fontStyle:"italic" }}>
-                  {quizMode==="kombis" ? "Welche Deutung passt?" : quizMode==="zeit" ? "Wann tritt es ein?" : quizMode==="person" ? "Wer ist diese Person?" : (quizMode==="3er" || quizMode==="4er") ? "Was bedeutet diese Kombination?" : "Was bedeutet diese Karte?"}
+                  {quizMode==="kombis" ? "Welche Deutung passt?" : quizMode==="zeit" ? "Wann tritt es ein?" : quizMode==="person" ? "Wer ist diese Person?" : (quizMode==="3er"||quizMode==="4er") ? "Was bedeutet diese Kombination?" : "Was bedeutet diese Karte?"}
                 </div>
+                {/* Trainings-Toggle */}
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:16 }}>
+                  <span style={{ fontSize:11, color: trainMode ? gold : "#5a4a34", fontFamily:"Georgia,serif" }}>🎓 Quiz</span>
+                  <div onClick={() => setTrainMode(t => !t)}
+                    style={{ width:42, height:22, background: trainMode ? "rgba(200,169,110,0.3)" : "rgba(200,169,110,0.08)", border:`1px solid ${trainMode ? gold : "rgba(200,169,110,0.25)"}`, borderRadius:11, cursor:"pointer", position:"relative", transition:"all 0.25s" }}>
+                    <div style={{ position:"absolute", top:2, left: trainMode ? 22 : 2, width:16, height:16, background: trainMode ? gold : "#5a4a34", borderRadius:"50%", transition:"all 0.25s" }} />
+                  </div>
+                  <span style={{ fontSize:11, color: trainMode ? gold : "#5a4a34", fontFamily:"Georgia,serif" }}>📖 Training</span>
+                </div>
+                {trainMode && <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginBottom:12 }}>1. Klick = Antwort zeigen · 2. Klick = nächste Frage</div>}
                 <button onClick={startCurrentQuiz}
                   style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"12px 32px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                  🎓 Quiz starten
+                  {trainMode ? "📖 Training starten" : "🎓 Quiz starten"}
                 </button>
               </div>
             )}
@@ -1104,101 +1105,121 @@ export default function LenormandApp() {
               {/* Card display */}
               <div style={{ display:"flex", gap:10, justifyContent:"center", marginBottom:24, flexWrap:"wrap" }}>
                 {(quizCards.karten ? quizCards.karten : quizCards.c2 ? [quizCards.c1, quizCards.c2] : [quizCards.c1]).map((num, i) => (
-                  <div key={i} style={{ width:quizCards.karten && quizCards.karten.length > 2 ? 90 : 120, padding:"12px 8px", border:`1.5px solid ${gold}`, borderRadius:10, textAlign:"center", background:"rgba(200,169,110,0.05)" }}>
-                    <div style={{ fontSize:quizCards.karten && quizCards.karten.length > 2 ? 28 : 36 }}>{SYMBOLS[num]}</div>
+                  <div key={i} style={{ width: quizCards.karten && quizCards.karten.length > 2 ? 90 : 120, padding:"12px 8px", border:`1.5px solid ${gold}`, borderRadius:10, textAlign:"center", background:"rgba(200,169,110,0.05)" }}>
+                    <div style={{ fontSize: quizCards.karten && quizCards.karten.length > 2 ? 28 : 36 }}>{SYMBOLS[num]}</div>
                     <div style={{ fontSize:10, color:gold, marginTop:6 }}>{num}. {CARDS[num].name}</div>
                     <div style={{ fontSize:8, color:"#7a6040", marginTop:3, lineHeight:1.4 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
                   </div>
                 ))}
               </div>
 
-              {/* Options */}
-              <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:20 }}>
-                {quizCards.options.map((opt, i) => {
-                  const isCorrect = opt === quizCards.correct;
-                  const isSelected = quizAnswer !== null;
-                  let bg = "rgba(200,169,110,0.03)";
-                  let border = "rgba(200,169,110,0.15)";
-                  let color = "#c0b090";
-                  const wasWrongAnswer = quizAnswer === "wrong" && !isCorrect && opt === quizCards.options[quizCards.options.indexOf(opt)];
-                  if (isSelected && isCorrect && quizAnswer === "correct") { bg = "rgba(80,160,80,0.12)"; border = "#5a9a5a"; color = "#90d090"; }
-                  else if (isSelected && isCorrect && quizAnswer === "wrong") { bg = "rgba(200,169,110,0.08)"; border = "#d4b878"; color = "#d4b878"; }
-                  else if (isSelected && !isCorrect) { bg = "rgba(200,169,110,0.03)"; border = "rgba(200,169,110,0.1)"; color = "#6a5a44"; }
-                  return (
-                    <button key={i} onClick={() => {
-                      if (quizAnswer) return;
-                      if (isCorrect) {
-                        const newStreak = currentStreak + 1;
-                        setCurrentStreak(newStreak);
-                        setQuizAnswer("correct");
-                        setQuizScore(s => {
-                          const nr = s.right+1;
-                          const nt = s.right+s.wrong+1;
-                          updateStats(true, nr, nt);
-                          // Check if new highscore
-                          const currentBest = typeof stats.bestScore === "object" 
-                            ? (stats.bestScore[quizMode] || 0) 
-                            : (stats.bestScore || 0);
-                          if (nr > currentBest) {
-                            setShowConfetti(true);
-                          }
-                          return {...s, right:nr};
-                        });
-                      } else {
-                        setCurrentStreak(0);
-                        setQuizAnswer("wrong");
-                        let wrongCombo = null;
-                        if (quizMode === "kombis") {
-                          const wrongKey = Object.keys(COMBOS).find(k => trimCombo(COMBOS[k]) === opt || COMBOS[k] === opt);
-                          wrongCombo = wrongKey
-                            ? `${CARDS[wrongKey.split("-")[0]].name} + ${CARDS[wrongKey.split("-")[1]].name}`
-                            : null;
-                        } else if (quizMode === "zeit") {
-                          const wrongKey = Object.keys(TIME_QUIZ).find(k => TIME_QUIZ[k] === opt);
-                          wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
-                        } else if (quizMode === "person") {
-                          const wrongKey = Object.keys(PERSON_SIG).find(k => PERSON_SIG[k] === opt);
-                          wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
-                        } else if (quizMode === "karte") {
-                          const wrongKey = Object.keys(CARDS).find(k => CARDS[k].kw === opt);
-                          wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
-                        }
-                        setQuizCards(prev => ({...prev, selectedWrong: opt, selectedWrongCombo: wrongCombo}));
-                        setQuizScore(s => {
-                          updateStats(false, s.right, s.right+s.wrong+1);
-                          return {...s, wrong:s.wrong+1};
-                        });
-                      }
-                    }}
-                      style={{ background:bg, border:`1px solid ${border}`, borderRadius:8, padding:"12px 16px", cursor:quizAnswer?"default":"pointer", color, fontFamily:"Georgia,serif", fontSize:13, textAlign:"left", lineHeight:1.6, transition:"all 0.3s" }}>
-                      {isSelected && isCorrect && "✓ "}{opt}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Result + Next */}
-              {quizAnswer && (
+              {/* TRAININGS-MODUS */}
+              {trainMode ? (
                 <div style={{ textAlign:"center" }}>
-                  <div style={{ fontSize:14, color: quizAnswer==="correct" ? "#90d090" : "#c87a6a", marginBottom:12 }}>
-                    {quizAnswer==="correct" ? "🎉 Richtig!" : "❌ Leider falsch!"}
+                  {!trainRevealed ? (
+                    <button onClick={() => setTrainRevealed(true)}
+                      style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"12px 32px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1, width:"100%", marginBottom:12 }}>
+                      👁 Antwort zeigen
+                    </button>
+                  ) : (
+                    <>
+                      <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", marginBottom:16, textAlign:"left" }}>
+                        {quizCards.label && <div style={{ fontSize:9, color:gold, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>{quizCards.label}</div>}
+                        <div style={{ fontSize:15, lineHeight:1.85, color:"#e0d0b0" }}>{quizCards.correct}</div>
+                      </div>
+                      <button onClick={startCurrentQuiz}
+                        style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
+                        Nächste Karte →
+                      </button>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* QUIZ-MODUS: Optionen */}
+                  <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:20 }}>
+                    {quizCards.options.map((opt, i) => {
+                      const isCorrect = opt === quizCards.correct;
+                      const isSelected = quizAnswer !== null;
+                      let bg = "rgba(200,169,110,0.03)";
+                      let border = "rgba(200,169,110,0.15)";
+                      let color = "#c0b090";
+                      if (isSelected && isCorrect && quizAnswer === "correct") { bg = "rgba(80,160,80,0.12)"; border = "#5a9a5a"; color = "#90d090"; }
+                      else if (isSelected && isCorrect && quizAnswer === "wrong") { bg = "rgba(200,169,110,0.08)"; border = "#d4b878"; color = "#d4b878"; }
+                      else if (isSelected && !isCorrect) { bg = "rgba(200,169,110,0.03)"; border = "rgba(200,169,110,0.1)"; color = "#6a5a44"; }
+                      return (
+                        <button key={i} onClick={() => {
+                          if (quizAnswer) return;
+                          if (isCorrect) {
+                            const newStreak = currentStreak + 1;
+                            setCurrentStreak(newStreak);
+                            setQuizAnswer("correct");
+                            setQuizScore(s => {
+                              const nr = s.right+1;
+                              const nt = s.right+s.wrong+1;
+                              updateStats(true, nr, nt);
+                              const currentBest = typeof stats.bestScore === "object"
+                                ? (stats.bestScore[quizMode] || 0)
+                                : (stats.bestScore || 0);
+                              if (nr > currentBest) setShowConfetti(true);
+                              return {...s, right:nr};
+                            });
+                          } else {
+                            setCurrentStreak(0);
+                            setQuizAnswer("wrong");
+                            let wrongCombo = null;
+                            if (quizMode === "kombis") {
+                              const wrongKey = Object.keys(COMBOS).find(k => trimCombo(COMBOS[k]) === opt || COMBOS[k] === opt);
+                              wrongCombo = wrongKey ? `${CARDS[wrongKey.split("-")[0]].name} + ${CARDS[wrongKey.split("-")[1]].name}` : null;
+                            } else if (quizMode === "zeit") {
+                              const wrongKey = Object.keys(TIME_QUIZ).find(k => TIME_QUIZ[k] === opt);
+                              wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
+                            } else if (quizMode === "person") {
+                              const wrongKey = Object.keys(PERSON_SIG).find(k => PERSON_SIG[k] === opt);
+                              wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
+                            } else if (quizMode === "karte") {
+                              const wrongKey = Object.keys(CARDS).find(k => CARDS[k].kw === opt);
+                              wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
+                            } else if (quizMode === "3er" || quizMode === "4er") {
+                              const wrongCluster = CLUSTERS[quizMode].find(c => c.text === opt);
+                              wrongCombo = wrongCluster ? wrongCluster.label : null;
+                            }
+                            setQuizCards(prev => ({...prev, selectedWrong: opt, selectedWrongCombo: wrongCombo}));
+                            setQuizScore(s => {
+                              updateStats(false, s.right, s.right+s.wrong+1);
+                              return {...s, wrong:s.wrong+1};
+                            });
+                          }
+                        }}
+                          style={{ background:bg, border:`1px solid ${border}`, borderRadius:8, padding:"12px 16px", cursor:quizAnswer?"default":"pointer", color, fontFamily:"Georgia,serif", fontSize:13, textAlign:"left", lineHeight:1.6, transition:"all 0.3s" }}>
+                          {isSelected && isCorrect && "✓ "}{opt}
+                        </button>
+                      );
+                    })}
                   </div>
-                  {quizAnswer === "wrong" && (
-                    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"12px 16px", marginBottom:16, fontSize:13, color:"#c0b090", textAlign:"left", lineHeight:1.6 }}>
-                      <div style={{ fontSize:9, color:"#c87a6a", letterSpacing:3, textTransform:"uppercase", marginBottom:6 }}>Deine Antwort war:</div>
-                      {quizCards.selectedWrongCombo && (
-                        <div style={{ fontSize:10, color:"#c8a96e", marginBottom:6 }}>
-                          {quizCards.selectedWrongCombo}
+
+                  {/* Result + Next */}
+                  {quizAnswer && (
+                    <div style={{ textAlign:"center" }}>
+                      <div style={{ fontSize:14, color: quizAnswer==="correct" ? "#90d090" : "#c87a6a", marginBottom:12 }}>
+                        {quizAnswer==="correct" ? "🎉 Richtig!" : "❌ Leider falsch!"}
+                      </div>
+                      {quizAnswer === "wrong" && (
+                        <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"12px 16px", marginBottom:16, fontSize:13, color:"#c0b090", textAlign:"left", lineHeight:1.6 }}>
+                          <div style={{ fontSize:9, color:"#c87a6a", letterSpacing:3, textTransform:"uppercase", marginBottom:6 }}>Deine Antwort war:</div>
+                          {quizCards.selectedWrongCombo && (
+                            <div style={{ fontSize:10, color:"#c8a96e", marginBottom:6 }}>{quizCards.selectedWrongCombo}</div>
+                          )}
+                          <div style={{ fontSize:12, color:"#9a8a72" }}>{quizCards.selectedWrong || "–"}</div>
                         </div>
                       )}
-                      <div style={{ fontSize:12, color:"#9a8a72" }}>{quizCards.selectedWrong || "–"}</div>
+                      <button onClick={startCurrentQuiz}
+                        style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
+                        Nächste Frage →
+                      </button>
                     </div>
                   )}
-                  <button onClick={startCurrentQuiz}
-                    style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
-                    Nächste Frage →
-                  </button>
-                </div>
+                </>
               )}
             </>)}
           </div>
