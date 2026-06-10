@@ -474,9 +474,9 @@ export default function LenormandApp() {
             display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center"
           }}>
           <img
-            src="https://static.wixstatic.com/media/3da789_eb6e907c94af441bbf3e75504e959ce2~mv2.png/v1/fill/w_1182,h_788,al_c,usm_0.66_1.00_0.01/3da789_eb6e907c94af441bbf3e75504e959ce2~mv2.png"
+            src="https://static.wixstatic.com/media/3da789_e0770ec0e97c47708fb00f83d06d8a80~mv2.jpeg"
             alt="Lenormand Matrix"
-            style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center", position:"absolute", inset:0 }}
+            style={{ width:"100%", height:"100%", objectFit:"contain", objectPosition:"center center", position:"absolute", inset:0 }}
           />
           <div style={{
             position:"absolute", bottom:"8%", left:0, right:0,
