@@ -476,7 +476,7 @@ export default function LenormandApp() {
           <img
             src="https://static.wixstatic.com/media/3da789_eb6e907c94af441bbf3e75504e959ce2~mv2.png/v1/fill/w_1182,h_788,al_c,usm_0.66_1.00_0.01/3da789_eb6e907c94af441bbf3e75504e959ce2~mv2.png"
             alt="Lenormand Matrix"
-            style={{ width:"100%", height:"100%", objectFit:"cover", position:"absolute", inset:0 }}
+            style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"top center", position:"absolute", inset:0 }}
           />
           <div style={{
             position:"absolute", bottom:"8%", left:0, right:0,
