@@ -758,10 +758,16 @@ export default function LenormandApp() {
               rows={3}
               style={{ width:"100%", padding:"12px 14px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:8, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }}
             />
-            <div style={{ display:"flex", justifyContent:"center", marginTop:16 }}>
+            <div style={{ display:"flex", justifyContent:"center", gap:10, marginTop:16, flexWrap:"wrap" }}>
+              {mode === "personen" && (
+                <button onClick={() => { fullRandom(); }}
+                  style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.35)`, color:"#c8a96e", padding:"10px 22px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  🎲 Zufällig mischen
+                </button>
+              )}
               <button onClick={() => { if(randomMode) { fullRandom(); } else { setMatrixView("signifikator"); } }}
                 style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                {randomMode ? "🎲 Mischen & Deuten" : "Weiter →"}
+                {randomMode ? "🎲 Mischen & Deuten" : mode === "personen" ? "Signifikator wählen →" : "Weiter →"}
               </button>
             </div>
           </>)}
