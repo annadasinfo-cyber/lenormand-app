@@ -126,7 +126,8 @@ export default function LenormandApp() {
   };
 
   // Klient-State
-  const [tagebuchView, setTagebuchView] = React.useState("frage"); // frage | tagebuch
+  const [tagebuchView, setTagebuchView] = React.useState("tagebuch"); // tagebuch | doku
+  const [dailyMode, setDailyMode] = React.useState("tagebuch"); // tagebuch | doku
   const [klientName, setKlientName] = React.useState("");
   const [klientGeburt, setKlientGeburt] = React.useState("");
   const getKlientSeed = () => {
@@ -178,6 +179,7 @@ export default function LenormandApp() {
         ${entry.gedanken ? `<div class="label">💭 Gedanken</div><div class="text">${entry.gedanken}</div>` : ""}
         ${entry.reflexionen ? `<div class="label">🌙 Reflexionen</div><div class="text">${entry.reflexionen}</div>` : ""}
         ${entry.resumee ? `<div class="label">📝 Resümee</div><div class="text">${entry.resumee}</div>` : ""}
+        <div class="label">✨ Tipp vom Universum</div><div class="text">${COMBOS[cardNum.comboKey] || "Vertraue deiner Intuition."}</div>
       </div>`;
     }).join("")}
     </body></html>`;
@@ -656,12 +658,12 @@ export default function LenormandApp() {
         <div style={{ fontSize:10, color:"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {/* Reihe 1 */}
-          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["tagebuch","📓 Tagebuch"]].map(([v,l]) => (
+          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["tagebuch","✨ Daily"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
                 else if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
-                else { setView(v); setTagebuchView("frage"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
+                else { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
               }}
               style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
               {l}
@@ -1349,8 +1351,177 @@ export default function LenormandApp() {
         {view === "tagebuch" && (
           <div style={{ paddingBottom:30 }}>
 
-            {/* ── SCHRITT 1: Frage / Klient ── */}
-            {tagebuchView === "frage" && (
+            {/* Untermenü */}
+            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20 }}>
+              {[["tagebuch","📓 Tagebuch"],["doku","📋 Dokumentation"]].map(([m,l]) => (
+                <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); }}
+                  style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 20px", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1, transition:"all 0.2s" }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            {/* ── TAGEBUCH ── */}
+            {dailyMode === "tagebuch" && (
+              <>
+                {/* Tageskombination */}
+                <div style={{ textAlign:"center", marginBottom:20 }}>
+                  <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
+                  <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
+                    {[todayCard.c1, todayCard.c2].map((num, i) => (
+                      <div key={i} style={{ textAlign:"center" }}>
+                        <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
+                        <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
+                        <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Gedanken */}
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
+                  <textarea placeholder="Was siehst du in dieser Kombination?" value={todayEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                </div>
+
+                {/* Reflexionen */}
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
+                  <textarea placeholder="Was hat sich bewahrheitet? Was überrascht?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                </div>
+
+                {/* Resümee */}
+                <div style={{ marginBottom:18 }}>
+                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
+                  <textarea placeholder="Das Fazit des Tages…" value={todayEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                </div>
+
+                {/* Tipp */}
+                <div style={{ textAlign:"center", marginBottom:20 }}>
+                  {!tippVisible ? (
+                    <button onClick={() => setTippVisible(true)}
+                      style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"12px 28px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                      ✨ Tipp vom Universum
+                    </button>
+                  ) : (
+                    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
+                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
+                      <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[todayCard.comboKey] || "Vertraue deiner Intuition."}</div>
+                      <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Drucken */}
+                <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
+                  <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                    🖨️ Drucken
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ── DOKUMENTATION ── */}
+            {dailyMode === "doku" && (
+              <>
+                {tagebuchView === "tagebuch" && (
+                  <div>
+                    <div style={{ textAlign:"center", marginBottom:20 }}>
+                      <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Klient</div>
+                      <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Für wen legst du heute?</div>
+                    </div>
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Name</div>
+                      <input placeholder="z.B. Siegbert M." value={klientName} onChange={e => setKlientName(e.target.value)}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                    <div style={{ marginBottom:24 }}>
+                      <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Geburtsdatum</div>
+                      <input placeholder="z.B. 15.03.1952" value={klientGeburt} onChange={e => setKlientGeburt(e.target.value)}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"center" }}>
+                      <button onClick={() => setTagebuchView("doku")}
+                        style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                        Weiter →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {tagebuchView === "doku" && (
+                  <>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                      <button onClick={() => setTagebuchView("tagebuch")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
+                      {klientName && <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>👤 {klientName}{klientGeburt ? ` · ${klientGeburt}` : ""}</div>}
+                    </div>
+
+                    {/* Tageskombination für Klient */}
+                    <div style={{ textAlign:"center", marginBottom:20 }}>
+                      <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
+                      <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
+                        {[todayCard.c1, todayCard.c2].map((num, i) => (
+                          <div key={i} style={{ textAlign:"center" }}>
+                            <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
+                            <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
+                            <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Gedanken */}
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
+                      <textarea placeholder="Was bewegt den Klienten?" value={todayEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    </div>
+
+                    {/* Reflexionen */}
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
+                      <textarea placeholder="Was zeigt die Kombination für diesen Menschen?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    </div>
+
+                    {/* Resümee */}
+                    <div style={{ marginBottom:18 }}>
+                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
+                      <textarea placeholder="Empfehlung / nächster Schritt…" value={todayEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    </div>
+
+                    {/* Tipp */}
+                    <div style={{ textAlign:"center", marginBottom:20 }}>
+                      {!tippVisible ? (
+                        <button onClick={() => setTippVisible(true)}
+                          style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"12px 28px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                          ✨ Tipp vom Universum
+                        </button>
+                      ) : (
+                        <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
+                          <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
+                          <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[todayCard.comboKey] || "Vertraue deiner Intuition."}</div>
+                          <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Drucken */}
+                    <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
+                      <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                        🖨️ Drucken
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
               <div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
                   <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Optional</div>
@@ -1375,117 +1546,17 @@ export default function LenormandApp() {
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }}
                   />
                 </div>
-                <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
-                  <button onClick={() => { setKlientName(""); setKlientGeburt(""); setTippVisible(false); setTagebuchView("tagebuch"); }}
-                    style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                    Überspringen →
-                  </button>
-                  <button onClick={() => { setTippVisible(false); setTagebuchView("tagebuch"); }}
-                    style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 24px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                <div style={{ display:"flex", justifyContent:"center" }}>
+                  <button onClick={() => setTagebuchView("doku")}
+                    style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     Weiter →
                   </button>
                 </div>
               </div>
             )}
-
-            {/* ── SCHRITT 2: Tagebuch ── */}
-            {tagebuchView === "tagebuch" && (
-              <>
-                {/* Zurück + Klient-Info */}
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-                  <button onClick={() => setTagebuchView("frage")}
-                    style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>
-                    ← zurück
-                  </button>
-                  {klientName && (
-                    <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>👤 {klientName}{klientGeburt ? ` · ${klientGeburt}` : ""}</div>
-                  )}
-                </div>
-
-                {/* Tageskombination */}
-                <div style={{ textAlign:"center", marginBottom:20 }}>
-                  <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>
-                    Tageskombination · {formatDate(todayKey)}
-                  </div>
-                  <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
-                    {[todayCard.c1, todayCard.c2].map((num, i) => (
-                      <div key={i} style={{ textAlign:"center" }}>
-                        <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
-                        <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
-                        <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Gedanken */}
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
-                  <textarea
-                    placeholder="Was siehst du in dieser Kombination?"
-                    value={todayEntry.gedanken}
-                    onChange={e => updateTagebuch("gedanken", e.target.value)}
-                    rows={4}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }}
-                  />
-                </div>
-
-                {/* Reflexionen */}
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
-                  <textarea
-                    placeholder="Was hat sich bewahrheitet? Was überrascht?"
-                    value={todayEntry.reflexionen}
-                    onChange={e => updateTagebuch("reflexionen", e.target.value)}
-                    rows={4}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }}
-                  />
-                </div>
-
-                {/* Resümee */}
-                <div style={{ marginBottom:18 }}>
-                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
-                  <textarea
-                    placeholder="Das Fazit des Tages in einem Satz…"
-                    value={todayEntry.resumee}
-                    onChange={e => updateTagebuch("resumee", e.target.value)}
-                    rows={3}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }}
-                  />
-                </div>
-
-                {/* Tipp vom Universum */}
-                <div style={{ textAlign:"center", marginBottom:20 }}>
-                  {!tippVisible ? (
-                    <button onClick={() => setTippVisible(true)}
-                      style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"12px 28px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                      ✨ Tipp vom Universum
-                    </button>
-                  ) : (
-                    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
-                      <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[todayCard.comboKey] || "Diese Kombination spricht für sich — vertraue deiner Intuition."}</div>
-                      <button onClick={() => setTippVisible(false)}
-                        style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                        ✕ Schließen
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Drucken */}
-                <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
-                  <button onClick={druckeTagebuch}
-                    style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                    🖨️ Drucken
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          </>
         )}
 
-        {/* ── ALLE KARTEN ── */}
         {view === "cards" && (
           <div>
             {cardDetail ? (
