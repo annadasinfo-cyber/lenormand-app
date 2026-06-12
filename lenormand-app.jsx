@@ -91,6 +91,79 @@ function ConfettiCanvas() {
 
 export default function LenormandApp() {
   const [view, setView] = useState("liesmich");
+
+  // Tagebuch
+  const getTodayKey = () => new Date().toISOString().slice(0,10);
+  const formatDate = (key) => {
+    const [y,m,d] = key.split("-");
+    return `${d}.${m}.${y}`;
+  };
+  const loadTagebuch = () => {
+    try { return JSON.parse(localStorage.getItem("lenni_tagebuch") || "{}"); } catch { return {}; }
+  };
+  const saveTagebuch = (data) => {
+    try { localStorage.setItem("lenni_tagebuch", JSON.stringify(data)); } catch {}
+  };
+  const getDailyCard = () => {
+    const d = new Date();
+    const seed = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+    const keys = Object.keys(CARDS);
+    const c1 = parseInt(keys[seed % keys.length]);
+    const c2 = parseInt(keys[(seed * 7 + 13) % keys.length]);
+    const card2 = c2 === c1 ? parseInt(keys[(seed * 7 + 14) % keys.length]) : c2;
+    const lo = Math.min(c1, card2), hi = Math.max(c1, card2);
+    return {c1, c2: card2, comboKey: `${lo}-${hi}`};
+  };
+  const [tagebuchData, setTagebuchData] = React.useState(() => loadTagebuch());
+  const [tippVisible, setTippVisible] = React.useState(false);
+  const todayKey = getTodayKey();
+  const todayCard = getDailyCard();
+  const todayEntry = tagebuchData[todayKey] || {gedanken:"", reflexionen:""};
+
+  const updateTagebuch = (field, value) => {
+    const updated = {...tagebuchData, [todayKey]: {...todayEntry, [field]: value}};
+    setTagebuchData(updated);
+    saveTagebuch(updated);
+  };
+
+  const druckeTagebuch = () => {
+    const entries = Object.entries(tagebuchData).sort().reverse();
+    const html = `<html><head><title>Lenormand Tagebuch</title><style>
+      body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}
+      h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}
+      .entry{margin-bottom:32px;border-left:3px solid #c8a96e;padding-left:16px}
+      .date{font-size:11px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+      .karte{font-size:18px;color:#8a6020;margin-bottom:8px}
+      .label{font-size:10px;color:#9a8060;letter-spacing:1px;text-transform:uppercase;margin-top:10px}
+      .text{font-size:14px;color:#3a2a0a;margin-top:2px;white-space:pre-wrap}
+    </style></head><body>
+    <h1>📓 Lenormand Tagebuch · Anna Benoir</h1>
+    ${entries.map(([key, entry]) => {
+      const cardNum = (() => {
+        const d = new Date(key);
+        const seed = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+        const keys2 = Object.keys(CARDS);
+        const c1 = parseInt(keys2[seed % keys2.length]);
+        const c2raw = parseInt(keys2[(seed * 7 + 13) % keys2.length]);
+        const c2 = c2raw === c1 ? parseInt(keys2[(seed * 7 + 14) % keys2.length]) : c2raw;
+        const lo = Math.min(c1,c2), hi = Math.max(c1,c2);
+        return {c1, c2, comboKey:`${lo}-${hi}`};
+      })();
+      const card1 = CARDS[cardNum.c1];
+      const card2 = CARDS[cardNum.c2];
+      return `<div class="entry">
+        <div class="date">${key.split("-").reverse().join(".")}</div>
+        <div class="karte">${SYMBOLS[cardNum.c1]} ${cardNum.c1}. ${card1.name} &nbsp;+&nbsp; ${SYMBOLS[cardNum.c2]} ${cardNum.c2}. ${card2.name}</div>
+        ${entry.gedanken ? `<div class="label">💭 Meine Gedanken</div><div class="text">${entry.gedanken}</div>` : ""}
+        ${entry.reflexionen ? `<div class="label">🌙 Meine Reflexionen</div><div class="text">${entry.reflexionen}</div>` : ""}
+      </div>`;
+    }).join("")}
+    </body></html>`;
+    const w = window.open("","_blank");
+    w.document.write(html);
+    w.document.close();
+    w.print();
+  };
   const [mode, setMode] = useState("situation");
   // Picker mode
   const [selected, setSelected] = useState([]);
@@ -98,6 +171,29 @@ export default function LenormandApp() {
   const [cardDetail, setCardDetail] = useState(null);
   const [openSection, setOpenSection] = useState("2er");
   // Matrix mode
+  const SPLASH_IMAGES = [
+    "https://static.wixstatic.com/media/3da789_ed30c846006844ddb59845376bdc4bac~mv2.png",
+    "https://static.wixstatic.com/media/3da789_0534370da2934f57bdca738855342004~mv2.png",
+    "https://static.wixstatic.com/media/3da789_7ffdd0a734b8429f824597f8054f8c80~mv2.png",
+    "https://static.wixstatic.com/media/3da789_0bd58126fe0a453f81d29caa8e79b4fb~mv2.png",
+    "https://static.wixstatic.com/media/3da789_eea0bfe4991e4bbf98efe8a7031edd96~mv2.png",
+    "https://static.wixstatic.com/media/3da789_e64fab6f653e47ff88bee696b39e4ef9~mv2.png",
+    "https://static.wixstatic.com/media/3da789_fc8df5cd6f1c4deb8bbc5765858a39cf~mv2.png",
+    "https://static.wixstatic.com/media/3da789_3789ae741704469084063e65452271e4~mv2.png",
+    "https://static.wixstatic.com/media/3da789_eb82f3ec8aa945bf971e1c4c72649ca5~mv2.png",
+    "https://static.wixstatic.com/media/3da789_cfed9a1f72c64f40807dbbc3188fe94f~mv2.png",
+    "https://static.wixstatic.com/media/3da789_1b214a33d2eb4c4c960879cc1877aa0a~mv2.png",
+    "https://static.wixstatic.com/media/3da789_1b3a189886454ebdb3daf567addb9dd3~mv2.png",
+    "https://static.wixstatic.com/media/3da789_d2a62964ceb7482cb9a723d779253c10~mv2.png",
+    "https://static.wixstatic.com/media/3da789_9357360413ea4a27bd2a61b1c525633f~mv2.png",
+    "https://static.wixstatic.com/media/3da789_7f803582ce514d79ad7c78500f6c828e~mv2.png",
+    "https://static.wixstatic.com/media/3da789_0e79a83e7e604ca68f90977fedb0658c~mv2.png",
+    "https://static.wixstatic.com/media/3da789_4d37a3ebef544e9abd96f8e3371deae7~mv2.png",
+    "https://static.wixstatic.com/media/3da789_51accceea8c64611bae43f2d062186bd~mv2.png",
+    "https://static.wixstatic.com/media/3da789_139bcc80ed08475b8ff1bee4112e4caf~mv2.png",
+    "https://static.wixstatic.com/media/3da789_e0770ec0e97c47708fb00f83d06d8a80~mv2.jpeg",
+  ];
+  const splashImage = SPLASH_IMAGES[Math.floor(Math.random() * SPLASH_IMAGES.length)];
   // --- Splash Screen ---
   const [showSplash, setShowSplash] = useState(true);
 
@@ -474,7 +570,7 @@ export default function LenormandApp() {
             display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center"
           }}>
           <img
-            src="https://static.wixstatic.com/media/3da789_e0770ec0e97c47708fb00f83d06d8a80~mv2.jpeg"
+            src={splashImage}
             alt="Lenormand Matrix"
             style={{ width:"100%", height:"100%", objectFit:"contain", objectPosition:"center center", position:"absolute", inset:0 }}
           />
@@ -538,7 +634,7 @@ export default function LenormandApp() {
         <div style={{ fontSize:10, color:"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {/* Reihe 1 */}
-          {[["liesmich","📖 LIESMICH"],["random","🔮 FRAG MICH"],["matrix","⬛ MATRIX"],["personen","👤 PERSON"]].map(([v,l]) => (
+          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["tagebuch","📓 Tagebuch"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
@@ -551,7 +647,7 @@ export default function LenormandApp() {
           ))}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
-          {[["picker","🃏 KOMBINATIONEN"],["cards","📖 ALLE KARTEN"],["quiz","🎓 QUIZ"]].map(([v,l]) => (
+          {[["matrix","⬛ Matrix"],["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["quiz","🎓 Quiz"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
@@ -810,11 +906,6 @@ export default function LenormandApp() {
                 <div style={{ fontSize:13, color:gold }}>Karten legen</div>
               </div>
 <div style={{display:"flex", gap:6}}>
-                <button onClick={randomLayout}
-                  style={{ background:"transparent", border:`1px solid rgba(200,169,110,0.3)`, color:"#9a8060", padding:"5px 10px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}
-                  title="Zufällige Karten legen">
-                  🎲 Zufall
-                </button>
                 <button onClick={() => setMatrixView("result")}
                   style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                   Deuten →
@@ -1229,6 +1320,76 @@ export default function LenormandApp() {
                 </>
               )}
             </>)}
+          </div>
+        )}
+
+        {/* ── TAGEBUCH ── */}
+        {view === "tagebuch" && (
+          <div style={{ paddingBottom:30 }}>
+            {/* Tageskarte */}
+            <div style={{ textAlign:"center", marginBottom:20 }}>
+              <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
+              <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
+                {[todayCard.c1, todayCard.c2].map((num, i) => (
+                  <div key={i} style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
+                    <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
+                    <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Gedanken */}
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Meine Gedanken</div>
+              <textarea
+                placeholder="Was siehst du in dieser Karte? Was fühlt sich heute bedeutsam an?"
+                value={todayEntry.gedanken}
+                onChange={e => updateTagebuch("gedanken", e.target.value)}
+                rows={4}
+                style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }}
+              />
+            </div>
+
+            {/* Reflexionen */}
+            <div style={{ marginBottom:18 }}>
+              <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Meine Reflexionen</div>
+              <textarea
+                placeholder="Was hat der Tag gebracht? Was hat die Karte sich bewahrheitet?"
+                value={todayEntry.reflexionen}
+                onChange={e => updateTagebuch("reflexionen", e.target.value)}
+                rows={4}
+                style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }}
+              />
+            </div>
+
+            {/* Tipp vom Universum */}
+            <div style={{ textAlign:"center", marginBottom:20 }}>
+              {!tippVisible ? (
+                <button onClick={() => setTippVisible(true)}
+                  style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"12px 28px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  ✨ Tipp vom Universum
+                </button>
+              ) : (
+                <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
+                  <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
+                  <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[todayCard.comboKey] || "Diese Kombination spricht für sich — vertraue deiner Intuition."}</div>
+                  <button onClick={() => setTippVisible(false)}
+                    style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                    ✕ Schließen
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Drucken */}
+            <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
+              <button onClick={druckeTagebuch}
+                style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                🖨️ Tagebuch drucken
+              </button>
+            </div>
           </div>
         )}
 
