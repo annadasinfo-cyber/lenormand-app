@@ -98,6 +98,14 @@ export default function LenormandApp() {
     const [y,m,d] = key.split("-");
     return `${d}.${m}.${y}`;
   };
+  const getDeviceId = () => {
+    let id = localStorage.getItem("lenni_device_id");
+    if (!id) {
+      id = Math.floor(Math.random() * 999999).toString();
+      localStorage.setItem("lenni_device_id", id);
+    }
+    return parseInt(id);
+  };
   const loadTagebuch = () => {
     try { return JSON.parse(localStorage.getItem("lenni_tagebuch") || "{}"); } catch { return {}; }
   };
@@ -106,7 +114,9 @@ export default function LenormandApp() {
   };
   const getDailyCard = () => {
     const d = new Date();
-    const seed = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+    const dateSeed = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
+    const deviceId = getDeviceId();
+    const seed = dateSeed + deviceId;
     const keys = Object.keys(CARDS);
     const c1 = parseInt(keys[seed % keys.length]);
     const c2 = parseInt(keys[(seed * 7 + 13) % keys.length]);
