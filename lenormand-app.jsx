@@ -173,14 +173,16 @@ export default function LenormandApp() {
       })();
       const card1 = CARDS[cardNum.c1];
       const card2 = CARDS[cardNum.c2];
-      return `<div class="entry">
-        <div class="date">${key.split("-").reverse().join(".")}</div>
-        <div class="karte">${SYMBOLS[cardNum.c1]} ${cardNum.c1}. ${card1.name} &nbsp;+&nbsp; ${SYMBOLS[cardNum.c2]} ${cardNum.c2}. ${card2.name}</div>
-        ${entry.gedanken ? `<div class="label">💭 Gedanken</div><div class="text">${entry.gedanken}</div>` : ""}
-        ${entry.reflexionen ? `<div class="label">🌙 Reflexionen</div><div class="text">${entry.reflexionen}</div>` : ""}
-        ${entry.resumee ? `<div class="label">📝 Resümee</div><div class="text">${entry.resumee}</div>` : ""}
-        <div class="label">✨ Tipp vom Universum</div><div class="text">${COMBOS[cardNum.comboKey] || "Vertraue deiner Intuition."}</div>
-      </div>`;
+      const gedankenHtml = entry.gedanken ? "<div class=\"label\">💭 Gedanken</div><div class=\"text\">" + entry.gedanken + "</div>" : "";
+      const reflexionenHtml = entry.reflexionen ? "<div class=\"label\">🌙 Reflexionen</div><div class=\"text\">" + entry.reflexionen + "</div>" : "";
+      const resumeeHtml = entry.resumee ? "<div class=\"label\">📝 Resümee</div><div class=\"text\">" + entry.resumee + "</div>" : "";
+      const tippText = COMBOS[cardNum.comboKey] || "Vertraue deiner Intuition.";
+      const tippHtml = "<div class=\"label\">✨ Tipp vom Universum</div><div class=\"text\">" + tippText + "</div>";
+      return "<div class=\"entry\">" +
+        "<div class=\"date\">" + key.split("-").reverse().join(".") + "</div>" +
+        "<div class=\"karte\">" + SYMBOLS[cardNum.c1] + " " + cardNum.c1 + ". " + card1.name + " + " + SYMBOLS[cardNum.c2] + " " + cardNum.c2 + ". " + card2.name + "</div>" +
+        gedankenHtml + reflexionenHtml + resumeeHtml + tippHtml +
+        "</div>";
     }).join("")}
     </body></html>`;
     const w = window.open("","_blank");
@@ -1348,7 +1350,7 @@ export default function LenormandApp() {
         )}
 
         {/* ── TAGEBUCH ── */}
-        {view === "tagebuch" && (
+                {view === "tagebuch" && (
           <div style={{ paddingBottom:30 }}>
 
             {/* Untermenü */}
@@ -1361,10 +1363,9 @@ export default function LenormandApp() {
               ))}
             </div>
 
-            {/* ── TAGEBUCH ── */}
+            {/* TAGEBUCH */}
             {dailyMode === "tagebuch" && (
-              <>
-                {/* Tageskombination */}
+              <div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
                   <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
                   <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
@@ -1372,34 +1373,26 @@ export default function LenormandApp() {
                       <div key={i} style={{ textAlign:"center" }}>
                         <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
                         <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
-                        <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
+                        <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(",").slice(0,2).join(",")}</div>
                       </div>
                     ))}
                   </div>
                 </div>
-
-                {/* Gedanken */}
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
                   <textarea placeholder="Was siehst du in dieser Kombination?" value={todayEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
-
-                {/* Reflexionen */}
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
-                  <textarea placeholder="Was hat sich bewahrheitet? Was überrascht?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
+                  <textarea placeholder="Was hat sich bewahrheitet?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
-
-                {/* Resümee */}
                 <div style={{ marginBottom:18 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
                   <textarea placeholder="Das Fazit des Tages…" value={todayEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
-
-                {/* Tipp */}
                 <div style={{ textAlign:"center", marginBottom:20 }}>
                   {!tippVisible ? (
                     <button onClick={() => setTippVisible(true)}
@@ -1414,19 +1407,17 @@ export default function LenormandApp() {
                     </div>
                   )}
                 </div>
-
-                {/* Drucken */}
                 <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
                   <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     🖨️ Drucken
                   </button>
                 </div>
-              </>
+              </div>
             )}
 
-            {/* ── DOKUMENTATION ── */}
+            {/* DOKUMENTATION */}
             {dailyMode === "doku" && (
-              <>
+              <div>
                 {tagebuchView === "tagebuch" && (
                   <div>
                     <div style={{ textAlign:"center", marginBottom:20 }}>
@@ -1451,15 +1442,12 @@ export default function LenormandApp() {
                     </div>
                   </div>
                 )}
-
                 {tagebuchView === "doku" && (
-                  <>
+                  <div>
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
                       <button onClick={() => setTagebuchView("tagebuch")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
                       {klientName && <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>👤 {klientName}{klientGeburt ? ` · ${klientGeburt}` : ""}</div>}
                     </div>
-
-                    {/* Tageskombination für Klient */}
                     <div style={{ textAlign:"center", marginBottom:20 }}>
                       <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
                       <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
@@ -1467,34 +1455,26 @@ export default function LenormandApp() {
                           <div key={i} style={{ textAlign:"center" }}>
                             <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
                             <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
-                            <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
+                            <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(",").slice(0,2).join(",")}</div>
                           </div>
                         ))}
                       </div>
                     </div>
-
-                    {/* Gedanken */}
                     <div style={{ marginBottom:14 }}>
                       <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
                       <textarea placeholder="Was bewegt den Klienten?" value={todayEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
                         style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                     </div>
-
-                    {/* Reflexionen */}
                     <div style={{ marginBottom:14 }}>
                       <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
-                      <textarea placeholder="Was zeigt die Kombination für diesen Menschen?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
+                      <textarea placeholder="Was zeigt die Kombination?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
                         style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                     </div>
-
-                    {/* Resümee */}
                     <div style={{ marginBottom:18 }}>
                       <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
                       <textarea placeholder="Empfehlung / nächster Schritt…" value={todayEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
                         style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                     </div>
-
-                    {/* Tipp */}
                     <div style={{ textAlign:"center", marginBottom:20 }}>
                       {!tippVisible ? (
                         <button onClick={() => setTippVisible(true)}
@@ -1509,52 +1489,17 @@ export default function LenormandApp() {
                         </div>
                       )}
                     </div>
-
-                    {/* Drucken */}
                     <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
                       <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                         🖨️ Drucken
                       </button>
                     </div>
-                  </>
+                  </div>
                 )}
-              </>
-            )}
-          </div>
-        )}
-              <div>
-                <div style={{ textAlign:"center", marginBottom:20 }}>
-                  <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Optional</div>
-                  <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Für wen legst du heute?</div>
-                  <div style={{ fontSize:11, color:"#5a4a34" }}>Leer lassen für dein eigenes Tagebuch</div>
-                </div>
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Name</div>
-                  <input
-                    placeholder="z.B. Maria M."
-                    value={klientName}
-                    onChange={e => setKlientName(e.target.value)}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }}
-                  />
-                </div>
-                <div style={{ marginBottom:24 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Geburtsdatum</div>
-                  <input
-                    placeholder="z.B. 15.03.1980"
-                    value={klientGeburt}
-                    onChange={e => setKlientGeburt(e.target.value)}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }}
-                  />
-                </div>
-                <div style={{ display:"flex", justifyContent:"center" }}>
-                  <button onClick={() => setTagebuchView("doku")}
-                    style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                    Weiter →
-                  </button>
-                </div>
               </div>
             )}
-          </>
+
+          </div>
         )}
 
         {view === "cards" && (
