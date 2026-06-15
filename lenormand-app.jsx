@@ -132,7 +132,8 @@ export default function LenormandApp() {
   const [writingProjekt, setWritingProjekt] = React.useState("");
   const [writingBemerkung, setWritingBemerkung] = React.useState("");
   const [writingCards, setWritingCards] = React.useState(null);
-  const [writingNotes, setWritingNotes] = React.useState({}); // tagebuch | doku
+  const [writingNotes, setWritingNotes] = React.useState({});
+  const [activeWritingPos, setActiveWritingPos] = React.useState(null); // tagebuch | doku
   const [klientName, setKlientName] = React.useState("");
   const [klientGeburt, setKlientGeburt] = React.useState("");
   const getKlientSeed = () => {
@@ -1559,7 +1560,7 @@ export default function LenormandApp() {
                 <div style={{ display:"flex", gap:20, flexWrap:"wrap", justifyContent:"center" }}>
 
                   {/* LINKS: Echte Matrix mit Deutungen */}
-                  <div style={{ flex:"0 0 auto", width:"min(100%, 480px)" }}>
+                  <div style={{ flex:"1 1 0", minWidth:0 }}>
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
                       {SYMBOLS[signifikator]} {CARDS[signifikator].name} · Situations-Matrix
                     </div>
@@ -1573,15 +1574,17 @@ export default function LenormandApp() {
                         const card = matrixCards[pos];
                         const isSignifikator = pos === 4;
                         const isKombi = KOMBI_POSITIONS.includes(pos);
+                        const isActive = activeWritingPos === pos || (activeWritingPos !== null && isSignifikator && [1,5,7].includes(activeWritingPos));
                         const sitKeys = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
                         const cardForText = card ? MATRIX[String(card)] : null;
                         const fixedText = sitKeys[pos] && cardForText ? cardForText[sitKeys[pos]] : null;
                         const comboText = isKombi && card ? getCombo(signifikator, card) : null;
                         return (
                           <div key={pos} style={{
-                            background: isSignifikator ? "rgba(200,169,110,0.08)" : isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
-                            border: `1px solid ${isSignifikator ? gold : isKombi ? "rgba(200,169,110,0.2)" : "rgba(200,169,110,0.1)"}`,
-                            borderRadius:7, padding:"8px 6px"
+                            background: isActive ? "rgba(200,169,110,0.12)" : isSignifikator ? "rgba(200,169,110,0.08)" : isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
+                            border: `1.5px solid ${isActive ? gold : isSignifikator ? gold : isKombi ? "rgba(200,169,110,0.2)" : "rgba(200,169,110,0.1)"}`,
+                            borderRadius:7, padding:"8px 6px",
+                            transition:"all 0.2s"
                           }}>
                             <div style={{ fontSize:8, letterSpacing:2, color: isKombi ? "rgba(212,184,120,0.8)" : "#8a7050", textTransform:"uppercase", marginBottom:4 }}>
                               {POSITION_LABELS[pos]}{isKombi ? " ✦" : ""}
@@ -1603,7 +1606,7 @@ export default function LenormandApp() {
                   </div>
 
                   {/* RECHTS: Writing-Positions mit Textfeldern */}
-                  <div style={{ flex:"1 1 280px" }}>
+                  <div style={{ flex:"1 1 0", minWidth:0 }}>
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>✍️ Deine Notizen</div>
                     {[
                       {pos:4, icon:"📖", label:"Signifikator | Thema | Anfang", comboWith: null},
@@ -1643,6 +1646,8 @@ export default function LenormandApp() {
                             placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
                             value={text}
                             onChange={e => setWritingNotes(prev => ({...prev, [key]: e.target.value}))}
+                            onFocus={() => setActiveWritingPos(pos)}
+                            onBlur={() => setActiveWritingPos(null)}
                             rows={2}
                             style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
                           />
