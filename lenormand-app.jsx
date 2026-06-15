@@ -1609,14 +1609,14 @@ export default function LenormandApp() {
                   <div style={{ flex:"1 1 0", minWidth:0 }}>
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>✍️ Deine Notizen</div>
                     {[
-                      {pos:4, icon:"📖", label:"Signifikator | Thema | Anfang", comboWith: null},
-                      {pos:0, icon:"💭", label:"Gedanken | 1. Katastrophe", comboWith: null},
-                      {pos:1, icon:"🎭", label:"IST-Situation | 2. Katastrophe", comboWith: 4},
-                      {pos:2, icon:"👼", label:"Rat der Engel", comboWith: null},
-                      {pos:3, icon:"⚠️", label:"Warnung", comboWith: null},
-                      {pos:5, icon:"🔮", label:"Nahe Zukunft | 3. Katastrophe", comboWith: 4},
-                      {pos:6, icon:"🦋", label:"Wo es herkommt | Rückzug", comboWith: null},
-                      {pos:7, icon:"🌌", label:"Unbewusste Zukunft | Mittelteil", comboWith: 4},
+                      {pos:4, icon:"📖", label:"Signifikator | Thema", comboWith: null},
+                      {pos:0, icon:"💭", label:"Gedanken | Anfang", comboWith: null},
+                      {pos:1, icon:"🎭", label:"IST-Situation | 1. Katastrophe", comboWith: 4},
+                      {pos:2, icon:"👼", label:"Rat der Engel | 2. Katastrophe", comboWith: null},
+                      {pos:5, icon:"🔮", label:"Nahe Zukunft | Mittelteil", comboWith: 4},
+                      {pos:6, icon:"🦋", label:"Ursache | 3. Katastrophe", comboWith: null},
+                      {pos:7, icon:"🌌", label:"Unbewusste Zukunft | Rückzug", comboWith: 4},
+                      {pos:3, icon:"⚠️", label:"Warnung | Katharsis", comboWith: null},
                       {pos:8, icon:"🎯", label:"Ergebnis | Pay Off", comboWith: null},
                     ].map(({pos, icon, label, comboWith}) => {
                       const cardNum = matrixCards[pos];
