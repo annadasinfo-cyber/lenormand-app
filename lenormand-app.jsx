@@ -1559,7 +1559,7 @@ export default function LenormandApp() {
                 <div style={{ display:"flex", gap:20, flexWrap:"wrap", justifyContent:"center" }}>
 
                   {/* LINKS: Echte Matrix mit Deutungen */}
-                  <div style={{ flex:"0 0 auto", width:"min(100%, 340px)" }}>
+                  <div style={{ flex:"0 0 auto", width:"min(100%, 480px)" }}>
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
                       {SYMBOLS[signifikator]} {CARDS[signifikator].name} · Situations-Matrix
                     </div>
