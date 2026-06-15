@@ -127,7 +127,12 @@ export default function LenormandApp() {
 
   // Klient-State
   const [tagebuchView, setTagebuchView] = React.useState("tagebuch"); // tagebuch | doku
-  const [dailyMode, setDailyMode] = React.useState("tagebuch"); // tagebuch | doku
+  const [dailyMode, setDailyMode] = React.useState("tagebuch");
+  const [writingView, setWritingView] = React.useState("projekt");
+  const [writingProjekt, setWritingProjekt] = React.useState("");
+  const [writingBemerkung, setWritingBemerkung] = React.useState("");
+  const [writingCards, setWritingCards] = React.useState(null);
+  const [writingNotes, setWritingNotes] = React.useState({}); // tagebuch | doku
   const [klientName, setKlientName] = React.useState("");
   const [klientGeburt, setKlientGeburt] = React.useState("");
   const getKlientSeed = () => {
@@ -400,6 +405,17 @@ export default function LenormandApp() {
     setRandomMode(false);
   };
 
+  const writingRandom = () => {
+    const shuffled = [...CARD_NUMS].sort(() => Math.random() - 0.5);
+    const sig = shuffled[0];
+    const newCards = Array(9).fill(null);
+    newCards[4] = sig;
+    const positions = [0,1,2,3,5,6,7,8];
+    positions.forEach((pos, i) => { newCards[pos] = shuffled[i+1]; });
+    setSignifikator(sig);
+    setMatrixCards(newCards);
+  };
+
   const startZeitQuiz = () => {
     const keys = Object.keys(TIME_QUIZ);
     const shuffled = [...keys].sort(() => Math.random() - 0.5);
@@ -652,6 +668,12 @@ export default function LenormandApp() {
       )}
 
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", background:"radial-gradient(ellipse at 15% 15%,rgba(180,120,60,0.07) 0%,transparent 45%),radial-gradient(ellipse at 85% 85%,rgba(60,40,100,0.08) 0%,transparent 45%)" }}/>
+
+      {/* Schlange im Baum — Deko oben links */}
+      <img src="https://static.wixstatic.com/media/3da789_354bda4beaab46beb9490b794f294a83~mv2.png"
+        alt="" aria-hidden="true"
+        style={{ position:"fixed", top:0, left:0, width:"min(340px, 35vw)", opacity:0.12, pointerEvents:"none", zIndex:0, userSelect:"none" }}
+      />
 
       {/* Header */}
       <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
@@ -1355,8 +1377,8 @@ export default function LenormandApp() {
 
             {/* Untermenü */}
             <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20 }}>
-              {[["tagebuch","📓 Tagebuch"],["doku","📋 Dokumentation"]].map(([m,l]) => (
-                <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); }}
+              {[["tagebuch","📓 Tagebuch"],["doku","📋 Dokumentation"],["writing","✍️ Writing"]].map(([m,l]) => (
+                <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt"); }}
                   style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 20px", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1, transition:"all 0.2s" }}>
                   {l}
                 </button>
@@ -1499,6 +1521,160 @@ export default function LenormandApp() {
               </div>
             )}
 
+          </div>
+        )}
+
+        {/* ── WRITING ── */}
+        {view === "tagebuch" && dailyMode === "writing" && (
+          <div style={{ paddingBottom:30 }}>
+            {writingView === "projekt" && (
+              <div>
+                <div style={{ textAlign:"center", marginBottom:20 }}>
+                  <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>✍️ Writing</div>
+                  <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Woran arbeitest du heute?</div>
+                </div>
+                <div style={{ marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Projekt-Name</div>
+                  <input placeholder="z.B. Mein neuer Roman" value={writingProjekt} onChange={e => setWritingProjekt(e.target.value)}
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                </div>
+                <div style={{ marginBottom:24 }}>
+                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
+                  <textarea placeholder="z.B. Szene 1 ~ Was noch geschah… (mehrere Zeilen möglich)" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={4}
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                </div>
+                <div style={{ display:"flex", justifyContent:"center" }}>
+                  <button onClick={() => {
+                    writingRandom();
+                    setWritingNotes({});
+                    setWritingView("writing");
+                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                    🎲 Mischen & Weiter →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {writingView === "writing" && signifikator && matrixCards && (
+              <div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                  <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
+                  {writingProjekt && <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>✍️ {writingProjekt}</div>}
+                </div>
+
+                <div style={{ display:"flex", gap:20, flexWrap:"wrap", justifyContent:"center" }}>
+
+                  {/* LINKS: Echte Matrix mit Deutungen */}
+                  <div style={{ flex:"0 0 auto", width:"min(100%, 340px)" }}>
+                    <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
+                      {SYMBOLS[signifikator]} {CARDS[signifikator].name} · Situations-Matrix
+                    </div>
+                    {writingBemerkung && (
+                      <div style={{ marginBottom:10, fontSize:10, color:"#5a4a34", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.15)", paddingLeft:8 }}>
+                        {writingBemerkung}
+                      </div>
+                    )}
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+                      {Array.from({length:9}, (_,pos) => {
+                        const card = matrixCards[pos];
+                        const isSignifikator = pos === 4;
+                        const isKombi = KOMBI_POSITIONS.includes(pos);
+                        const sitKeys = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
+                        const cardForText = card ? MATRIX[String(card)] : null;
+                        const fixedText = sitKeys[pos] && cardForText ? cardForText[sitKeys[pos]] : null;
+                        const comboText = isKombi && card ? getCombo(signifikator, card) : null;
+                        return (
+                          <div key={pos} style={{
+                            background: isSignifikator ? "rgba(200,169,110,0.08)" : isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
+                            border: `1px solid ${isSignifikator ? gold : isKombi ? "rgba(200,169,110,0.2)" : "rgba(200,169,110,0.1)"}`,
+                            borderRadius:7, padding:"8px 6px"
+                          }}>
+                            <div style={{ fontSize:8, letterSpacing:2, color: isKombi ? "rgba(212,184,120,0.8)" : "#8a7050", textTransform:"uppercase", marginBottom:4 }}>
+                              {POSITION_LABELS[pos]}{isKombi ? " ✦" : ""}
+                            </div>
+                            {card && (
+                              <div style={{ marginBottom:4, display:"flex", alignItems:"center", gap:3 }}>
+                                <span style={{fontSize:12}}>{SYMBOLS[card]}</span>
+                                <span style={{fontSize:7, color:gold}}>{CARDS[card].name}</span>
+                              </div>
+                            )}
+                            {isSignifikator && <div style={{ fontSize:8, color:"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
+                            {isKombi && comboText && <div style={{ fontSize:9, color:"#d8c8a0", lineHeight:1.6 }}>{comboText}</div>}
+                            {fixedText && <div style={{ fontSize:9, color:"#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
+                            {!isSignifikator && !isKombi && !fixedText && card && <div style={{ fontSize:8, color:"#3a2a18" }}>–</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* RECHTS: Writing-Positions mit Textfeldern */}
+                  <div style={{ flex:"1 1 280px" }}>
+                    <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>✍️ Deine Notizen</div>
+                    {[
+                      {pos:0, icon:"💭", label:"Gedanken | 1. Katastrophe"},
+                      {pos:1, icon:"🎭", label:"IST-Situation | 2. Katastrophe"},
+                      {pos:2, icon:"👼", label:"Rat der Engel"},
+                      {pos:3, icon:"⚠️", label:"Warnung"},
+                      {pos:4, icon:"📖", label:"Signifikator | Thema | Anfang"},
+                      {pos:5, icon:"🔮", label:"Nahe Zukunft | 3. Katastrophe"},
+                      {pos:6, icon:"🦋", label:"Wo es herkommt | Rückzug"},
+                      {pos:7, icon:"🌌", label:"Unbewusste Zukunft | Mittelteil"},
+                      {pos:8, icon:"🎯", label:"Ergebnis | Pay Off"},
+                    ].map(({pos, icon, label}) => {
+                      const cardNum = matrixCards[pos];
+                      const key = String(pos);
+                      const text = writingNotes[key] || "";
+                      const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+                      const reached = wordCount >= 150;
+                      return (
+                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                            <span style={{ fontSize:11 }}>{icon}</span>
+                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
+                            {cardNum && <><span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span><span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span></>}
+                            <span style={{ fontSize:11 }}>{reached ? "🟢" : "⬜"}</span>
+                          </div>
+                          <textarea
+                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + " hier?" : "Notizen…"}
+                            value={text}
+                            onChange={e => setWritingNotes(prev => ({...prev, [key]: e.target.value}))}
+                            rows={2}
+                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
+                          />
+                          <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                            {wordCount} / 150 {reached ? "✓" : ""}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Drucken */}
+                    <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:12, marginTop:4 }}>
+                      <button onClick={() => {
+                        const posLabels = ["Gedanken","IST-Situation","Rat der Engel","Warnung","Signifikator","Nahe Zukunft","Wo es herkommt","Unbewusste Zukunft","Ergebnis"];
+                        const html = "<html><head><title>Writing Session</title><style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}.meta{font-size:12px;color:#9a8060;margin-bottom:24px}.block{margin-bottom:20px;border-left:3px solid #c8a96e;padding-left:14px}.lbl{font-size:10px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}.karte{font-size:13px;color:#8a6020;margin-bottom:5px}.txt{font-size:12px;color:#3a2a0a;white-space:pre-wrap}.cnt{font-size:9px;color:#9a8060;margin-top:3px}</style></head><body>"
+                          + "<h1>✍️ Writing Session · Anna Benoir</h1>"
+                          + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>" + (writingBemerkung?"<br>"+writingBemerkung:"") + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name + "</div>"
+                          + Array.from({length:9},(_,pos) => {
+                              const cn = matrixCards[pos];
+                              const t = writingNotes[String(pos)]||"";
+                              const wc = t.trim().split(/\s+/).filter(Boolean).length;
+                              return "<div class='block'><div class='lbl'>"+posLabels[pos]+"</div><div class='karte'>"+(cn?SYMBOLS[cn]+" "+CARDS[cn].name:"–")+"</div>"+(t?"<div class='txt'>"+t+"</div><div class='cnt'>"+wc+" Wörter</div>":"")+"</div>";
+                            }).join("")
+                          + "</body></html>";
+                        const w = window.open("","_blank");
+                        w.document.write(html);
+                        w.document.close();
+                        w.print();
+                      }} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                        🖨️ Session drucken
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
