@@ -137,8 +137,8 @@ export default function LenormandApp() {
   const [showWritingMatrix, setShowWritingMatrix] = React.useState(true);
 
   const [manifestData, setManifestData] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lenni_manifest") || '{"heute":"","wochen":"","monate":"","jahre":""}'); }
-    catch { return {heute:"", wochen:"", monate:"", jahre:""}; }
+    try { return JSON.parse(localStorage.getItem("lenni_manifest") || '{"heute":"","wochen":"","monate":"","jahre":"","irgendwann":"","traum":""}'); }
+    catch { return {heute:"", wochen:"", monate:"", jahre:"", irgendwann:"", traum:""}; }
   });
   const saveManifest = (data) => {
     try { localStorage.setItem("lenni_manifest", JSON.stringify(data)); } catch {}
@@ -156,7 +156,7 @@ export default function LenormandApp() {
     const jahre = new Date(heute); jahre.setFullYear(heute.getFullYear()+3);
     const toList = (text) => text.split(',').map(s => s.trim()).filter(Boolean)
       .map(s => "<div class='item'>☐ " + s + "</div>").join("");
-    const html = "<html><head><title>Manifest</title><style>"
+    const html = "<html><head><title>Zauberzettel</title><style>"
       + "body{font-family:Georgia,serif;max-width:800px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
       + "h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px;margin-bottom:4px}"
       + ".datum{font-size:11px;color:#9a8060;margin-bottom:24px;letter-spacing:1px}"
@@ -166,13 +166,15 @@ export default function LenormandApp() {
       + ".date{font-size:11px;color:#8a6020;margin-bottom:10px;font-style:italic}"
       + ".item{font-size:13px;color:#2a1a0a;margin-bottom:8px;padding-left:4px}"
       + "</style></head><body>"
-      + "<h1>🌟 Mein Manifest · Anna Benoir</h1>"
-      + "<div class='datum'>Erstellt am " + datumStr + "</div>"
+      + "<h1>✨ Zauberzettel</h1>"
+      + "<div class='datum'>" + datumStr + "</div>"
       + "<div class='grid'>"
       + "<div class='block'><div class='label'>📅 Heute</div><div class='date'>" + datumStr + "</div>" + toList(manifestData.heute) + "</div>"
       + "<div class='block'><div class='label'>⏱️ 3 Wochen</div><div class='date'>bis " + wochen.toLocaleDateString('de-DE') + "</div>" + toList(manifestData.wochen) + "</div>"
       + "<div class='block'><div class='label'>🌙 3 Monate</div><div class='date'>bis " + monate.toLocaleDateString('de-DE') + "</div>" + toList(manifestData.monate) + "</div>"
       + "<div class='block'><div class='label'>🌟 3 Jahre</div><div class='date'>bis " + jahre.toLocaleDateString('de-DE') + "</div>" + toList(manifestData.jahre) + "</div>"
+      + (manifestData.irgendwann ? "<div class='block'><div class='label'>🌙 Irgendwann</div>" + toList(manifestData.irgendwann) + "</div>" : "")
+      + (manifestData.traum ? "<div class='block'><div class='label'>💫 Mein größter Traum</div>" + toList(manifestData.traum) + "</div>" : "")
       + "</div></body></html>";
     const w = window.open("","_blank");
     w.document.write(html);
@@ -1417,7 +1419,7 @@ export default function LenormandApp() {
 
             {/* Untermenü */}
             <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20 }}>
-              {[["tagebuch","📓 Tagebuch"],["doku","📋 Dokumentation"],["manifest","🌟 Manifest"],["writing","✍️ Writing"]].map(([m,l]) => (
+              {[["tagebuch","📓 Tagebuch"],["doku","📋 Dokumentation"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
                 <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt"); }}
                   style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 20px", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1, transition:"all 0.2s" }}>
                   {l}
@@ -1680,6 +1682,9 @@ export default function LenormandApp() {
                         rows={2}
                         style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
                       />
+                      <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                        {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                      </div>
                     </div>
                     {[
                       {pos:4, icon:"📖", label:"Signifikator | Thema", comboWith: null},
@@ -1746,23 +1751,62 @@ export default function LenormandApp() {
                         rows={2}
                         style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
                       />
+                      <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                        {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                      </div>
                     </div>
 
                     {/* Drucken */}
                     <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:12, marginTop:4 }}>
                       <button onClick={() => {
-                        const posLabels = ["Gedanken","IST-Situation","Rat der Engel","Warnung","Signifikator","Nahe Zukunft","Wo es herkommt","Unbewusste Zukunft","Ergebnis"];
-                        const html = "<html><head><title>Writing Session</title><style>body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}.meta{font-size:12px;color:#9a8060;margin-bottom:24px}.block{margin-bottom:20px;border-left:3px solid #c8a96e;padding-left:14px}.lbl{font-size:10px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}.karte{font-size:13px;color:#8a6020;margin-bottom:5px}.txt{font-size:12px;color:#3a2a0a;white-space:pre-wrap}.cnt{font-size:9px;color:#9a8060;margin-top:3px}</style></head><body>"
+                        const heute = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
+                        const posLabels = [
+                          {pos:4, label:"Signifikator | Thema"},
+                          {pos:0, label:"Gedanken | Anfang"},
+                          {pos:1, label:"IST-Situation | 1. Katastrophe"},
+                          {pos:2, label:"Rat der Engel | 2. Katastrophe"},
+                          {pos:5, label:"Nahe Zukunft | Mittelteil"},
+                          {pos:6, label:"Ursache | 3. Katastrophe"},
+                          {pos:7, label:"Unbewusste Zukunft | Rückzug"},
+                          {pos:3, label:"Warnung | Katharsis"},
+                          {pos:8, label:"Ergebnis | Pay Off"},
+                        ];
+                        const introText = writingNotes["intro"] || "";
+                        const outroText = writingNotes["outro"] || "";
+                        const introWc = introText.trim().split(/\s+/).filter(Boolean).length;
+                        const outroWc = outroText.trim().split(/\s+/).filter(Boolean).length;
+                        const posWc = posLabels.reduce((sum, {pos}) => {
+                          const t = writingNotes[String(pos)] || "";
+                          return sum + t.trim().split(/\s+/).filter(Boolean).length;
+                        }, 0);
+                        const totalWc = introWc + posWc + outroWc;
+
+                        const html = "<html><head><title>Writing Session</title><style>"
+                          + "body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
+                          + "h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}"
+                          + ".meta{font-size:12px;color:#9a8060;margin-bottom:24px}"
+                          + ".block{margin-bottom:20px;border-left:3px solid #c8a96e;padding-left:14px}"
+                          + ".lbl{font-size:10px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}"
+                          + ".karte{font-size:13px;color:#8a6020;margin-bottom:5px}"
+                          + ".txt{font-size:12px;color:#3a2a0a;white-space:pre-wrap}"
+                          + ".cnt{font-size:9px;color:#9a8060;margin-top:3px}"
+                          + ".total{margin-top:32px;padding-top:12px;border-top:2px solid #c8a96e;font-size:11px;color:#8a6020;text-align:right;letter-spacing:1px}"
+                          + "</style></head><body>"
                           + "<h1>✍️ Writing Session · Anna Benoir</h1>"
-                          + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>" + (writingBemerkung?"<br>"+writingBemerkung:"") + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name + "</div>"
-                          + (writingNotes["intro"] ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + writingNotes["intro"] + "</div></div>" : "")
-                          + Array.from({length:9},(_,pos) => {
+                          + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>"
+                          + (writingBemerkung ? "<br>" + writingBemerkung : "")
+                          + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name
+                          + "<br>" + heute + "</div>"
+                          + (introText ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
+                          + posLabels.map(({pos, label}) => {
                               const cn = matrixCards[pos];
-                              const t = writingNotes[String(pos)]||"";
+                              const t = writingNotes[String(pos)] || "";
+                              if (!t) return "";
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
-                              return "<div class='block'><div class='lbl'>"+posLabels[pos]+"</div><div class='karte'>"+(cn?SYMBOLS[cn]+" "+CARDS[cn].name:"–")+"</div>"+(t?"<div class='txt'>"+t+"</div><div class='cnt'>"+wc+" Wörter</div>":"")+"</div>";
+                              return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
-                          + (writingNotes["outro"] ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + writingNotes["outro"] + "</div></div>" : "")
+                          + (outroText ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + outroText + "</div><div class='cnt'>" + outroWc + " Wörter</div></div>" : "")
+                          + "<div class='total'>✦ Gesamt: " + totalWc + " Wörter</div>"
                           + "</body></html>";
                         const w = window.open("","_blank");
                         w.document.write(html);
@@ -1783,7 +1827,7 @@ export default function LenormandApp() {
         {view === "tagebuch" && dailyMode === "manifest" && (
           <div style={{ paddingBottom:30 }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>🌟 Manifest</div>
+              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Zauberzettel</div>
               <div style={{ fontSize:14, color:"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
                 Schreibe auf, was du dir wünschst und was du erschaffen willst. Trenne deine Wünsche mit einem Komma — und lass deine Schutzengel, das Universum und alle unsichtbaren Kräfte, die dir wohlgesonnen sind, dabei wirken.
               </div>
@@ -1796,6 +1840,8 @@ export default function LenormandApp() {
                 {key:"wochen", icon:"⏱️", label:"3 Wochen", sub:"Was kommt bald?",               placeholder:"z.B. die Wohnung aufräumen, einen Arzttermin machen, mehr spazieren gehen"},
                 {key:"monate", icon:"🌙", label:"3 Monate", sub:"Was wächst gerade?",            placeholder:"z.B. ein neues Auto, 5 kg abnehmen, einen Kurs belegen, mehr Zeit für Familie"},
                 {key:"jahre",  icon:"🌟", label:"3 Jahre",  sub:"Was ist dein großes Bild?",     placeholder:"z.B. ein Haus kaufen, den Job wechseln, eine Reise machen, finanziell frei sein"},
+                {key:"irgendwann", icon:"🌙", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen, ein Buch schreiben, am Meer leben…"},
+                {key:"traum",  icon:"💫", label:"Mein größter Traum", sub:"Das eine große Ding", placeholder:"Das was so groß ist, dass man es kaum auszusprechen wagt…"},
               ].map(({key, icon, label, sub, placeholder}) => (
                 <div key={key} style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 14px 10px" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
