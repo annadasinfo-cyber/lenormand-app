@@ -285,32 +285,84 @@ export default function LenormandApp() {
   const [writingCards, setWritingCards] = React.useState(null);
   const [writingNotes, setWritingNotes] = React.useState({});
   const [writingSessionId, setWritingSessionId] = React.useState(null);
+  const [writingProjectId, setWritingProjectId] = React.useState(null);
+  const [savedProjects, setSavedProjects] = React.useState([]);
+  const [showProjects, setShowProjects] = React.useState(false);
   const [activeWritingPos, setActiveWritingPos] = React.useState(null);
   const [showWritingMatrix, setShowWritingMatrix] = React.useState(true);
 
   const writingTimer = React.useRef(null);
-  const saveWritingSession = (notes, projekt, bemerkung) => {
-    if (writingTimer.current) clearTimeout(writingTimer.current);
-    writingTimer.current = setTimeout(async () => {
+
+  // Projekte laden
+  React.useEffect(() => {
+    const loadProjects = async () => {
       const uid = getUserId();
       if (!uid) return;
       try {
-        if (writingSessionId) {
-          await fetch(`${SUPABASE_URL}/rest/v1/writing_sessions?id=eq.${writingSessionId}`, {
-            method:"PATCH", headers: dbHeaders(),
-            body: JSON.stringify({notes, projekt, bemerkung, updated_at: new Date().toISOString()})
-          });
-        } else {
-          const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_sessions`, {
-            method:"POST",
-            headers: {...dbHeaders(), "Prefer": "return=representation"},
-            body: JSON.stringify({user_id: uid, notes, projekt, bemerkung})
-          });
-          const data = await r.json();
-          if (data && data[0]) setWritingSessionId(data[0].id);
-        }
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()});
+        const data = await r.json();
+        if (Array.isArray(data)) setSavedProjects(data);
       } catch {}
-    }, 1500);
+    };
+    loadProjects();
+  }, [session]);
+
+  const saveProject = async () => {
+    const uid = getUserId();
+    if (!uid || !writingProjekt) return;
+    try {
+      const payload = {
+        user_id: uid,
+        name: writingProjekt,
+        bemerkung: writingBemerkung,
+        notes: writingNotes,
+        matrix_cards: matrixCards,
+        signifikator: signifikator,
+        updated_at: new Date().toISOString()
+      };
+      if (writingProjectId) {
+        await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${writingProjectId}`, {
+          method:"PATCH", headers: dbHeaders(), body: JSON.stringify(payload)
+        });
+      } else {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects`, {
+          method:"POST", headers: {...dbHeaders(), "Prefer":"return=representation"},
+          body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        if (data && data[0]) setWritingProjectId(data[0].id);
+      }
+      // Refresh list
+      const r2 = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()});
+      const list = await r2.json();
+      if (Array.isArray(list)) setSavedProjects(list);
+    } catch {}
+  };
+
+  const loadProject = (proj) => {
+    setWritingProjekt(proj.name);
+    setWritingBemerkung(proj.bemerkung||"");
+    setWritingNotes(proj.notes||{});
+    setWritingProjectId(proj.id);
+    if (proj.matrix_cards) setMatrixCards(proj.matrix_cards);
+    if (proj.signifikator) setSignifikator(proj.signifikator);
+    setShowProjects(false);
+    setWritingView("writing");
+  };
+
+  const deleteProject = async (id) => {
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
+      setSavedProjects(prev => prev.filter(p => p.id !== id));
+      if (writingProjectId === id) { setWritingProjectId(null); }
+    } catch {}
+  };
+
+  const saveWritingSession = (notes, projekt, bemerkung) => {
+    if (writingTimer.current) clearTimeout(writingTimer.current);
+    writingTimer.current = setTimeout(() => saveProject(), 2000);
   };
 
   const getUserId = () => {
@@ -1808,23 +1860,42 @@ export default function LenormandApp() {
                   <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>✍️ Writing</div>
                   <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Woran arbeitest du heute?</div>
                 </div>
+
+                {/* Gespeicherte Projekte */}
+                {savedProjects.length > 0 && (
+                  <div style={{ marginBottom:20 }}>
+                    <div style={{ fontSize:10, color:"#7a6040", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>📂 Gespeicherte Projekte</div>
+                    {savedProjects.map(proj => (
+                      <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 12px" }}>
+                        <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", textAlign:"left" }}>
+                          ✍️ {proj.name}
+                        </button>
+                        <span style={{ fontSize:9, color:"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
+                        <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
+                      </div>
+                    ))}
+                    <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", marginTop:14, paddingTop:14 }} />
+                  </div>
+                )}
+
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Projekt-Name</div>
-                  <input placeholder="z.B. Mein neuer Roman" value={writingProjekt} onChange={e => setWritingProjekt(e.target.value)}
+                  <input placeholder="z.B. Mitmach-Mittwoch" value={writingProjekt} onChange={e => setWritingProjekt(e.target.value)}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                 </div>
                 <div style={{ marginBottom:24 }}>
                   <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
-                  <textarea placeholder="z.B. Szene 1 ~ Was noch geschah… (mehrere Zeilen möglich)" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={4}
+                  <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ display:"flex", justifyContent:"center" }}>
                   <button onClick={() => {
                     writingRandom();
                     setWritingNotes({});
+                    setWritingProjectId(null);
                     setWritingView("writing");
                   }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                    🎲 Mischen & Weiter →
+                    Weiter →
                   </button>
                 </div>
               </div>
@@ -1832,9 +1903,13 @@ export default function LenormandApp() {
 
             {writingView === "writing" && signifikator && matrixCards && (
               <div>
-                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
                   <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
-                  {writingProjekt && <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>✍️ {writingProjekt}</div>}
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    {writingProjekt && <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>✍️ {writingProjekt}</div>}
+                    <button onClick={() => { writingRandom(); }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.25)`, color:"#9a8060", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>🎲 neu</button>
+                    <button onClick={saveProject} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>💾 speichern</button>
+                  </div>
                 </div>
 
                 {/* Responsive: Handy = untereinander, Desktop = nebeneinander */}
@@ -2118,10 +2193,11 @@ export default function LenormandApp() {
                                 const prevKey = fieldKeys[keyIdx-1];
                                 const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
                                 items.splice(i, 1);
-                                updateManifest(key, items.join(', '));
                                 const prevItems = manifestData[prevKey] ? manifestData[prevKey].split(',').map(s=>s.trim()).filter(Boolean) : [];
                                 prevItems.push(item);
-                                updateManifest(prevKey, prevItems.join(', '));
+                                const updated = {...manifestData, [key]: items.join(', '), [prevKey]: prevItems.join(', ')};
+                                setManifestData(updated);
+                                saveManifest(updated);
                               }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene früher">↑</button>
                             )}
                             {/* Verschieben runter */}
@@ -2130,10 +2206,11 @@ export default function LenormandApp() {
                                 const nextKey = fieldKeys[keyIdx+1];
                                 const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
                                 items.splice(i, 1);
-                                updateManifest(key, items.join(', '));
                                 const nextItems = manifestData[nextKey] ? manifestData[nextKey].split(',').map(s=>s.trim()).filter(Boolean) : [];
                                 nextItems.unshift(item);
-                                updateManifest(nextKey, nextItems.join(', '));
+                                const updated = {...manifestData, [key]: items.join(', '), [nextKey]: nextItems.join(', ')};
+                                setManifestData(updated);
+                                saveManifest(updated);
                               }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene später">↓</button>
                             )}
                             {/* Löschen */}
