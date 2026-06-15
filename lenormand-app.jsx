@@ -288,24 +288,96 @@ export default function LenormandApp() {
   const [writingProjectId, setWritingProjectId] = React.useState(null);
   const [savedProjects, setSavedProjects] = React.useState([]);
   const [showProjects, setShowProjects] = React.useState(false);
+  const [folders, setFolders] = React.useState([]);
+  const [selectedFolder, setSelectedFolder] = React.useState(null);
+  const [newFolderName, setNewFolderName] = React.useState("");
+  const [showNewFolder, setShowNewFolder] = React.useState(false);
   const [activeWritingPos, setActiveWritingPos] = React.useState(null);
   const [showWritingMatrix, setShowWritingMatrix] = React.useState(true);
 
   const writingTimer = React.useRef(null);
 
-  // Projekte laden
+  // Ordner und Projekte laden
   React.useEffect(() => {
-    const loadProjects = async () => {
+    const loadAll = async () => {
       const uid = getUserId();
       if (!uid) return;
       try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()});
-        const data = await r.json();
-        if (Array.isArray(data)) setSavedProjects(data);
+        const [fR, pR] = await Promise.all([
+          fetch(`${SUPABASE_URL}/rest/v1/writing_project_folders?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()}),
+          fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()})
+        ]);
+        const fData = await fR.json();
+        const pData = await pR.json();
+        if (Array.isArray(fData)) setFolders(fData);
+        if (Array.isArray(pData)) setSavedProjects(pData);
       } catch {}
     };
-    loadProjects();
+    loadAll();
   }, [session]);
+
+  const createFolder = async () => {
+    if (!newFolderName.trim()) return;
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_project_folders`, {
+        method:"POST", headers: {...dbHeaders(), "Prefer":"return=representation"},
+        body: JSON.stringify({user_id: uid, name: newFolderName.trim()})
+      });
+      const data = await r.json();
+      if (data && data[0]) {
+        setFolders(prev => [...prev, data[0]]);
+        setSelectedFolder(data[0].id);
+      }
+      setNewFolderName(""); setShowNewFolder(false);
+    } catch {}
+  };
+
+  const deleteFolder = async (id) => {
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/writing_project_folders?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
+      setFolders(prev => prev.filter(f => f.id !== id));
+      if (selectedFolder === id) setSelectedFolder(null);
+    } catch {}
+  };
+
+  const printFolder = (folderId) => {
+    const folderName = folders.find(f => f.id === folderId)?.name || "Projekt";
+    const sessions = savedProjects.filter(p => p.folder_id === folderId);
+    const posLabels = ["Gedanken","IST-Situation","Rat der Engel","Warnung","Signifikator","Nahe Zukunft","Ursache","Unbewusste Zukunft","Ergebnis"];
+    const html = "<html><head><title>" + folderName + "</title><style>"
+      + "body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
+      + "h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}"
+      + "h2{color:#8a6020;margin-top:40px;border-bottom:1px solid #c8a96e;padding-bottom:4px}"
+      + ".meta{font-size:11px;color:#9a8060;margin-bottom:16px}"
+      + ".block{margin-bottom:16px;border-left:3px solid #c8a96e;padding-left:12px}"
+      + ".lbl{font-size:10px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}"
+      + ".txt{font-size:12px;color:#3a2a0a;white-space:pre-wrap}"
+      + "</style></head><body>"
+      + "<h1>✍️ " + folderName + "</h1>"
+      + sessions.map(s => {
+          const notes = s.notes || {};
+          const cards = s.matrix_cards || [];
+          return "<h2>" + s.name + "</h2>"
+            + "<div class='meta'>" + new Date(s.updated_at).toLocaleDateString('de-DE') + (s.bemerkung ? " · " + s.bemerkung : "") + "</div>"
+            + (notes["intro"] ? "<div class='block'><div class='lbl'>Intro</div><div class='txt'>" + notes["intro"] + "</div></div>" : "")
+            + [4,0,1,2,5,6,7,3,8].map(pos => {
+                const t = notes[String(pos)] || "";
+                if (!t) return "";
+                const cn = cards[pos];
+                return "<div class='block'><div class='lbl'>" + posLabels[pos] + (cn ? " · " + CARDS[cn]?.name : "") + "</div><div class='txt'>" + t + "</div></div>";
+              }).join("")
+            + (notes["outro"] ? "<div class='block'><div class='lbl'>Outro</div><div class='txt'>" + notes["outro"] + "</div></div>" : "");
+        }).join("<hr style='margin:32px 0;border-color:#c8a96e'>")
+      + "</body></html>";
+    const w = window.open("","_blank");
+    w.document.write(html);
+    w.document.close();
+    w.print();
+  };
 
   const saveProject = async () => {
     const uid = getUserId();
@@ -318,6 +390,7 @@ export default function LenormandApp() {
         notes: writingNotes,
         matrix_cards: matrixCards,
         signifikator: signifikator,
+        folder_id: selectedFolder || null,
         updated_at: new Date().toISOString()
       };
       if (writingProjectId) {
@@ -1861,26 +1934,56 @@ export default function LenormandApp() {
                   <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Woran arbeitest du heute?</div>
                 </div>
 
-                {/* Gespeicherte Projekte */}
-                {savedProjects.length > 0 && (
-                  <div style={{ marginBottom:20 }}>
-                    <div style={{ fontSize:10, color:"#7a6040", letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>📂 Gespeicherte Projekte</div>
-                    {savedProjects.map(proj => (
-                      <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 12px" }}>
-                        <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", textAlign:"left" }}>
-                          ✍️ {proj.name}
+                {/* Ordner */}
+                <div style={{ marginBottom:20 }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                    <div style={{ fontSize:10, color:"#7a6040", letterSpacing:2, textTransform:"uppercase" }}>📁 Projekte</div>
+                    <button onClick={() => setShowNewFolder(f => !f)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>+ Neu</button>
+                  </div>
+
+                  {showNewFolder && (
+                    <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                      <input placeholder="Projektname z.B. Dr. Lydia Hartmann" value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
+                        onKeyDown={e => e.key==="Enter" && createFolder()}
+                        style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
+                      <button onClick={createFolder} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>✓</button>
+                    </div>
+                  )}
+
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
+                    <button onClick={() => setSelectedFolder(null)}
+                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder?gold:"rgba(200,169,110,0.2)"}`, background:!selectedFolder?"rgba(200,169,110,0.12)":"transparent", color:!selectedFolder?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                      Alle
+                    </button>
+                    {folders.map(f => (
+                      <div key={f.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                        <button onClick={() => setSelectedFolder(f.id)}
+                          style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedFolder===f.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedFolder===f.id?"rgba(200,169,110,0.12)":"transparent", color:selectedFolder===f.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                          📁 {f.name}
                         </button>
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
-                        <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
+                        {selectedFolder===f.id && (
+                          <button onClick={() => printFolder(f.id)} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12 }} title="Ganzes Projekt drucken">🖨️</button>
+                        )}
+                        <button onClick={() => deleteFolder(f.id)} style={{ background:"transparent", border:"none", color:"#4a3a2a", cursor:"pointer", fontSize:10 }}>✕</button>
                       </div>
                     ))}
-                    <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", marginTop:14, paddingTop:14 }} />
                   </div>
-                )}
 
-                <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Projekt-Name</div>
-                  <input placeholder="z.B. Mitmach-Mittwoch" value={writingProjekt} onChange={e => setWritingProjekt(e.target.value)}
+                  {/* Sessions im gewählten Ordner */}
+                  {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).map(proj => (
+                    <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 12px" }}>
+                      <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textAlign:"left" }}>
+                        ✍️ {proj.name}
+                      </button>
+                      <span style={{ fontSize:9, color:"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
+                      <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16, marginBottom:14 }}>
+                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Session-Name</div>
+                  <input placeholder="z.B. Die Karten haben gesprochen… und ich schreibe es auf 😄" value={writingProjekt} onChange={e => setWritingProjekt(e.target.value)}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                 </div>
                 <div style={{ marginBottom:24 }}>
