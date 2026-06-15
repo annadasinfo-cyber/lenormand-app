@@ -277,23 +277,106 @@ export default function LenormandApp() {
   };
 
   // Klient-State
-  const [tagebuchView, setTagebuchView] = React.useState("tagebuch"); // tagebuch | doku
+  const [tagebuchView, setTagebuchView] = React.useState("tagebuch");
   const [dailyMode, setDailyMode] = React.useState("tagebuch");
   const [writingView, setWritingView] = React.useState("projekt");
   const [writingProjekt, setWritingProjekt] = React.useState("");
   const [writingBemerkung, setWritingBemerkung] = React.useState("");
   const [writingCards, setWritingCards] = React.useState(null);
   const [writingNotes, setWritingNotes] = React.useState({});
+  const [writingSessionId, setWritingSessionId] = React.useState(null);
   const [activeWritingPos, setActiveWritingPos] = React.useState(null);
   const [showWritingMatrix, setShowWritingMatrix] = React.useState(true);
 
-  const [manifestData, setManifestData] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem("lenni_manifest") || '{"heute":"","wochen":"","monate":"","jahre":"","irgendwann":"","traum":""}'); }
-    catch { return {heute:"", wochen:"", monate:"", jahre:"", irgendwann:"", traum:""}; }
-  });
-  const saveManifest = (data) => {
-    try { localStorage.setItem("lenni_manifest", JSON.stringify(data)); } catch {}
+  const writingTimer = React.useRef(null);
+  const saveWritingSession = (notes, projekt, bemerkung) => {
+    if (writingTimer.current) clearTimeout(writingTimer.current);
+    writingTimer.current = setTimeout(async () => {
+      const uid = getUserId();
+      if (!uid) return;
+      try {
+        if (writingSessionId) {
+          await fetch(`${SUPABASE_URL}/rest/v1/writing_sessions?id=eq.${writingSessionId}`, {
+            method:"PATCH", headers: dbHeaders(),
+            body: JSON.stringify({notes, projekt, bemerkung, updated_at: new Date().toISOString()})
+          });
+        } else {
+          const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_sessions`, {
+            method:"POST",
+            headers: {...dbHeaders(), "Prefer": "return=representation"},
+            body: JSON.stringify({user_id: uid, notes, projekt, bemerkung})
+          });
+          const data = await r.json();
+          if (data && data[0]) setWritingSessionId(data[0].id);
+        }
+      } catch {}
+    }, 1500);
   };
+
+  const getUserId = () => {
+    try {
+      const s = JSON.parse(localStorage.getItem("sb_session")||"null");
+      if (!s) return null;
+      const payload = JSON.parse(atob(s.access_token.split('.')[1]));
+      return payload.sub;
+    } catch { return null; }
+  };
+
+  const dbHeaders = () => {
+    const s = JSON.parse(localStorage.getItem("sb_session")||"null");
+    return {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${s?.access_token || SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=minimal"
+    };
+  };
+
+  // Zauberzettel
+  const emptyManifest = {heute:"", wochen:"", monate:"", jahre:"", irgendwann:"", traum:""};
+  const [manifestData, setManifestData] = React.useState(emptyManifest);
+
+  React.useEffect(() => {
+    const loadManifest = async () => {
+      const uid = getUserId();
+      if (!uid) return;
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
+        const data = await r.json();
+        if (data && data[0]) {
+          const {heute,wochen,monate,jahre,irgendwann,traum} = data[0];
+          setManifestData({heute:heute||"", wochen:wochen||"", monate:monate||"", jahre:jahre||"", irgendwann:irgendwann||"", traum:traum||""});
+        }
+      } catch {}
+    };
+    loadManifest();
+  }, [session]);
+
+  const saveManifestTimer = React.useRef(null);
+  const saveManifest = (data) => {
+    if (saveManifestTimer.current) clearTimeout(saveManifestTimer.current);
+    saveManifestTimer.current = setTimeout(async () => {
+      const uid = getUserId();
+      if (!uid) return;
+      try {
+        // Check if exists
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
+        const existing = await r.json();
+        if (existing && existing[0]) {
+          await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}`, {
+            method:"PATCH", headers: dbHeaders(),
+            body: JSON.stringify({...data, updated_at: new Date().toISOString()})
+          });
+        } else {
+          await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel`, {
+            method:"POST", headers: dbHeaders(),
+            body: JSON.stringify({user_id: uid, ...data})
+          });
+        }
+      } catch {}
+    }, 1000); // debounce 1 Sekunde
+  };
+
   const updateManifest = (field, value) => {
     const updated = {...manifestData, [field]: value};
     setManifestData(updated);
@@ -1826,7 +1909,7 @@ export default function LenormandApp() {
                       <textarea
                         placeholder="Deine Begrüßung, Einstieg, Ankündigung…"
                         value={writingNotes["intro"] || ""}
-                        onChange={e => setWritingNotes(prev => ({...prev, intro: e.target.value}))}
+                        onChange={e => { const n = {...writingNotes, intro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                         onFocus={() => setActiveWritingPos(null)}
                         onBlur={() => setActiveWritingPos(null)}
                         rows={2}
@@ -1873,7 +1956,7 @@ export default function LenormandApp() {
                           <textarea
                             placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
                             value={text}
-                            onChange={e => setWritingNotes(prev => ({...prev, [key]: e.target.value}))}
+                            onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                             onFocus={() => setActiveWritingPos(pos)}
                             onBlur={() => setActiveWritingPos(null)}
                             rows={2}
@@ -1895,7 +1978,7 @@ export default function LenormandApp() {
                       <textarea
                         placeholder="Dein Abschluss, Call to Action, Verabschiedung…"
                         value={writingNotes["outro"] || ""}
-                        onChange={e => setWritingNotes(prev => ({...prev, outro: e.target.value}))}
+                        onChange={e => { const n = {...writingNotes, outro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                         onFocus={() => setActiveWritingPos(null)}
                         onBlur={() => setActiveWritingPos(null)}
                         rows={2}
