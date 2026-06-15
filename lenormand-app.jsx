@@ -135,43 +135,60 @@ export default function LenormandApp() {
   const [view, setView] = useState("liesmich");
 
   // Auth
-  const [session, setSession] = React.useState(() => supabase.auth.getSession());
+  const [session, setSession] = React.useState(null);
+  const [authLoading, setAuthLoading] = React.useState(true); // start loading
+
+  // Verify session against Supabase on startup
+  React.useEffect(() => {
+    const verify = async () => {
+      // Check email confirmation redirect first
+      const hash = window.location.hash;
+      if (hash && hash.includes("access_token")) {
+        const params = new URLSearchParams(hash.replace("#","?"));
+        const access_token = params.get("access_token");
+        const refresh_token = params.get("refresh_token");
+        if (access_token) {
+          const sessionData = {access_token, refresh_token};
+          localStorage.setItem("sb_session", JSON.stringify(sessionData));
+          setSession(sessionData);
+          window.location.hash = "";
+          setAuthLoading(false);
+          return;
+        }
+      }
+      // Verify existing session
+      const s = supabase.auth.getSession();
+      if (s && s.access_token) {
+        try {
+          const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${s.access_token}` }
+          });
+          if (r.ok) { setSession(s); }
+          else { localStorage.removeItem("sb_session"); }
+        } catch { localStorage.removeItem("sb_session"); }
+      }
+      setAuthLoading(false);
+    };
+    verify();
+  }, []);
+
   const [authView, setAuthView] = React.useState("login");
   const [authEmail, setAuthEmail] = React.useState("");
   const [authPassword, setAuthPassword] = React.useState("");
   const [authMsg, setAuthMsg] = React.useState("");
-  const [authLoading, setAuthLoading] = React.useState(false);
-
-  // Handle email confirmation redirect
-  React.useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.includes("access_token")) {
-      const params = new URLSearchParams(hash.replace("#","?"));
-      const access_token = params.get("access_token");
-      const refresh_token = params.get("refresh_token");
-      if (access_token) {
-        const sessionData = {access_token, refresh_token};
-        localStorage.setItem("sb_session", JSON.stringify(sessionData));
-        setSession(sessionData);
-        window.location.hash = "";
-      }
-    }
-  }, []);
 
   const handleLogin = async () => {
-    setAuthLoading(true); setAuthMsg("");
+    setAuthMsg(""); 
     const data = await supabase.auth.signInWithPassword({email: authEmail, password: authPassword});
     if (data.access_token) { setSession(data); }
     else { setAuthMsg(data.error_description || data.msg || "E-Mail oder Passwort falsch"); }
-    setAuthLoading(false);
   };
 
   const handleRegister = async () => {
-    setAuthLoading(true); setAuthMsg("");
+    setAuthMsg("");
     const data = await supabase.auth.signUp({email: authEmail, password: authPassword});
     if (data.id || data.user) { setAuthMsg("✉️ Fast geschafft! Bitte bestätige deine E-Mail — dann kannst du dich einloggen."); setAuthView("login"); }
     else { setAuthMsg(data.error_description || data.msg || "Fehler bei der Registrierung"); }
-    setAuthLoading(false);
   };
 
   const handleLogout = () => {
@@ -179,6 +196,16 @@ export default function LenormandApp() {
     setSession(null);
     setAuthEmail(""); setAuthPassword(""); setAuthMsg("");
   };
+
+  // Loading screen while verifying session
+  if (authLoading) return (
+    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Georgia,serif" }}>
+      <div style={{ textAlign:"center", color:"#c8a96e" }}>
+        <div style={{ fontSize:32, marginBottom:12 }}>🐍</div>
+        <div style={{ fontSize:12, letterSpacing:3, color:"#5a4a34" }}>WIRD GELADEN…</div>
+      </div>
+    </div>
+  );
 
   // Login Screen
   if (!session) return (
@@ -234,9 +261,9 @@ export default function LenormandApp() {
             </div>
           )}
 
-          <button onClick={authView==="login" ? handleLogin : handleRegister} disabled={authLoading}
-            style={{ width:"100%", padding:"12px", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1, opacity:authLoading?0.6:1 }}>
-            {authLoading ? "…bitte warten…" : authView==="login" ? "✨ Einloggen" : "✨ Registrieren"}
+          <button onClick={authView==="login" ? handleLogin : handleRegister}
+            style={{ width:"100%", padding:"12px", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+            {authView==="login" ? "✨ Einloggen" : "✨ Registrieren"}
           </button>
 
           {authView==="register" && !authMsg && (
