@@ -155,49 +155,82 @@ export default function LenormandApp() {
   const gold = "#c8a96e";
 
   // Login Screen
+  // Handle email confirmation redirect
+  React.useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.replace("#","?"));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      if (access_token) {
+        const sessionData = {access_token, refresh_token};
+        localStorage.setItem("sb_session", JSON.stringify(sessionData));
+        setSession(sessionData);
+        window.location.hash = "";
+      }
+    }
+  }, []);
+
   if (!session) return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
-      <div style={{ width:"100%", maxWidth:420, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:16, padding:"36px 32px" }}>
-        <div style={{ textAlign:"center", marginBottom:28 }}>
-          <div style={{ fontSize:10, letterSpacing:6, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>Anna Benoir</div>
-          <h1 style={{ fontSize:28, fontWeight:"normal", color:gold, margin:"0 0 6px", letterSpacing:2 }}>Lenormand Matrix</h1>
-          <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
+    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"stretch" }}>
+
+      {/* Links: Bild — nur auf größeren Screens */}
+      <div style={{ flex:"1 1 50%", position:"relative", overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <img src={SPLASH_IMAGES[Math.floor(Math.random()*SPLASH_IMAGES.length)]}
+          alt="" style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top", opacity:0.7 }} />
+        <div style={{ position:"absolute", inset:0, background:"linear-gradient(to right, transparent 60%, #080512)" }} />
+        <div style={{ position:"absolute", bottom:40, left:30, right:30 }}>
+          <div style={{ fontSize:10, letterSpacing:6, color:"rgba(200,169,110,0.7)", textTransform:"uppercase", marginBottom:6 }}>Anna Benoir</div>
+          <div style={{ fontSize:28, color:"#c8a96e", fontWeight:"normal", letterSpacing:2, textShadow:"0 2px 20px rgba(0,0,0,0.8)" }}>Lenormand Matrix</div>
+          <div style={{ fontSize:11, color:"rgba(200,169,110,0.5)", fontStyle:"italic", marginTop:4 }}>Die Sprache hinter den Zeichen</div>
         </div>
+      </div>
 
-        <div style={{ display:"flex", gap:8, marginBottom:24, justifyContent:"center" }}>
-          {[["login","Einloggen"],["register","Registrieren"]].map(([v,l]) => (
-            <button key={v} onClick={() => { setAuthView(v); setAuthMsg(""); }}
-              style={{ padding:"6px 18px", borderRadius:6, border:`1px solid ${authView===v?gold:"rgba(200,169,110,0.2)"}`, background:authView===v?"rgba(200,169,110,0.12)":"transparent", color:authView===v?gold:"#7a6040", cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-              {l}
-            </button>
-          ))}
-        </div>
+      {/* Rechts: Login-Formular */}
+      <div style={{ flex:"0 0 min(100%, 400px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 32px", background:"rgba(8,5,18,0.95)" }}>
+        <div style={{ width:"100%", maxWidth:360 }}>
+          <div style={{ textAlign:"center", marginBottom:28 }}>
+            <div style={{ fontSize:22, color:"#c8a96e", fontWeight:"normal", marginBottom:4 }}>Willkommen</div>
+            <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Melde dich an um fortzufahren</div>
+          </div>
 
-        <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>E-Mail</div>
-          <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
-            placeholder="deine@email.de"
-            style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-        </div>
+          <div style={{ display:"flex", gap:8, marginBottom:24, justifyContent:"center" }}>
+            {[["login","Einloggen"],["register","Registrieren"]].map(([v,l]) => (
+              <button key={v} onClick={() => { setAuthView(v); setAuthMsg(""); }}
+                style={{ padding:"6px 18px", borderRadius:6, border:`1px solid ${authView===v?gold:"rgba(200,169,110,0.2)"}`, background:authView===v?"rgba(200,169,110,0.12)":"transparent", color:authView===v?gold:"#7a6040", cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                {l}
+              </button>
+            ))}
+          </div>
 
-        <div style={{ marginBottom:20 }}>
-          <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Passwort</div>
-          <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
-            onKeyDown={e => e.key==="Enter" && (authView==="login" ? handleLogin() : handleRegister())}
-            placeholder="••••••••"
-            style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-        </div>
+          <div style={{ marginBottom:14 }}>
+            <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>E-Mail</div>
+            <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
+              placeholder="deine@email.de"
+              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+          </div>
 
-        {authMsg && <div style={{ fontSize:12, color: authMsg.startsWith("✉️") ? "#90d090" : "#c87a6a", marginBottom:14, textAlign:"center", lineHeight:1.6 }}>{authMsg}</div>}
+          <div style={{ marginBottom:20 }}>
+            <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Passwort</div>
+            <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
+              onKeyDown={e => e.key==="Enter" && (authView==="login" ? handleLogin() : handleRegister())}
+              placeholder="••••••••"
+              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+          </div>
 
-        <button onClick={authView==="login" ? handleLogin : handleRegister} disabled={authLoading}
-          style={{ width:"100%", padding:"12px", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1, opacity:authLoading?0.6:1 }}>
-          {authLoading ? "…" : authView==="login" ? "✨ Einloggen" : "✨ Registrieren"}
-        </button>
+          {authMsg && <div style={{ fontSize:12, color: authMsg.startsWith("✉️") ? "#90d090" : "#c87a6a", marginBottom:14, textAlign:"center", lineHeight:1.6 }}>{authMsg}</div>}
 
-        <div style={{ textAlign:"center", marginTop:20, fontSize:10, color:"#3a2a18", lineHeight:1.7 }}>
-          ✦ Noch kein Konto? Registriere dich — es ist kostenlos.<br/>
-          Du bekommst eine E-Mail zur Bestätigung.
+          <button onClick={authView==="login" ? handleLogin : handleRegister} disabled={authLoading}
+            style={{ width:"100%", padding:"12px", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1, opacity:authLoading?0.6:1 }}>
+            {authLoading ? "…" : authView==="login" ? "✨ Einloggen" : "✨ Registrieren"}
+          </button>
+
+          {authView==="register" && (
+            <div style={{ textAlign:"center", marginTop:16, fontSize:10, color:"#3a2a18", lineHeight:1.7 }}>
+              Du bekommst eine Bestätigungs-E-Mail.<br/>
+              Bitte klicke den Link darin — dann kannst du dich einloggen.
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -385,7 +418,7 @@ export default function LenormandApp() {
   ];
   const splashImage = SPLASH_IMAGES[Math.floor(Math.random() * SPLASH_IMAGES.length)];
   // --- Splash Screen ---
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(false);
 
   // --- Zugangsschutz ---
   const VALID_PASSWORDS = [
