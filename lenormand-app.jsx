@@ -135,48 +135,23 @@ export default function LenormandApp() {
   const [view, setView] = useState("liesmich");
 
   // Auth
-  const [session, setSession] = React.useState(null);
-  const [authLoading, setAuthLoading] = React.useState(true); // start loading
+  const [session, setSession] = React.useState(() => supabase.auth.getSession());
+  const [authLoading, setAuthLoading] = React.useState(false);
 
-  // Verify session against Supabase on startup
+  // Simple instant check - no async verification
   React.useEffect(() => {
-    const verify = async () => {
-      // Check email confirmation redirect first
-      const hash = window.location.hash;
-      if (hash && hash.includes("access_token")) {
-        const params = new URLSearchParams(hash.replace("#","?"));
-        const access_token = params.get("access_token");
-        const refresh_token = params.get("refresh_token");
-        if (access_token) {
-          const sessionData = {access_token, refresh_token};
-          localStorage.setItem("sb_session", JSON.stringify(sessionData));
-          setSession(sessionData);
-          window.location.hash = "";
-          setAuthLoading(false);
-          return;
-        }
+    const hash = window.location.hash;
+    if (hash && hash.includes("access_token")) {
+      const params = new URLSearchParams(hash.replace("#","?"));
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      if (access_token) {
+        const sessionData = {access_token, refresh_token};
+        localStorage.setItem("sb_session", JSON.stringify(sessionData));
+        setSession(sessionData);
+        window.location.hash = "";
       }
-      // Verify existing session with timeout
-      const s = supabase.auth.getSession();
-      if (s && s.access_token) {
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 3000);
-          const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${s.access_token}` },
-            signal: controller.signal
-          });
-          clearTimeout(timeout);
-          if (r.ok) { setSession(s); }
-          else { localStorage.removeItem("sb_session"); }
-        } catch { 
-          // On timeout or error — show login
-          localStorage.removeItem("sb_session");
-        }
-      }
-      setAuthLoading(false);
-    };
-    verify();
+    }
   }, []);
 
   const [authView, setAuthView] = React.useState("login");
@@ -203,16 +178,6 @@ export default function LenormandApp() {
     setSession(null);
     setAuthEmail(""); setAuthPassword(""); setAuthMsg("");
   };
-
-  // Loading screen while verifying session
-  if (authLoading) return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"Georgia,serif" }}>
-      <div style={{ textAlign:"center", color:"#c8a96e" }}>
-        <div style={{ fontSize:32, marginBottom:12 }}>🐍</div>
-        <div style={{ fontSize:12, letterSpacing:3, color:"#5a4a34" }}>WIRD GELADEN…</div>
-      </div>
-    </div>
-  );
 
   // Login Screen
   if (!session) return (
