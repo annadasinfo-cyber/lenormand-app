@@ -26,7 +26,20 @@ const supabase = (() => {
         localStorage.removeItem("sb_session");
       },
       getSession: () => {
-        try { return JSON.parse(localStorage.getItem("sb_session")||"null"); } catch { return null; }
+        try {
+          const s = JSON.parse(localStorage.getItem("sb_session")||"null");
+          if (!s || !s.access_token) return null;
+          // Check if expired
+          const payload = JSON.parse(atob(s.access_token.split('.')[1]));
+          if (payload.exp && payload.exp < Date.now()/1000) {
+            localStorage.removeItem("sb_session");
+            return null;
+          }
+          return s;
+        } catch { 
+          localStorage.removeItem("sb_session");
+          return null; 
+        }
       }
     }
   };
