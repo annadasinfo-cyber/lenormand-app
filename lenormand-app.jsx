@@ -669,12 +669,6 @@ export default function LenormandApp() {
 
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", background:"radial-gradient(ellipse at 15% 15%,rgba(180,120,60,0.07) 0%,transparent 45%),radial-gradient(ellipse at 85% 85%,rgba(60,40,100,0.08) 0%,transparent 45%)" }}/>
 
-      {/* Schlange im Baum — Deko oben links */}
-      <img src="https://static.wixstatic.com/media/3da789_354bda4beaab46beb9490b794f294a83~mv2.png"
-        alt="" aria-hidden="true"
-        style={{ position:"fixed", top:0, left:0, width:"min(340px, 35vw)", opacity:0.12, pointerEvents:"none", zIndex:0, userSelect:"none" }}
-      />
-
       {/* Header */}
       <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:"1px solid rgba(200,169,110,0.15)" }}>
         <div style={{ fontSize:10, letterSpacing:6, color:"#7a6040", marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
@@ -1612,17 +1606,18 @@ export default function LenormandApp() {
                   <div style={{ flex:"1 1 280px" }}>
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>✍️ Deine Notizen</div>
                     {[
-                      {pos:0, icon:"💭", label:"Gedanken | 1. Katastrophe"},
-                      {pos:1, icon:"🎭", label:"IST-Situation | 2. Katastrophe"},
-                      {pos:2, icon:"👼", label:"Rat der Engel"},
-                      {pos:3, icon:"⚠️", label:"Warnung"},
-                      {pos:4, icon:"📖", label:"Signifikator | Thema | Anfang"},
-                      {pos:5, icon:"🔮", label:"Nahe Zukunft | 3. Katastrophe"},
-                      {pos:6, icon:"🦋", label:"Wo es herkommt | Rückzug"},
-                      {pos:7, icon:"🌌", label:"Unbewusste Zukunft | Mittelteil"},
-                      {pos:8, icon:"🎯", label:"Ergebnis | Pay Off"},
-                    ].map(({pos, icon, label}) => {
+                      {pos:4, icon:"📖", label:"Signifikator | Thema | Anfang", comboWith: null},
+                      {pos:0, icon:"💭", label:"Gedanken | 1. Katastrophe", comboWith: null},
+                      {pos:1, icon:"🎭", label:"IST-Situation | 2. Katastrophe", comboWith: 4},
+                      {pos:2, icon:"👼", label:"Rat der Engel", comboWith: null},
+                      {pos:3, icon:"⚠️", label:"Warnung", comboWith: null},
+                      {pos:5, icon:"🔮", label:"Nahe Zukunft | 3. Katastrophe", comboWith: 4},
+                      {pos:6, icon:"🦋", label:"Wo es herkommt | Rückzug", comboWith: null},
+                      {pos:7, icon:"🌌", label:"Unbewusste Zukunft | Mittelteil", comboWith: 4},
+                      {pos:8, icon:"🎯", label:"Ergebnis | Pay Off", comboWith: null},
+                    ].map(({pos, icon, label, comboWith}) => {
                       const cardNum = matrixCards[pos];
+                      const comboCardNum = comboWith !== null ? matrixCards[comboWith] : null;
                       const key = String(pos);
                       const text = writingNotes[key] || "";
                       const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
@@ -1632,18 +1627,27 @@ export default function LenormandApp() {
                           <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
                             <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
-                            {cardNum && <><span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span><span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span></>}
-                            <span style={{ fontSize:11 }}>{reached ? "🟢" : "⬜"}</span>
+                            {/* Karte(n) anzeigen */}
+                            {cardNum && (<>
+                              <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
+                              <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
+                            </>)}
+                            {comboCardNum && (<>
+                              <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
+                              <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
+                              <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
+                            </>)}
+                            {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                           </div>
                           <textarea
-                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + " hier?" : "Notizen…"}
+                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
                             value={text}
                             onChange={e => setWritingNotes(prev => ({...prev, [key]: e.target.value}))}
                             rows={2}
                             style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
                           />
                           <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                            {wordCount} / 150 {reached ? "✓" : ""}
+                            {wordCount} / 150
                           </div>
                         </div>
                       );
