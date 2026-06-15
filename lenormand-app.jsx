@@ -2062,7 +2062,7 @@ export default function LenormandApp() {
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Zauberzettel</div>
               <div style={{ fontSize:14, color:"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
-                Schreibe auf, was du dir wünschst und was du erschaffen willst. Trenne deine Wünsche mit einem Komma — und lass deine Schutzengel, das Universum und alle unsichtbaren Kräfte, die dir wohlgesonnen sind, dabei wirken.
+                Schreibe auf, was du dir wünschst und was du erschaffen willst. Trenne deine Wünsche mit einem Komma — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
               </div>
             </div>
 
@@ -2091,12 +2091,60 @@ export default function LenormandApp() {
                     rows={4}
                     style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.7 }}
                   />
-                  {/* Vorschau als Liste */}
+                  {/* Interaktive Liste */}
                   {manifestData[key] && (
                     <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
-                      {manifestData[key].split(',').map(s => s.trim()).filter(Boolean).map((item, i) => (
-                        <div key={i} style={{ fontSize:10, color:"#7a6040", lineHeight:1.8 }}>☐ {item}</div>
-                      ))}
+                      {manifestData[key].split(',').map(s => s.trim()).filter(Boolean).map((item, i) => {
+                        const checkedKey = `_checked_${key}`;
+                        const checked = (manifestData[checkedKey] || []).includes(i);
+                        const fieldKeys = ["heute","wochen","monate","jahre","irgendwann","traum"];
+                        const keyIdx = fieldKeys.indexOf(key);
+                        return (
+                          <div key={i} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, padding:"3px 6px", borderRadius:4, background: checked?"rgba(90,154,90,0.08)":"transparent" }}>
+                            {/* Checkbox */}
+                            <button onClick={() => {
+                              const ck = `_checked_${key}`;
+                              const current = manifestData[ck] || [];
+                              const newChecked = checked ? current.filter(x => x !== i) : [...current, i];
+                              updateManifest(ck, newChecked);
+                            }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:0, color: checked?"#5a9a5a":"#7a6040" }}>
+                              {checked ? "☑️" : "☐"}
+                            </button>
+                            {/* Text */}
+                            <span style={{ flex:1, fontSize:11, color: checked?"#5a7a5a":"#9a8060", textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
+                            {/* Verschieben hoch */}
+                            {keyIdx > 0 && (
+                              <button onClick={() => {
+                                const prevKey = fieldKeys[keyIdx-1];
+                                const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                                items.splice(i, 1);
+                                updateManifest(key, items.join(', '));
+                                const prevItems = manifestData[prevKey] ? manifestData[prevKey].split(',').map(s=>s.trim()).filter(Boolean) : [];
+                                prevItems.push(item);
+                                updateManifest(prevKey, prevItems.join(', '));
+                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene früher">↑</button>
+                            )}
+                            {/* Verschieben runter */}
+                            {keyIdx < fieldKeys.length-1 && (
+                              <button onClick={() => {
+                                const nextKey = fieldKeys[keyIdx+1];
+                                const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                                items.splice(i, 1);
+                                updateManifest(key, items.join(', '));
+                                const nextItems = manifestData[nextKey] ? manifestData[nextKey].split(',').map(s=>s.trim()).filter(Boolean) : [];
+                                nextItems.unshift(item);
+                                updateManifest(nextKey, nextItems.join(', '));
+                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene später">↓</button>
+                            )}
+                            {/* Löschen */}
+                            <button onClick={() => {
+                              const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                              items.splice(i, 1);
+                              updateManifest(key, items.join(', '));
+                            }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a3a2a", padding:"0 2px" }}>✕</button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
