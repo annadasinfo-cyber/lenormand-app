@@ -156,16 +156,23 @@ export default function LenormandApp() {
           return;
         }
       }
-      // Verify existing session
+      // Verify existing session with timeout
       const s = supabase.auth.getSession();
       if (s && s.access_token) {
         try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3000);
           const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${s.access_token}` }
+            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${s.access_token}` },
+            signal: controller.signal
           });
+          clearTimeout(timeout);
           if (r.ok) { setSession(s); }
           else { localStorage.removeItem("sb_session"); }
-        } catch { localStorage.removeItem("sb_session"); }
+        } catch { 
+          // On timeout or error — show login
+          localStorage.removeItem("sb_session");
+        }
       }
       setAuthLoading(false);
     };
