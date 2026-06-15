@@ -1792,7 +1792,7 @@ export default function LenormandApp() {
                           + ".cnt{font-size:9px;color:#9a8060;margin-top:3px}"
                           + ".total{margin-top:32px;padding-top:12px;border-top:2px solid #c8a96e;font-size:11px;color:#8a6020;text-align:right;letter-spacing:1px}"
                           + "</style></head><body>"
-                          + "<h1>✍️ Writing Session · Anna Benoir</h1>"
+                          + "<h1>✍️ Writing Session</h1>"
                           + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>"
                           + (writingBemerkung ? "<br>" + writingBemerkung : "")
                           + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name
@@ -1840,7 +1840,7 @@ export default function LenormandApp() {
                 {key:"wochen", icon:"⏱️", label:"3 Wochen", sub:"Was kommt bald?",               placeholder:"z.B. die Wohnung aufräumen, einen Arzttermin machen, mehr spazieren gehen"},
                 {key:"monate", icon:"🌙", label:"3 Monate", sub:"Was wächst gerade?",            placeholder:"z.B. ein neues Auto, 5 kg abnehmen, einen Kurs belegen, mehr Zeit für Familie"},
                 {key:"jahre",  icon:"🌟", label:"3 Jahre",  sub:"Was ist dein großes Bild?",     placeholder:"z.B. ein Haus kaufen, den Job wechseln, eine Reise machen, finanziell frei sein"},
-                {key:"irgendwann", icon:"🌙", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen, ein Buch schreiben, am Meer leben…"},
+                {key:"irgendwann", icon:"✨", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen, ein Buch schreiben, am Meer leben…"},
                 {key:"traum",  icon:"💫", label:"Mein größter Traum", sub:"Das eine große Ding", placeholder:"Das was so groß ist, dass man es kaum auszusprechen wagt…"},
               ].map(({key, icon, label, sub, placeholder}) => (
                 <div key={key} style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 14px 10px" }}>
@@ -1873,7 +1873,7 @@ export default function LenormandApp() {
             <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
               <button onClick={druckeManifest}
                 style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                🖨️ Manifest drucken
+                🖨️ Zauberzettel drucken
               </button>
             </div>
           </div>
