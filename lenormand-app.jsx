@@ -541,21 +541,6 @@ export default function LenormandApp() {
     writingTimer.current = setTimeout(() => saveProject(), 600);
   };
 
-  // Beim Verlassen der Seite / Tab-Wechsel sofort speichern, statt auf den Debounce-Timer zu warten
-  React.useEffect(() => {
-    const flush = () => {
-      if (writingTimer.current) {
-        clearTimeout(writingTimer.current);
-        saveProject();
-      }
-    };
-    window.addEventListener("beforeunload", flush);
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
-    return () => {
-      window.removeEventListener("beforeunload", flush);
-    };
-  }, [writingNotes, writingProjekt, writingBemerkung, writingHook, matrixCards, signifikator]);
-
   const getUserId = () => {
     try {
       const s = JSON.parse(localStorage.getItem("sb_session")||"null");
@@ -589,7 +574,22 @@ export default function LenormandApp() {
         const data = await r.json();
         if (data && data[0]) {
           const {heute,wochen,monate,jahre,irgendwann,traum} = data[0];
-          setManifestData({heute:heute||"", wochen:wochen||"", monate:monate||"", jahre:jahre||"", irgendwann:irgendwann||"", traum:traum||""});
+          const raw = {heute:heute||"", wochen:wochen||"", monate:monate||"", jahre:jahre||"", irgendwann:irgendwann||"", traum:traum||""};
+          // Migration: alte komma-getrennte Einträge in Zeilenumbruch-Format umwandeln.
+          // Heuristik: Feld enthält ein Komma, aber noch keinen Zeilenumbruch -> alter Stand.
+          let changed = false;
+          const migrated = {};
+          for (const k of ["heute","wochen","monate","jahre","irgendwann","traum"]) {
+            const val = raw[k];
+            if (typeof val === "string" && val.includes(",") && !val.includes("\n")) {
+              migrated[k] = val.split(",").map(s => s.trim()).filter(Boolean).join("\n");
+              changed = true;
+            } else {
+              migrated[k] = val;
+            }
+          }
+          setManifestData(migrated);
+          if (changed) saveManifest(migrated);
         }
       } catch {}
     };
@@ -655,7 +655,7 @@ export default function LenormandApp() {
     const wochen = new Date(heute); wochen.setDate(heute.getDate()+21);
     const monate = new Date(heute); monate.setMonth(heute.getMonth()+3);
     const jahre = new Date(heute); jahre.setFullYear(heute.getFullYear()+3);
-    const toList = (text) => text.split(',').map(s => s.trim()).filter(Boolean)
+    const toList = (text) => text.split('\n').map(s => s.trim()).filter(Boolean)
       .map(s => "<div class='item'>☐ " + s + "</div>").join("");
     const html = "<html><head><title>Zauberzettel</title><style>"
       + "body{font-family:Georgia,serif;max-width:800px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
@@ -894,6 +894,21 @@ export default function LenormandApp() {
   const [signifikator, setSignifikator] = useState(null);
   const [matrixCards, setMatrixCards] = useState(Array(9).fill(null)); // 9 positions, pos 4 = signifikator
   const [activePos, setActivePos] = useState(null); // which position is being filled
+
+  // Beim Verlassen der Seite / Tab-Wechsel sofort speichern, statt auf den Debounce-Timer zu warten
+  React.useEffect(() => {
+    const flush = () => {
+      if (writingTimer.current) {
+        clearTimeout(writingTimer.current);
+        saveProject();
+      }
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [writingNotes, writingProjekt, writingBemerkung, writingHook, matrixCards, signifikator]);
 
   const reset = () => {
     setSelected([]); setSearch(""); setCardDetail(null);
@@ -2654,18 +2669,18 @@ export default function LenormandApp() {
                 {manifestSaveStatus==="error" && "⚠ Nicht gespeichert — bitte Internetverbindung prüfen"}
               </div>
               <div style={{ fontSize:14, color:"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
-                Schreibe auf, was du dir wünschst und was du erschaffen willst. Trenne deine Wünsche mit einem Komma — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
+                Schreibe auf, was du dir wünschst und was du erschaffen willst. Drücke Enter für einen neuen Punkt — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
               </div>
             </div>
 
             {/* 2×2 Grid */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:14, marginBottom:20 }}>
               {[
-                {key:"heute",  icon:"📅", label:"Heute",    sub:"Was ist jetzt dran?",           placeholder:"z.B. ausreichend schlafen, mehr Wasser trinken, einen Brief schreiben"},
-                {key:"wochen", icon:"⏱️", label:"3 Wochen", sub:"Was kommt bald?",               placeholder:"z.B. die Wohnung aufräumen, einen Arzttermin machen, mehr spazieren gehen"},
-                {key:"monate", icon:"🌙", label:"3 Monate", sub:"Was wächst gerade?",            placeholder:"z.B. ein neues Auto, 5 kg abnehmen, einen Kurs belegen, mehr Zeit für Familie"},
-                {key:"jahre",  icon:"🌟", label:"3 Jahre",  sub:"Was ist dein großes Bild?",     placeholder:"z.B. ein Haus kaufen, den Job wechseln, eine Reise machen, finanziell frei sein"},
-                {key:"irgendwann", icon:"✨", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen, ein Buch schreiben, am Meer leben…"},
+                {key:"heute",  icon:"📅", label:"Heute",    sub:"Was ist jetzt dran?",           placeholder:"z.B. ausreichend schlafen\nmehr Wasser trinken\neinen Brief schreiben"},
+                {key:"wochen", icon:"⏱️", label:"3 Wochen", sub:"Was kommt bald?",               placeholder:"z.B. die Wohnung aufräumen\neinen Arzttermin machen\nmehr spazieren gehen"},
+                {key:"monate", icon:"🌙", label:"3 Monate", sub:"Was wächst gerade?",            placeholder:"z.B. ein neues Auto\n5 kg abnehmen\neinen Kurs belegen\nmehr Zeit für Familie"},
+                {key:"jahre",  icon:"🌟", label:"3 Jahre",  sub:"Was ist dein großes Bild?",     placeholder:"z.B. ein Haus kaufen\nden Job wechseln\neine Reise machen\nfinanziell frei sein"},
+                {key:"irgendwann", icon:"✨", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen\nein Buch schreiben\nam Meer leben…"},
                 {key:"traum",  icon:"💫", label:"Mein größter Traum", sub:"Das eine große Ding", placeholder:"Das was so groß ist, dass man es kaum auszusprechen wagt…"},
               ].map(({key, icon, label, sub, placeholder}) => (
                 <div key={key} style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 14px 10px" }}>
@@ -2686,7 +2701,7 @@ export default function LenormandApp() {
                   {/* Interaktive Liste */}
                   {manifestData[key] && (
                     <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
-                      {manifestData[key].split(',').map(s => s.trim()).filter(Boolean).map((item, i) => {
+                      {manifestData[key].split('\n').map(s => s.trim()).filter(Boolean).map((item, i) => {
                         const checkedKey = `_checked_${key}`;
                         const checked = (manifestData[checkedKey] || []).includes(i);
                         const fieldKeys = ["heute","wochen","monate","jahre","irgendwann","traum"];
@@ -2708,11 +2723,11 @@ export default function LenormandApp() {
                             {keyIdx > 0 && (
                               <button onClick={() => {
                                 const prevKey = fieldKeys[keyIdx-1];
-                                const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
                                 items.splice(i, 1);
-                                const prevItems = manifestData[prevKey] ? manifestData[prevKey].split(',').map(s=>s.trim()).filter(Boolean) : [];
+                                const prevItems = manifestData[prevKey] ? manifestData[prevKey].split('\n').map(s=>s.trim()).filter(Boolean) : [];
                                 prevItems.push(item);
-                                const updated = {...manifestData, [key]: items.join(', '), [prevKey]: prevItems.join(', ')};
+                                const updated = {...manifestData, [key]: items.join('\n'), [prevKey]: prevItems.join('\n')};
                                 setManifestData(updated);
                                 saveManifest(updated);
                               }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene früher">↑</button>
@@ -2721,20 +2736,20 @@ export default function LenormandApp() {
                             {keyIdx < fieldKeys.length-1 && (
                               <button onClick={() => {
                                 const nextKey = fieldKeys[keyIdx+1];
-                                const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
                                 items.splice(i, 1);
-                                const nextItems = manifestData[nextKey] ? manifestData[nextKey].split(',').map(s=>s.trim()).filter(Boolean) : [];
+                                const nextItems = manifestData[nextKey] ? manifestData[nextKey].split('\n').map(s=>s.trim()).filter(Boolean) : [];
                                 nextItems.unshift(item);
-                                const updated = {...manifestData, [key]: items.join(', '), [nextKey]: nextItems.join(', ')};
+                                const updated = {...manifestData, [key]: items.join('\n'), [nextKey]: nextItems.join('\n')};
                                 setManifestData(updated);
                                 saveManifest(updated);
                               }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene später">↓</button>
                             )}
                             {/* Löschen */}
                             <button onClick={() => {
-                              const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                              const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
                               items.splice(i, 1);
-                              updateManifest(key, items.join(', '));
+                              updateManifest(key, items.join('\n'));
                             }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a3a2a", padding:"0 2px" }}>✕</button>
                           </div>
                         );
