@@ -303,6 +303,7 @@ export default function LenormandApp() {
   const [showSaveTemplate, setShowSaveTemplate] = React.useState(false);
   const [newTemplateName, setNewTemplateName] = React.useState("");
   const [showLoadTemplate, setShowLoadTemplate] = React.useState(false);
+  const [selectedTemplate, setSelectedTemplate] = React.useState(null);
 
   const writingTimer = React.useRef(null);
 
@@ -2039,19 +2040,45 @@ export default function LenormandApp() {
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                 </div>
                 <div style={{ marginBottom:24 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
-                  <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                </div>
-                <div style={{ marginBottom:24 }}>
                   <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>🎯 The Hook</div>
                   <textarea placeholder="Der Aufhänger, der die Leute reinzieht…" value={writingHook} onChange={e => setWritingHook(e.target.value)} rows={2}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
+                <div style={{ marginBottom:24 }}>
+                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
+                  <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                </div>
+
+                <div style={{ marginBottom:24 }}>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                    <div style={{ fontSize:11, color:"#9a8060" }}>📋 Vorlage</div>
+                  </div>
+                  {textTemplates.length === 0 ? (
+                    <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Noch keine Vorlagen gespeichert — die kommen nach dem Schreiben per "💾 Speichern unter" dazu.</div>
+                  ) : (
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                      <button onClick={() => setSelectedTemplate(null)}
+                        style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedTemplate?gold:"rgba(200,169,110,0.2)"}`, background:!selectedTemplate?"rgba(200,169,110,0.12)":"transparent", color:!selectedTemplate?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                        Ohne Vorlage
+                      </button>
+                      {textTemplates.map(tpl => (
+                        <div key={tpl.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
+                          <button onClick={() => setSelectedTemplate(tpl)}
+                            style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedTemplate?.id===tpl.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedTemplate?.id===tpl.id?"rgba(200,169,110,0.12)":"transparent", color:selectedTemplate?.id===tpl.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                            📋 {tpl.name}
+                          </button>
+                          <button onClick={() => deleteTemplate(tpl.id)} style={{ background:"transparent", border:"none", color:"#4a3a2a", cursor:"pointer", fontSize:10 }}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ display:"flex", justifyContent:"center", gap:10 }}>
                   <button onClick={() => {
                     writingRandom();
-                    setWritingNotes({});
+                    setWritingNotes(selectedTemplate ? {intro: selectedTemplate.intro||"", outro: selectedTemplate.outro||""} : {});
                     setWritingProjectId(null);
                     setWritingView("writing");
                   }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
@@ -2060,7 +2087,7 @@ export default function LenormandApp() {
                   <button onClick={() => {
                     setMatrixCards(Array(9).fill(null));
                     setSignifikator(null);
-                    setWritingNotes({});
+                    setWritingNotes(selectedTemplate ? {intro: selectedTemplate.intro||"", outro: selectedTemplate.outro||""} : {});
                     setWritingProjectId(null);
                     setWritingView("picking");
                   }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.4)`, color:"#c8a96e", padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
@@ -2163,14 +2190,14 @@ export default function LenormandApp() {
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
                       {SYMBOLS[signifikator]} {CARDS[signifikator].name} · Situations-Matrix
                     </div>
-                    {writingBemerkung && (
-                      <div style={{ marginBottom:10, fontSize:10, color:"#5a4a34", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.15)", paddingLeft:8 }}>
-                        {writingBemerkung}
-                      </div>
-                    )}
                     {writingHook && (
                       <div style={{ marginBottom:10, fontSize:10, color:"#c8a96e", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:8 }}>
                         🎯 {writingHook}
+                      </div>
+                    )}
+                    {writingBemerkung && (
+                      <div style={{ marginBottom:10, fontSize:10, color:"#5a4a34", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.15)", paddingLeft:8 }}>
+                        {writingBemerkung}
                       </div>
                     )}
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
@@ -2213,16 +2240,10 @@ export default function LenormandApp() {
                   <div className="writing-notes">
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
                       <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase" }}>✍️ Deine Notizen</div>
-                      <div style={{ display:"flex", gap:6 }}>
-                        <button onClick={() => { setShowLoadTemplate(v => !v); setShowSaveTemplate(false); }}
-                          style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                          📋 Vorlagen
-                        </button>
-                        <button onClick={() => { setShowSaveTemplate(v => !v); setShowLoadTemplate(false); }}
-                          style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                          💾 Speichern unter
-                        </button>
-                      </div>
+                      <button onClick={() => setShowSaveTemplate(v => !v)}
+                        style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                        💾 Speichern unter
+                      </button>
                     </div>
 
                     {showSaveTemplate && (
@@ -2231,21 +2252,6 @@ export default function LenormandApp() {
                           onKeyDown={e => e.key==="Enter" && saveTemplate()}
                           style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
                         <button onClick={saveTemplate} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>✓</button>
-                      </div>
-                    )}
-
-                    {showLoadTemplate && (
-                      <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 10px" }}>
-                        {textTemplates.length === 0 ? (
-                          <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Noch keine Vorlagen gespeichert.</div>
-                        ) : textTemplates.map(tpl => (
-                          <div key={tpl.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
-                            <button onClick={() => applyTemplate(tpl)} style={{ flex:1, textAlign:"left", background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                              📋 {tpl.name}
-                            </button>
-                            <button onClick={() => deleteTemplate(tpl.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
-                          </div>
-                        ))}
                       </div>
                     )}
 
@@ -2376,8 +2382,8 @@ export default function LenormandApp() {
                           + "</style></head><body>"
                           + "<h1>✍️ Writing Session</h1>"
                           + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>"
-                          + (writingBemerkung ? "<br>" + writingBemerkung : "")
                           + (writingHook ? "<br>🎯 " + writingHook : "")
+                          + (writingBemerkung ? "<br>" + writingBemerkung : "")
                           + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name
                           + "<br>" + heute + "</div>"
                           + (introText ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
