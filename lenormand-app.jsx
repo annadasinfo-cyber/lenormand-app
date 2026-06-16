@@ -261,7 +261,10 @@ export default function LenormandApp() {
           {authView==="register" && (
             <div style={{ textAlign:"center", marginTop:16, fontSize:10, color:"#3a2a18", lineHeight:1.7 }}>
               Du bekommst eine Bestätigungs-E-Mail.<br/>
-              Bitte klicke den Link darin — dann kannst du dich einloggen.
+              Bitte klicke den Link darin — dann kannst du dich einloggen.<br/><br/>
+              <span style={{ color:"#5a4a34", fontStyle:"italic" }}>
+                Hinweis: Die Mail kommt von einer Supabase-Adresse — das ist unser technischer Versanddienst im Hintergrund und völlig okay. 💛
+              </span>
             </div>
           )}
         </div>
