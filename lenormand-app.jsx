@@ -326,6 +326,7 @@ export default function LenormandApp() {
   const [newTemplateName, setNewTemplateName] = React.useState("");
   const [showLoadTemplate, setShowLoadTemplate] = React.useState(false);
   const [selectedTemplate, setSelectedTemplate] = React.useState(null);
+  const [collapsedFields, setCollapsedFields] = React.useState({});
 
   const writingTimer = React.useRef(null);
 
@@ -448,7 +449,7 @@ export default function LenormandApp() {
                 const cn = cards[pos];
                 return "<div class='block'><div class='lbl'>" + posLabels[pos] + (cn ? " · " + CARDS[cn]?.name : "") + "</div><div class='txt'>" + t + "</div></div>";
               }).join("")
-            + (notes["nachRatDerEngel"] ? "<div class='block'><div class='lbl'>Subplot</div><div class='txt'>" + notes["nachRatDerEngel"] + "</div></div>" : "")
+            + (notes["nachRatDerEngel"] ? "<div class='block'><div class='lbl'>💕 Subplot</div><div class='txt'>" + notes["nachRatDerEngel"] + "</div></div>" : "")
             + [6,7,3,8].map(pos => {
                 const t = notes[String(pos)] || "";
                 if (!t) return "";
@@ -2297,37 +2298,46 @@ export default function LenormandApp() {
 
                     {/* INTRO */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                      <div onClick={() => setCollapsedFields(c => ({...c, intro: !c.intro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>🎬</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Intro</div>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Intro</div>
+                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.intro ? "▸" : "▾"}</span>
                       </div>
-                      <AutoTextarea
-                        placeholder="Deine Begrüßung, Einstieg, Ankündigung…"
-                        value={writingNotes["intro"] || ""}
-                        onChange={e => { const n = {...writingNotes, intro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                        onFocus={() => setActiveWritingPos(null)}
-                        onBlur={() => setActiveWritingPos(null)}
-                        minRows={2}
-                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                      />
-                      <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
-                        {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
-                      </div>
+                      {!collapsedFields.intro && (<>
+                        <AutoTextarea
+                          placeholder="Deine Begrüßung, Einstieg, Ankündigung…"
+                          value={writingNotes["intro"] || ""}
+                          onChange={e => { const n = {...writingNotes, intro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                          onFocus={() => setActiveWritingPos(null)}
+                          onBlur={() => setActiveWritingPos(null)}
+                          minRows={2}
+                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                        />
+                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        </div>
+                      </>)}
                     </div>
 
                     {/* Freitext nach dem Intro */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                      <div onClick={() => setCollapsedFields(c => ({...c, nachIntro: !c.nachIntro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>💥</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Teaser</div>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Teaser</div>
+                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.nachIntro ? "▸" : "▾"}</span>
                       </div>
-                      <AutoTextarea
-                        placeholder="…"
-                        value={writingNotes["nachIntro"] || ""}
-                        onChange={e => { const n = {...writingNotes, nachIntro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                        minRows={1}
-                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                      />
+                      {!collapsedFields.nachIntro && (<>
+                        <AutoTextarea
+                          placeholder="…"
+                          value={writingNotes["nachIntro"] || ""}
+                          onChange={e => { const n = {...writingNotes, nachIntro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                          minRows={1}
+                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                        />
+                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["nachIntro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        </div>
+                      </>)}
                     </div>
                     {[
                       {pos:4, icon:"📖", label:"Signifikator | Thema", comboWith: null},
@@ -2343,7 +2353,7 @@ export default function LenormandApp() {
                       const reached = wordCount >= 150;
                       return (
                         <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                          <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
                             <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
                             {/* Karte(n) anzeigen */}
@@ -2357,19 +2367,22 @@ export default function LenormandApp() {
                               <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
                             </>)}
                             {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
+                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
-                          <AutoTextarea
-                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
-                            value={text}
-                            onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                            onFocus={() => setActiveWritingPos(pos)}
-                            onBlur={() => setActiveWritingPos(null)}
-                            minRows={2}
-                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                          />
-                          <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                            {wordCount} / 150
-                          </div>
+                          {!collapsedFields[key] && (<>
+                            <AutoTextarea
+                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                              value={text}
+                              onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                              onFocus={() => setActiveWritingPos(pos)}
+                              onBlur={() => setActiveWritingPos(null)}
+                              minRows={2}
+                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                            />
+                            <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                              {wordCount} / 150
+                            </div>
+                          </>)}
                         </div>
                       );
                     })}
@@ -2385,7 +2398,7 @@ export default function LenormandApp() {
                       const reached = wordCount >= 150;
                       return (
                         <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                          <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
                             <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
                             {/* Karte(n) anzeigen */}
@@ -2399,35 +2412,45 @@ export default function LenormandApp() {
                               <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
                             </>)}
                             {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
+                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
-                          <AutoTextarea
-                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
-                            value={text}
-                            onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                            onFocus={() => setActiveWritingPos(pos)}
-                            onBlur={() => setActiveWritingPos(null)}
-                            minRows={2}
-                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                          />
-                          <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                            {wordCount} / 150
-                          </div>
+                          {!collapsedFields[key] && (<>
+                            <AutoTextarea
+                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                              value={text}
+                              onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                              onFocus={() => setActiveWritingPos(pos)}
+                              onBlur={() => setActiveWritingPos(null)}
+                              minRows={2}
+                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                            />
+                            <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                              {wordCount} / 150
+                            </div>
+                          </>)}
                         </div>
                       );
                     })}
 
                     {/* Freitext nach "Nahe Zukunft" */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Subplot</div>
+                      <div onClick={() => setCollapsedFields(c => ({...c, nachRatDerEngel: !c.nachRatDerEngel}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
+                        <span style={{ fontSize:11 }}>💕</span>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Subplot</div>
+                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.nachRatDerEngel ? "▸" : "▾"}</span>
                       </div>
-                      <AutoTextarea
-                        placeholder="…"
-                        value={writingNotes["nachRatDerEngel"] || ""}
-                        onChange={e => { const n = {...writingNotes, nachRatDerEngel: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                        minRows={1}
-                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                      />
+                      {!collapsedFields.nachRatDerEngel && (<>
+                        <AutoTextarea
+                          placeholder="…"
+                          value={writingNotes["nachRatDerEngel"] || ""}
+                          onChange={e => { const n = {...writingNotes, nachRatDerEngel: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                          minRows={1}
+                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                        />
+                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        </div>
+                      </>)}
                     </div>
 
                     {[
@@ -2444,7 +2467,7 @@ export default function LenormandApp() {
                       const reached = wordCount >= 150;
                       return (
                         <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                          <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
                             <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
                             {/* Karte(n) anzeigen */}
@@ -2458,56 +2481,68 @@ export default function LenormandApp() {
                               <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
                             </>)}
                             {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
+                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
-                          <AutoTextarea
-                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
-                            value={text}
-                            onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                            onFocus={() => setActiveWritingPos(pos)}
-                            onBlur={() => setActiveWritingPos(null)}
-                            minRows={2}
-                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                          />
-                          <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                            {wordCount} / 150
-                          </div>
+                          {!collapsedFields[key] && (<>
+                            <AutoTextarea
+                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                              value={text}
+                              onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                              onFocus={() => setActiveWritingPos(pos)}
+                              onBlur={() => setActiveWritingPos(null)}
+                              minRows={2}
+                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                            />
+                            <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                              {wordCount} / 150
+                            </div>
+                          </>)}
                         </div>
                       );
                     })}
 
                     {/* Freitext vor dem Outro */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                      <div onClick={() => setCollapsedFields(c => ({...c, vorOutro: !c.vorOutro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>💥</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Teaser-Auflösung</div>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Teaser-Auflösung</div>
+                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.vorOutro ? "▸" : "▾"}</span>
                       </div>
-                      <AutoTextarea
-                        placeholder="…"
-                        value={writingNotes["vorOutro"] || ""}
-                        onChange={e => { const n = {...writingNotes, vorOutro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                        minRows={1}
-                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                      />
+                      {!collapsedFields.vorOutro && (<>
+                        <AutoTextarea
+                          placeholder="…"
+                          value={writingNotes["vorOutro"] || ""}
+                          onChange={e => { const n = {...writingNotes, vorOutro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                          minRows={1}
+                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                        />
+                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["vorOutro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        </div>
+                      </>)}
                     </div>
 
                     {/* OUTRO */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                      <div onClick={() => setCollapsedFields(c => ({...c, outro: !c.outro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>🎬</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Outro</div>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Outro</div>
+                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.outro ? "▸" : "▾"}</span>
                       </div>
-                      <AutoTextarea
-                        placeholder="Dein Abschluss, Call to Action, Verabschiedung…"
-                        value={writingNotes["outro"] || ""}
-                        onChange={e => { const n = {...writingNotes, outro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                        onFocus={() => setActiveWritingPos(null)}
-                        onBlur={() => setActiveWritingPos(null)}
-                        minRows={2}
-                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                      />
-                      <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
-                        {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
-                      </div>
+                      {!collapsedFields.outro && (<>
+                        <AutoTextarea
+                          placeholder="Dein Abschluss, Call to Action, Verabschiedung…"
+                          value={writingNotes["outro"] || ""}
+                          onChange={e => { const n = {...writingNotes, outro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                          onFocus={() => setActiveWritingPos(null)}
+                          onBlur={() => setActiveWritingPos(null)}
+                          minRows={2}
+                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                        />
+                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        </div>
+                      </>)}
                     </div>
 
                     {/* Drucken */}
@@ -2574,7 +2609,7 @@ export default function LenormandApp() {
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
                               return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
-                          + (nachRatDerEngelText ? "<div class='block'><div class='lbl'>Subplot</div><div class='txt'>" + nachRatDerEngelText + "</div></div>" : "")
+                          + (nachRatDerEngelText ? "<div class='block'><div class='lbl'>💕 Subplot</div><div class='txt'>" + nachRatDerEngelText + "</div></div>" : "")
                           + posLabelsAfterSubplot.map(({pos, label}) => {
                               const cn = matrixCards[pos];
                               const t = writingNotes[String(pos)] || "";
