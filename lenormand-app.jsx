@@ -1991,16 +1991,89 @@ export default function LenormandApp() {
                   <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
-                <div style={{ display:"flex", justifyContent:"center" }}>
+                <div style={{ display:"flex", justifyContent:"center", gap:10 }}>
                   <button onClick={() => {
                     writingRandom();
                     setWritingNotes({});
                     setWritingProjectId(null);
                     setWritingView("writing");
-                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                    🎲 Würfeln →
+                  </button>
+                  <button onClick={() => {
+                    setMatrixCards(Array(9).fill(null));
+                    setSignifikator(null);
+                    setWritingNotes({});
+                    setWritingProjectId(null);
+                    setWritingView("picking");
+                  }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.4)`, color:"#c8a96e", padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                    🃏 Karten wählen →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Karten-Picker für Writing */}
+            {writingView === "picking" && (
+              <div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                  <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
+                  <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic" }}>Klicke eine Position — dann wähle die Karte</div>
+                  <button onClick={() => { if(signifikator) setWritingView("writing"); }}
+                    disabled={!signifikator}
+                    style={{ background:signifikator?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${signifikator?gold:"rgba(200,169,110,0.2)"}`, color:signifikator?gold:"#4a3a24", padding:"6px 16px", borderRadius:6, cursor:signifikator?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>
                     Weiter →
                   </button>
                 </div>
+
+                {/* 3×3 Grid */}
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
+                  {[0,1,2,3,4,5,6,7,8].map(pos => {
+                    const card = matrixCards ? matrixCards[pos] : null;
+                    const isCenter = pos === 4;
+                    const labels = ["Gedanken","IST-Situation","Rat der Engel","Warnung","Signifikator","Nahe Zukunft","Ursache","Unbew. Zukunft","Ergebnis"];
+                    const isActive = activePos === pos;
+                    return (
+                      <div key={pos} onClick={() => setActivePos(isActive ? null : pos)}
+                        style={{ border:`1.5px solid ${isActive?gold:card?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 6px", textAlign:"center", cursor:"pointer", background:isCenter?"rgba(200,169,110,0.08)":isActive?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", minHeight:80 }}>
+                        <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", marginBottom:4 }}>{labels[pos]}</div>
+                        {card ? (<>
+                          <div style={{ fontSize:24 }}>{SYMBOLS[card]}</div>
+                          <div style={{ fontSize:8, color:gold, marginTop:2 }}>{CARDS[card].name}</div>
+                        </>) : <div style={{ fontSize:10, color:"#3a2a18", marginTop:8 }}>+</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Karten-Suche und Grid */}
+                {activePos !== null && (
+                  <div>
+                    <div style={{ marginBottom:8 }}>
+                      <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
+                        style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:6, maxHeight:260, overflowY:"auto" }}>
+                      {filteredCards().map(num => {
+                        const alreadyUsed = matrixCards && matrixCards.includes(num) && matrixCards[activePos] !== num;
+                        return (
+                          <button key={num} onClick={() => {
+                            if (alreadyUsed) return;
+                            const newCards = [...(matrixCards || Array(9).fill(null))];
+                            newCards[activePos] = num;
+                            setMatrixCards(newCards);
+                            if (activePos === 4) setSignifikator(num);
+                            setActivePos(null);
+                          }}
+                            style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif" }}>
+                            <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
+                            <div style={{ fontSize:9, color:"#9a8060", marginTop:3 }}>{num}. {CARDS[num].name}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
