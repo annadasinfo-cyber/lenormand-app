@@ -79,6 +79,28 @@ const KOMBI_POSITIONS = [1, 5, 7]; // positions that show combinations
 const MATRIX_FIELDS = ["gendanken", "ist_situation", "rat_der_engel", "warnung", "signifikator", "nahe_zukunft", "wo_es_herkommt", "unbewusste_zukunft", "ergebnis_und_wann"];
 const MATRIX_KEYS = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
 
+// Textarea, die mit ihrem Inhalt mitwächst statt zu scrollen
+function AutoTextarea({ value, onChange, placeholder, style, minRows = 2, ...rest }) {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      rows={minRows}
+      style={{ ...style, overflow:"hidden", resize:"none" }}
+      {...rest}
+    />
+  );
+}
+
 function ConfettiCanvas() {
   const canvasRef = React.useRef(null);
   React.useEffect(() => {
@@ -412,14 +434,29 @@ export default function LenormandApp() {
           const cards = s.matrix_cards || [];
           return "<h2>" + s.name + "</h2>"
             + "<div class='meta'>" + new Date(s.updated_at).toLocaleDateString('de-DE') + (s.bemerkung ? " · " + s.bemerkung : "") + (s.hook ? " · 🎯 " + s.hook : "") + "</div>"
-            + (notes["intro"] ? "<div class='block'><div class='lbl'>Intro</div><div class='txt'>" + notes["intro"] + "</div></div>" : "")
-            + [4,0,1,2,5,6,7,3,8].map(pos => {
+            + (notes["intro"] ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + notes["intro"] + "</div></div>" : "")
+            + (notes["nachIntro"] ? "<div class='block'><div class='lbl'>💥 Teaser</div><div class='txt'>" + notes["nachIntro"] + "</div></div>" : "")
+            + [4,0,1,2].map(pos => {
                 const t = notes[String(pos)] || "";
                 if (!t) return "";
                 const cn = cards[pos];
                 return "<div class='block'><div class='lbl'>" + posLabels[pos] + (cn ? " · " + CARDS[cn]?.name : "") + "</div><div class='txt'>" + t + "</div></div>";
               }).join("")
-            + (notes["outro"] ? "<div class='block'><div class='lbl'>Outro</div><div class='txt'>" + notes["outro"] + "</div></div>" : "");
+            + [5].map(pos => {
+                const t = notes[String(pos)] || "";
+                if (!t) return "";
+                const cn = cards[pos];
+                return "<div class='block'><div class='lbl'>" + posLabels[pos] + (cn ? " · " + CARDS[cn]?.name : "") + "</div><div class='txt'>" + t + "</div></div>";
+              }).join("")
+            + (notes["nachRatDerEngel"] ? "<div class='block'><div class='lbl'>Subplot</div><div class='txt'>" + notes["nachRatDerEngel"] + "</div></div>" : "")
+            + [6,7,3,8].map(pos => {
+                const t = notes[String(pos)] || "";
+                if (!t) return "";
+                const cn = cards[pos];
+                return "<div class='block'><div class='lbl'>" + posLabels[pos] + (cn ? " · " + CARDS[cn]?.name : "") + "</div><div class='txt'>" + t + "</div></div>";
+              }).join("")
+            + (notes["vorOutro"] ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + notes["vorOutro"] + "</div></div>" : "")
+            + (notes["outro"] ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + notes["outro"] + "</div></div>" : "");
         }).join("<hr style='margin:32px 0;border-color:#c8a96e'>")
       + "</body></html>";
     const w = window.open("","_blank");
@@ -2044,6 +2081,9 @@ export default function LenormandApp() {
                   <textarea placeholder="Der Aufhänger, der die Leute reinzieht…" value={writingHook} onChange={e => setWritingHook(e.target.value)} rows={2}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
+
+                <div style={{ height:1, background:"linear-gradient(90deg, transparent, rgba(200,169,110,0.25), transparent)", margin:"0 0 20px" }} />
+
                 <div style={{ marginBottom:24 }}>
                   <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
                   <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
@@ -2261,25 +2301,136 @@ export default function LenormandApp() {
                         <span style={{ fontSize:11 }}>🎬</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Intro</div>
                       </div>
-                      <textarea
+                      <AutoTextarea
                         placeholder="Deine Begrüßung, Einstieg, Ankündigung…"
                         value={writingNotes["intro"] || ""}
                         onChange={e => { const n = {...writingNotes, intro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                         onFocus={() => setActiveWritingPos(null)}
                         onBlur={() => setActiveWritingPos(null)}
-                        rows={2}
-                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
+                        minRows={2}
+                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                       />
                       <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
                         {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
                       </div>
+                    </div>
+
+                    {/* Freitext nach dem Intro */}
+                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                        <span style={{ fontSize:11 }}>💥</span>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Teaser</div>
+                      </div>
+                      <AutoTextarea
+                        placeholder="…"
+                        value={writingNotes["nachIntro"] || ""}
+                        onChange={e => { const n = {...writingNotes, nachIntro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                        minRows={1}
+                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                      />
                     </div>
                     {[
                       {pos:4, icon:"📖", label:"Signifikator | Thema", comboWith: null},
                       {pos:0, icon:"💭", label:"Gedanken | Anfang", comboWith: null},
                       {pos:1, icon:"🎭", label:"IST-Situation | 1. Katastrophe", comboWith: 4},
                       {pos:2, icon:"👼", label:"Rat der Engel | 2. Katastrophe", comboWith: null},
+                    ].map(({pos, icon, label, comboWith}) => {
+                      const cardNum = matrixCards[pos];
+                      const comboCardNum = comboWith !== null ? matrixCards[comboWith] : null;
+                      const key = String(pos);
+                      const text = writingNotes[key] || "";
+                      const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+                      const reached = wordCount >= 150;
+                      return (
+                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                            <span style={{ fontSize:11 }}>{icon}</span>
+                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
+                            {/* Karte(n) anzeigen */}
+                            {cardNum && (<>
+                              <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
+                              <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
+                            </>)}
+                            {comboCardNum && (<>
+                              <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
+                              <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
+                              <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
+                            </>)}
+                            {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
+                          </div>
+                          <AutoTextarea
+                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                            value={text}
+                            onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                            onFocus={() => setActiveWritingPos(pos)}
+                            onBlur={() => setActiveWritingPos(null)}
+                            minRows={2}
+                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                          />
+                          <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                            {wordCount} / 150
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {[
                       {pos:5, icon:"🔮", label:"Nahe Zukunft | Mittelteil", comboWith: 4},
+                    ].map(({pos, icon, label, comboWith}) => {
+                      const cardNum = matrixCards[pos];
+                      const comboCardNum = comboWith !== null ? matrixCards[comboWith] : null;
+                      const key = String(pos);
+                      const text = writingNotes[key] || "";
+                      const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+                      const reached = wordCount >= 150;
+                      return (
+                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                            <span style={{ fontSize:11 }}>{icon}</span>
+                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
+                            {/* Karte(n) anzeigen */}
+                            {cardNum && (<>
+                              <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
+                              <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
+                            </>)}
+                            {comboCardNum && (<>
+                              <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
+                              <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
+                              <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
+                            </>)}
+                            {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
+                          </div>
+                          <AutoTextarea
+                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                            value={text}
+                            onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                            onFocus={() => setActiveWritingPos(pos)}
+                            onBlur={() => setActiveWritingPos(null)}
+                            minRows={2}
+                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                          />
+                          <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                            {wordCount} / 150
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Freitext nach "Nahe Zukunft" */}
+                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Subplot</div>
+                      </div>
+                      <AutoTextarea
+                        placeholder="…"
+                        value={writingNotes["nachRatDerEngel"] || ""}
+                        onChange={e => { const n = {...writingNotes, nachRatDerEngel: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                        minRows={1}
+                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                      />
+                    </div>
+
+                    {[
                       {pos:6, icon:"🦋", label:"Ursache | 3. Katastrophe", comboWith: null},
                       {pos:7, icon:"🌌", label:"Unbewusste Zukunft | Rückzug", comboWith: 4},
                       {pos:3, icon:"⚠️", label:"Warnung | Katharsis", comboWith: null},
@@ -2308,14 +2459,14 @@ export default function LenormandApp() {
                             </>)}
                             {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                           </div>
-                          <textarea
+                          <AutoTextarea
                             placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
                             value={text}
                             onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                             onFocus={() => setActiveWritingPos(pos)}
                             onBlur={() => setActiveWritingPos(null)}
-                            rows={2}
-                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
+                            minRows={2}
+                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                           />
                           <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
                             {wordCount} / 150
@@ -2324,20 +2475,35 @@ export default function LenormandApp() {
                       );
                     })}
 
+                    {/* Freitext vor dem Outro */}
+                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                        <span style={{ fontSize:11 }}>💥</span>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Teaser-Auflösung</div>
+                      </div>
+                      <AutoTextarea
+                        placeholder="…"
+                        value={writingNotes["vorOutro"] || ""}
+                        onChange={e => { const n = {...writingNotes, vorOutro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                        minRows={1}
+                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                      />
+                    </div>
+
                     {/* OUTRO */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
                         <span style={{ fontSize:11 }}>🎬</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Outro</div>
                       </div>
-                      <textarea
+                      <AutoTextarea
                         placeholder="Dein Abschluss, Call to Action, Verabschiedung…"
                         value={writingNotes["outro"] || ""}
                         onChange={e => { const n = {...writingNotes, outro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                         onFocus={() => setActiveWritingPos(null)}
                         onBlur={() => setActiveWritingPos(null)}
-                        rows={2}
-                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
+                        minRows={2}
+                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                       />
                       <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
                         {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
@@ -2348,17 +2514,23 @@ export default function LenormandApp() {
                     <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:12, marginTop:4 }}>
                       <button onClick={() => {
                         const heute = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
-                        const posLabels = [
+                        const posLabelsBeforeEngel = [
                           {pos:4, label:"Signifikator | Thema"},
                           {pos:0, label:"Gedanken | Anfang"},
                           {pos:1, label:"IST-Situation | 1. Katastrophe"},
                           {pos:2, label:"Rat der Engel | 2. Katastrophe"},
-                          {pos:5, label:"Nahe Zukunft | Mittelteil"},
+                        ];
+                        const posLabelNaheZukunft = {pos:5, label:"Nahe Zukunft | Mittelteil"};
+                        const posLabelsAfterSubplot = [
                           {pos:6, label:"Ursache | 3. Katastrophe"},
                           {pos:7, label:"Unbewusste Zukunft | Rückzug"},
                           {pos:3, label:"Warnung | Katharsis"},
                           {pos:8, label:"Ergebnis | Pay Off"},
                         ];
+                        const posLabels = [...posLabelsBeforeEngel, posLabelNaheZukunft, ...posLabelsAfterSubplot];
+                        const nachIntroText = writingNotes["nachIntro"] || "";
+                        const nachRatDerEngelText = writingNotes["nachRatDerEngel"] || "";
+                        const vorOutroText = writingNotes["vorOutro"] || "";
                         const introText = writingNotes["intro"] || "";
                         const outroText = writingNotes["outro"] || "";
                         const introWc = introText.trim().split(/\s+/).filter(Boolean).length;
@@ -2387,13 +2559,30 @@ export default function LenormandApp() {
                           + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name
                           + "<br>" + heute + "</div>"
                           + (introText ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
-                          + posLabels.map(({pos, label}) => {
+                          + (nachIntroText ? "<div class='block'><div class='lbl'>💥 Teaser</div><div class='txt'>" + nachIntroText + "</div></div>" : "")
+                          + posLabelsBeforeEngel.map(({pos, label}) => {
                               const cn = matrixCards[pos];
                               const t = writingNotes[String(pos)] || "";
                               if (!t) return "";
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
                               return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
+                          + [posLabelNaheZukunft].map(({pos, label}) => {
+                              const cn = matrixCards[pos];
+                              const t = writingNotes[String(pos)] || "";
+                              if (!t) return "";
+                              const wc = t.trim().split(/\s+/).filter(Boolean).length;
+                              return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
+                            }).join("")
+                          + (nachRatDerEngelText ? "<div class='block'><div class='lbl'>Subplot</div><div class='txt'>" + nachRatDerEngelText + "</div></div>" : "")
+                          + posLabelsAfterSubplot.map(({pos, label}) => {
+                              const cn = matrixCards[pos];
+                              const t = writingNotes[String(pos)] || "";
+                              if (!t) return "";
+                              const wc = t.trim().split(/\s+/).filter(Boolean).length;
+                              return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
+                            }).join("")
+                          + (vorOutroText ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + vorOutroText + "</div></div>" : "")
                           + (outroText ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + outroText + "</div><div class='cnt'>" + outroWc + " Wörter</div></div>" : "")
                           + "<div class='total'>✦ Gesamt: " + totalWc + " Wörter</div>"
                           + "</body></html>";
