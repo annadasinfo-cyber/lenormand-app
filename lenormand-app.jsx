@@ -332,6 +332,7 @@ export default function LenormandApp() {
   const [collapsedFields, setCollapsedFields] = React.useState({});
 
   const writingTimer = React.useRef(null);
+  const [writingSaveStatus, setWritingSaveStatus] = React.useState("idle"); // idle | saving | saved | error
 
   // Ordner, Projekte und Textvorlagen laden
   React.useEffect(() => {
@@ -471,11 +472,14 @@ export default function LenormandApp() {
 
   const saveProject = async () => {
     const uid = getUserId();
-    if (!uid || !writingProjekt) return;
+    if (!uid) return;
+    // Auch ohne Namen speichern, damit nichts verloren geht — Fallback-Name verwenden
+    const nameToSave = writingProjekt || ("Unbenannt · " + new Date().toLocaleDateString('de-DE') + " " + new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}));
+    setWritingSaveStatus("saving");
     try {
       const payload = {
         user_id: uid,
-        name: writingProjekt,
+        name: nameToSave,
         bemerkung: writingBemerkung,
         hook: writingHook,
         notes: writingNotes,
@@ -484,15 +488,18 @@ export default function LenormandApp() {
         folder_id: selectedFolder || null,
         updated_at: new Date().toISOString()
       };
+      let ok = true;
       if (writingProjectId) {
-        await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${writingProjectId}`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${writingProjectId}`, {
           method:"PATCH", headers: dbHeaders(), body: JSON.stringify(payload)
         });
+        ok = res.ok;
       } else {
         const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects`, {
           method:"POST", headers: {...dbHeaders(), "Prefer":"return=representation"},
           body: JSON.stringify(payload)
         });
+        ok = r.ok;
         const data = await r.json();
         if (data && data[0]) setWritingProjectId(data[0].id);
       }
@@ -500,7 +507,10 @@ export default function LenormandApp() {
       const r2 = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()});
       const list = await r2.json();
       if (Array.isArray(list)) setSavedProjects(list);
-    } catch {}
+      setWritingSaveStatus(ok ? "saved" : "error");
+    } catch {
+      setWritingSaveStatus("error");
+    }
   };
 
   const loadProject = (proj) => {
@@ -527,8 +537,24 @@ export default function LenormandApp() {
 
   const saveWritingSession = (notes, projekt, bemerkung) => {
     if (writingTimer.current) clearTimeout(writingTimer.current);
-    writingTimer.current = setTimeout(() => saveProject(), 2000);
+    setWritingSaveStatus("saving");
+    writingTimer.current = setTimeout(() => saveProject(), 600);
   };
+
+  // Beim Verlassen der Seite / Tab-Wechsel sofort speichern, statt auf den Debounce-Timer zu warten
+  React.useEffect(() => {
+    const flush = () => {
+      if (writingTimer.current) {
+        clearTimeout(writingTimer.current);
+        saveProject();
+      }
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [writingNotes, writingProjekt, writingBemerkung, writingHook, matrixCards, signifikator]);
 
   const getUserId = () => {
     try {
@@ -552,6 +578,7 @@ export default function LenormandApp() {
   // Zauberzettel
   const emptyManifest = {heute:"", wochen:"", monate:"", jahre:"", irgendwann:"", traum:""};
   const [manifestData, setManifestData] = React.useState(emptyManifest);
+  const [manifestSaveStatus, setManifestSaveStatus] = React.useState("idle"); // idle | saving | saved | error
 
   React.useEffect(() => {
     const loadManifest = async () => {
@@ -570,29 +597,52 @@ export default function LenormandApp() {
   }, [session]);
 
   const saveManifestTimer = React.useRef(null);
+  const saveManifestNow = async (data) => {
+    const uid = getUserId();
+    if (!uid) return;
+    setManifestSaveStatus("saving");
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
+      const existing = await r.json();
+      let ok;
+      if (existing && existing[0]) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}`, {
+          method:"PATCH", headers: dbHeaders(),
+          body: JSON.stringify({...data, updated_at: new Date().toISOString()})
+        });
+        ok = res.ok;
+      } else {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel`, {
+          method:"POST", headers: dbHeaders(),
+          body: JSON.stringify({user_id: uid, ...data})
+        });
+        ok = res.ok;
+      }
+      setManifestSaveStatus(ok ? "saved" : "error");
+    } catch {
+      setManifestSaveStatus("error");
+    }
+  };
   const saveManifest = (data) => {
     if (saveManifestTimer.current) clearTimeout(saveManifestTimer.current);
-    saveManifestTimer.current = setTimeout(async () => {
-      const uid = getUserId();
-      if (!uid) return;
-      try {
-        // Check if exists
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
-        const existing = await r.json();
-        if (existing && existing[0]) {
-          await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}`, {
-            method:"PATCH", headers: dbHeaders(),
-            body: JSON.stringify({...data, updated_at: new Date().toISOString()})
-          });
-        } else {
-          await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel`, {
-            method:"POST", headers: dbHeaders(),
-            body: JSON.stringify({user_id: uid, ...data})
-          });
-        }
-      } catch {}
-    }, 1000); // debounce 1 Sekunde
+    setManifestSaveStatus("saving");
+    saveManifestTimer.current = setTimeout(() => saveManifestNow(data), 400); // debounce 0.4 Sekunden
   };
+
+  // Beim Verlassen der Seite / Tab-Wechsel sofort speichern, statt auf den Debounce-Timer zu warten
+  React.useEffect(() => {
+    const flush = () => {
+      if (saveManifestTimer.current) {
+        clearTimeout(saveManifestTimer.current);
+        saveManifestNow(manifestData);
+      }
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, [manifestData]);
 
   const updateManifest = (field, value) => {
     const updated = {...manifestData, [field]: value};
@@ -1871,7 +1921,7 @@ export default function LenormandApp() {
 
             {/* Untermenü */}
             <div style={{ display:"flex", justifyContent:"flex-start", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-              {[["tagebuch","📓 Tagebuch"],["doku","📋 Dokumentation"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
+              {[["tagebuch","📓 Tagebuch"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
                 <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt"); }}
                   style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
                   {l}
@@ -1931,89 +1981,6 @@ export default function LenormandApp() {
               </div>
             )}
 
-            {/* DOKUMENTATION */}
-            {dailyMode === "doku" && (
-              <div>
-                {tagebuchView === "tagebuch" && (
-                  <div>
-                    <div style={{ textAlign:"center", marginBottom:20 }}>
-                      <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Klient</div>
-                      <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Für wen legst du heute?</div>
-                    </div>
-                    <div style={{ marginBottom:14 }}>
-                      <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Name</div>
-                      <input placeholder="z.B. Siegbert M." value={klientName} onChange={e => setKlientName(e.target.value)}
-                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-                    </div>
-                    <div style={{ marginBottom:24 }}>
-                      <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Geburtsdatum</div>
-                      <input placeholder="z.B. 15.03.1952" value={klientGeburt} onChange={e => setKlientGeburt(e.target.value)}
-                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-                    </div>
-                    <div style={{ display:"flex", justifyContent:"center" }}>
-                      <button onClick={() => setTagebuchView("doku")}
-                        style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                        Weiter →
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {tagebuchView === "doku" && (
-                  <div>
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-                      <button onClick={() => setTagebuchView("tagebuch")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
-                      {klientName && <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>👤 {klientName}{klientGeburt ? ` · ${klientGeburt}` : ""}</div>}
-                    </div>
-                    <div style={{ textAlign:"center", marginBottom:20 }}>
-                      <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
-                      <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
-                        {[todayCard.c1, todayCard.c2].map((num, i) => (
-                          <div key={i} style={{ textAlign:"center" }}>
-                            <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
-                            <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
-                            <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(",").slice(0,2).join(",")}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ marginBottom:14 }}>
-                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
-                      <textarea placeholder="Was bewegt den Klienten?" value={todayEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
-                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                    </div>
-                    <div style={{ marginBottom:14 }}>
-                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
-                      <textarea placeholder="Was zeigt die Kombination?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
-                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                    </div>
-                    <div style={{ marginBottom:18 }}>
-                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
-                      <textarea placeholder="Empfehlung / nächster Schritt…" value={todayEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
-                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                    </div>
-                    <div style={{ textAlign:"center", marginBottom:20 }}>
-                      {!tippVisible ? (
-                        <button onClick={() => setTippVisible(true)}
-                          style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"12px 28px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                          ✨ Tipp vom Universum
-                        </button>
-                      ) : (
-                        <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
-                          <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
-                          <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[todayCard.comboKey] || "Vertraue deiner Intuition."}</div>
-                          <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
-                      <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                        🖨️ Drucken
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
           </div>
         )}
@@ -2105,6 +2072,25 @@ export default function LenormandApp() {
                   <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
                   <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                </div>
+
+                <div style={{ marginBottom:24 }}>
+                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:8 }}>📁 Diesem Projekt zuordnen</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    <button onClick={() => setSelectedFolder(null)}
+                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder?gold:"rgba(200,169,110,0.2)"}`, background:!selectedFolder?"rgba(200,169,110,0.12)":"transparent", color:!selectedFolder?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                      Kein Projekt
+                    </button>
+                    {folders.map(f => (
+                      <button key={f.id} onClick={() => setSelectedFolder(f.id)}
+                        style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedFolder===f.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedFolder===f.id?"rgba(200,169,110,0.12)":"transparent", color:selectedFolder===f.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                        📁 {f.name}
+                      </button>
+                    ))}
+                  </div>
+                  {folders.length === 0 && (
+                    <div style={{ fontSize:10, color:"#5a4a34", fontStyle:"italic", marginTop:6 }}>Noch keine Projekte angelegt — das geht weiter unten bei "📁 Projekte".</div>
+                  )}
                 </div>
 
                 <div style={{ marginBottom:24 }}>
@@ -2295,12 +2281,17 @@ export default function LenormandApp() {
 
                   {/* RECHTS: Writing-Positionen */}
                   <div className="writing-notes">
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
                       <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase" }}>✍️ Deine Notizen</div>
                       <button onClick={() => setShowSaveTemplate(v => !v)}
                         style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
                         💾 Speichern unter
                       </button>
+                    </div>
+                    <div style={{ fontSize:9, marginBottom:8, color: writingSaveStatus==="saved" ? "#5a9a5a" : writingSaveStatus==="saving" ? "#9a8060" : writingSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:13 }}>
+                      {writingSaveStatus==="saving" && "Speichert…"}
+                      {writingSaveStatus==="saved" && "✓ Gespeichert"}
+                      {writingSaveStatus==="error" && "⚠ Nicht gespeichert — bitte Internetverbindung prüfen"}
                     </div>
 
                     {showSaveTemplate && (
@@ -2657,6 +2648,11 @@ export default function LenormandApp() {
           <div style={{ paddingBottom:30 }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Zauberzettel</div>
+              <div style={{ fontSize:10, marginBottom:6, color: manifestSaveStatus==="saved" ? "#5a9a5a" : manifestSaveStatus==="saving" ? "#9a8060" : manifestSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:14 }}>
+                {manifestSaveStatus==="saving" && "Speichert…"}
+                {manifestSaveStatus==="saved" && "✓ Gespeichert"}
+                {manifestSaveStatus==="error" && "⚠ Nicht gespeichert — bitte Internetverbindung prüfen"}
+              </div>
               <div style={{ fontSize:14, color:"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
                 Schreibe auf, was du dir wünschst und was du erschaffen willst. Trenne deine Wünsche mit einem Komma — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
               </div>
