@@ -1829,10 +1829,10 @@ export default function LenormandApp() {
           <div style={{ paddingBottom:30 }}>
 
             {/* Untermenü */}
-            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20 }}>
+            <div style={{ display:"flex", justifyContent:"flex-start", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
               {[["tagebuch","📓 Tagebuch"],["doku","📋 Dokumentation"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
                 <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt"); }}
-                  style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 20px", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1, transition:"all 0.2s" }}>
+                  style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
                   {l}
                 </button>
               ))}
