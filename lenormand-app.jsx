@@ -2313,8 +2313,8 @@ export default function LenormandApp() {
                           minRows={2}
                           style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                         />
-                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
                         </div>
                       </>)}
                     </div>
@@ -2334,8 +2334,8 @@ export default function LenormandApp() {
                           minRows={1}
                           style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                         />
-                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["nachIntro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["nachIntro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["nachIntro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
                         </div>
                       </>)}
                     </div>
@@ -2447,8 +2447,8 @@ export default function LenormandApp() {
                           minRows={1}
                           style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                         />
-                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
                         </div>
                       </>)}
                     </div>
@@ -2516,8 +2516,8 @@ export default function LenormandApp() {
                           minRows={1}
                           style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                         />
-                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["vorOutro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["vorOutro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["vorOutro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
                         </div>
                       </>)}
                     </div>
@@ -2539,8 +2539,8 @@ export default function LenormandApp() {
                           minRows={2}
                           style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                         />
-                        <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                          {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
                         </div>
                       </>)}
                     </div>
