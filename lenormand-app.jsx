@@ -2076,7 +2076,20 @@ export default function LenormandApp() {
                 </div>
 
                 <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16, marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Session-Name</div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
+                    <div style={{ fontSize:11, color:"#9a8060" }}>Session-Name</div>
+                    {(writingProjectId || writingProjekt || writingHook || writingBemerkung) && (
+                      <button onClick={() => {
+                        setWritingProjectId(null);
+                        setWritingProjekt("");
+                        setWritingHook("");
+                        setWritingBemerkung("");
+                        setSelectedTemplate(null);
+                      }} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                        ✨ Neue Session
+                      </button>
+                    )}
+                  </div>
                   <input placeholder="z.B. Die Karten haben gesprochen… und ich schreibe es auf 😄" value={writingProjekt} onChange={e => setWritingProjekt(e.target.value)}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                 </div>
