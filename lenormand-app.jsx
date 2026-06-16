@@ -180,7 +180,11 @@ export default function LenormandApp() {
   };
 
   // Login Screen
-  if (!session) return (
+  // Login-Screen als JSX-Variable statt frühem return — wird erst NACH allen Hooks
+  // ausgewertet, sonst springt React zwischen unterschiedlich vielen Hooks pro Render
+  // (das war die Ursache des leeren Bildschirms nach dem Einloggen, der erst durch
+  // Neuladen der Seite verschwand).
+  const loginScreen = (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"stretch" }}>
 
       {/* Links: Dekorativ */}
@@ -282,6 +286,7 @@ export default function LenormandApp() {
   const [writingView, setWritingView] = React.useState("projekt");
   const [writingProjekt, setWritingProjekt] = React.useState("");
   const [writingBemerkung, setWritingBemerkung] = React.useState("");
+  const [writingHook, setWritingHook] = React.useState("");
   const [writingCards, setWritingCards] = React.useState(null);
   const [writingNotes, setWritingNotes] = React.useState({});
   const [writingSessionId, setWritingSessionId] = React.useState(null);
@@ -294,23 +299,30 @@ export default function LenormandApp() {
   const [showNewFolder, setShowNewFolder] = React.useState(false);
   const [activeWritingPos, setActiveWritingPos] = React.useState(null);
   const [showWritingMatrix, setShowWritingMatrix] = React.useState(true);
+  const [textTemplates, setTextTemplates] = React.useState([]);
+  const [showSaveTemplate, setShowSaveTemplate] = React.useState(false);
+  const [newTemplateName, setNewTemplateName] = React.useState("");
+  const [showLoadTemplate, setShowLoadTemplate] = React.useState(false);
 
   const writingTimer = React.useRef(null);
 
-  // Ordner und Projekte laden
+  // Ordner, Projekte und Textvorlagen laden
   React.useEffect(() => {
     const loadAll = async () => {
       const uid = getUserId();
       if (!uid) return;
       try {
-        const [fR, pR] = await Promise.all([
+        const [fR, pR, tR] = await Promise.all([
           fetch(`${SUPABASE_URL}/rest/v1/writing_project_folders?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()}),
-          fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()})
+          fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()}),
+          fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()})
         ]);
         const fData = await fR.json();
         const pData = await pR.json();
+        const tData = await tR.json();
         if (Array.isArray(fData)) setFolders(fData);
         if (Array.isArray(pData)) setSavedProjects(pData);
+        if (Array.isArray(tData)) setTextTemplates(tData);
       } catch {}
     };
     loadAll();
@@ -344,6 +356,42 @@ export default function LenormandApp() {
     } catch {}
   };
 
+  const saveTemplate = async () => {
+    if (!newTemplateName.trim()) return;
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates`, {
+        method:"POST", headers: {...dbHeaders(), "Prefer":"return=representation"},
+        body: JSON.stringify({
+          user_id: uid,
+          name: newTemplateName.trim(),
+          intro: writingNotes["intro"] || "",
+          outro: writingNotes["outro"] || ""
+        })
+      });
+      const data = await r.json();
+      if (data && data[0]) setTextTemplates(prev => [...prev, data[0]]);
+      setNewTemplateName(""); setShowSaveTemplate(false);
+    } catch {}
+  };
+
+  const applyTemplate = (tpl) => {
+    const n = {...writingNotes, intro: tpl.intro || "", outro: tpl.outro || ""};
+    setWritingNotes(n);
+    saveWritingSession(n, writingProjekt, writingBemerkung);
+    setShowLoadTemplate(false);
+  };
+
+  const deleteTemplate = async (id) => {
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
+      setTextTemplates(prev => prev.filter(t => t.id !== id));
+    } catch {}
+  };
+
   const printFolder = (folderId) => {
     const folderName = folders.find(f => f.id === folderId)?.name || "Projekt";
     const sessions = savedProjects.filter(p => p.folder_id === folderId);
@@ -362,7 +410,7 @@ export default function LenormandApp() {
           const notes = s.notes || {};
           const cards = s.matrix_cards || [];
           return "<h2>" + s.name + "</h2>"
-            + "<div class='meta'>" + new Date(s.updated_at).toLocaleDateString('de-DE') + (s.bemerkung ? " · " + s.bemerkung : "") + "</div>"
+            + "<div class='meta'>" + new Date(s.updated_at).toLocaleDateString('de-DE') + (s.bemerkung ? " · " + s.bemerkung : "") + (s.hook ? " · 🎯 " + s.hook : "") + "</div>"
             + (notes["intro"] ? "<div class='block'><div class='lbl'>Intro</div><div class='txt'>" + notes["intro"] + "</div></div>" : "")
             + [4,0,1,2,5,6,7,3,8].map(pos => {
                 const t = notes[String(pos)] || "";
@@ -387,6 +435,7 @@ export default function LenormandApp() {
         user_id: uid,
         name: writingProjekt,
         bemerkung: writingBemerkung,
+        hook: writingHook,
         notes: writingNotes,
         matrix_cards: matrixCards,
         signifikator: signifikator,
@@ -415,6 +464,7 @@ export default function LenormandApp() {
   const loadProject = (proj) => {
     setWritingProjekt(proj.name);
     setWritingBemerkung(proj.bemerkung||"");
+    setWritingHook(proj.hook||"");
     setWritingNotes(proj.notes||{});
     setWritingProjectId(proj.id);
     if (proj.matrix_cards) setMatrixCards(proj.matrix_cards);
@@ -971,6 +1021,8 @@ export default function LenormandApp() {
   const CardMini = ({num, size=22}) => num ? (
     <span style={{fontSize:size}}>{SYMBOLS[num]}</span>
   ) : null;
+
+  if (!session) return loginScreen;
 
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
@@ -1991,6 +2043,11 @@ export default function LenormandApp() {
                   <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
+                <div style={{ marginBottom:24 }}>
+                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>🎯 The Hook</div>
+                  <textarea placeholder="Der Aufhänger, der die Leute reinzieht…" value={writingHook} onChange={e => setWritingHook(e.target.value)} rows={2}
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                </div>
                 <div style={{ display:"flex", justifyContent:"center", gap:10 }}>
                   <button onClick={() => {
                     writingRandom();
@@ -2111,6 +2168,11 @@ export default function LenormandApp() {
                         {writingBemerkung}
                       </div>
                     )}
+                    {writingHook && (
+                      <div style={{ marginBottom:10, fontSize:10, color:"#c8a96e", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:8 }}>
+                        🎯 {writingHook}
+                      </div>
+                    )}
                     <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
                       {Array.from({length:9}, (_,pos) => {
                         const card = matrixCards[pos];
@@ -2149,7 +2211,43 @@ export default function LenormandApp() {
 
                   {/* RECHTS: Writing-Positionen */}
                   <div className="writing-notes">
-                    <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>✍️ Deine Notizen</div>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase" }}>✍️ Deine Notizen</div>
+                      <div style={{ display:"flex", gap:6 }}>
+                        <button onClick={() => { setShowLoadTemplate(v => !v); setShowSaveTemplate(false); }}
+                          style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                          📋 Vorlagen
+                        </button>
+                        <button onClick={() => { setShowSaveTemplate(v => !v); setShowLoadTemplate(false); }}
+                          style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                          💾 Speichern unter
+                        </button>
+                      </div>
+                    </div>
+
+                    {showSaveTemplate && (
+                      <div style={{ display:"flex", gap:8, marginBottom:10 }}>
+                        <input placeholder="Name der Vorlage, z.B. Standard-Intro" value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
+                          onKeyDown={e => e.key==="Enter" && saveTemplate()}
+                          style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
+                        <button onClick={saveTemplate} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>✓</button>
+                      </div>
+                    )}
+
+                    {showLoadTemplate && (
+                      <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 10px" }}>
+                        {textTemplates.length === 0 ? (
+                          <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Noch keine Vorlagen gespeichert.</div>
+                        ) : textTemplates.map(tpl => (
+                          <div key={tpl.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
+                            <button onClick={() => applyTemplate(tpl)} style={{ flex:1, textAlign:"left", background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                              📋 {tpl.name}
+                            </button>
+                            <button onClick={() => deleteTemplate(tpl.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* INTRO */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
@@ -2279,6 +2377,7 @@ export default function LenormandApp() {
                           + "<h1>✍️ Writing Session</h1>"
                           + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>"
                           + (writingBemerkung ? "<br>" + writingBemerkung : "")
+                          + (writingHook ? "<br>🎯 " + writingHook : "")
                           + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name
                           + "<br>" + heute + "</div>"
                           + (introText ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
