@@ -2389,7 +2389,7 @@ export default function LenormandApp() {
                           <div style={{ fontSize:24 }}>{SYMBOLS[card]}</div>
                           <div style={{ fontSize:8, color:gold, marginTop:2 }}>{CARDS[card].name}</div>
                         </>) : freeText ? (
-                          <div style={{ fontSize:10, color:gold, marginTop:10, lineHeight:1.3, wordBreak:"break-word" }}>✏️ {freeText.slice(0, 40)}{freeText.length > 40 ? "…" : ""}</div>
+                          <div style={{ fontSize:10, color:gold, marginTop:10, lineHeight:1.3, wordBreak:"break-word" }}>✍️ {freeText.slice(0, 40)}{freeText.length > 40 ? "…" : ""}</div>
                         ) : <div style={{ fontSize:10, color:"#3a2a18", marginTop:8 }}>+</div>}
                       </div>
                     );
@@ -2402,7 +2402,7 @@ export default function LenormandApp() {
                     <div style={{ display:"flex", gap:6, marginBottom:8 }}>
                       <button onClick={() => setPickerMode(m => m === "freitext" ? "karte" : "freitext")}
                         style={{ background: pickerMode==="freitext" ? "rgba(200,169,110,0.15)" : "transparent", border:`1px solid ${pickerMode==="freitext"?gold:"rgba(200,169,110,0.2)"}`, color: pickerMode==="freitext"?gold:"#7a6040", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                        {pickerMode === "freitext" ? "🃏 stattdessen Karte wählen" : "✏️ stattdessen eigenen Text eintragen"}
+                        {pickerMode === "freitext" ? "🃏 stattdessen Karte wählen" : "✍️ stattdessen eigenen Text eintragen"}
                       </button>
                       {(matrixCards?.[activePos] || matrixFreeText[activePos]) && (
                         <button onClick={() => {
@@ -2505,7 +2505,7 @@ export default function LenormandApp() {
                   {/* LINKS: Echte Matrix mit Deutungen */}
                   <div className="writing-matrix">
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
-                      {signifikator ? (<>{SYMBOLS[signifikator]} {CARDS[signifikator].name}</>) : matrixFreeText[4] ? (<>✏️ {matrixFreeText[4]}</>) : null}
+                      {signifikator ? (<>{SYMBOLS[signifikator]} {CARDS[signifikator].name}</>) : matrixFreeText[4] ? (<>✍️ {matrixFreeText[4]}</>) : null}
                       {" · "}{writingMode === "personen" ? "Personen-Matrix" : "Situations-Matrix"}
                     </div>
                     {writingHook && (
@@ -2543,7 +2543,7 @@ export default function LenormandApp() {
                               </div>
                             )}
                             {!card && matrixFreeText[pos] && (
-                              <div style={{ marginBottom:4, fontSize:9, color:gold, fontStyle:"italic" }}>✏️ {matrixFreeText[pos]}</div>
+                              <div style={{ marginBottom:4, fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</div>
                             )}
                             {isSignifikator && signifikator && <div style={{ fontSize:8, color:"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
                             {fixedText && <div style={{ fontSize:9, color: isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
@@ -2669,7 +2669,7 @@ export default function LenormandApp() {
                               <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
                             </>)}
                             {!cardNum && matrixFreeText[pos] && (
-                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✏️ {matrixFreeText[pos]}</span>
+                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
                             )}
                             {comboCardNum && (<>
                               <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
@@ -2725,7 +2725,7 @@ export default function LenormandApp() {
                               <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
                             </>)}
                             {!cardNum && matrixFreeText[pos] && (
-                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✏️ {matrixFreeText[pos]}</span>
+                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
                             )}
                             {comboCardNum && (<>
                               <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
@@ -2806,7 +2806,7 @@ export default function LenormandApp() {
                               <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
                             </>)}
                             {!cardNum && matrixFreeText[pos] && (
-                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✏️ {matrixFreeText[pos]}</span>
+                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
                             )}
                             {comboCardNum && (<>
                               <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
@@ -2931,7 +2931,7 @@ export default function LenormandApp() {
                           const ft = matrixFreeText[pos];
                           const isKombi = KOMBI_POSITIONS.includes(pos);
                           const lbl = labelFor(pos, POSITION_LABELS[pos]);
-                          const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
+                          const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
                           const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
                           return "<div class='cell" + (pos===4?" sig":"") + "'><div class='cell-lbl'>" + lbl + "</div><div class='cell-card'>" + cardLine + "</div>"
                             + (insp ? "<div class='cell-insp'>" + insp + "</div>" : "") + "</div>";
@@ -2939,9 +2939,9 @@ export default function LenormandApp() {
                         const matrixGridHtml = "<div class='matrix-title'>" + (writingMode === "personen" ? "👤 Personen-Matrix" : "⬛ Situations-Matrix") + "</div>"
                           + "<div class='grid'>" + matrixCellsHtml + "</div>";
 
-                        const sigLine = signifikator ? (SYMBOLS[signifikator] + " " + CARDS[signifikator].name) : matrixFreeText[4] ? ("✏️ " + matrixFreeText[4]) : "–";
+                        const sigLine = signifikator ? (SYMBOLS[signifikator] + " " + CARDS[signifikator].name) : matrixFreeText[4] ? ("✍️ " + matrixFreeText[4]) : "–";
 
-                        const html = "<html><head><title>Writing Session</title><style>"
+                        const html = "<html><head><title>" + (writingProjekt || "Writing Session") + "</title><style>"
                           + "body{font-family:Georgia,serif,'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji';max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
                           + "h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}"
                           + ".meta{font-size:12px;color:#9a8060;margin-bottom:24px}"
@@ -2977,7 +2977,7 @@ export default function LenormandApp() {
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
                               const isKombi = KOMBI_POSITIONS.includes(pos);
                               const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
-                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
+                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
                               return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
                           + [posLabelNaheZukunft].map(({pos, label}) => {
@@ -2988,7 +2988,7 @@ export default function LenormandApp() {
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
                               const isKombi = KOMBI_POSITIONS.includes(pos);
                               const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
-                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
+                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
                               return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
                           + (nachRatDerEngelText ? "<div class='block'><div class='lbl'>💕 Subplot</div><div class='txt'>" + nachRatDerEngelText + "</div><div class='cnt'>" + nachRatDerEngelWc + " Wörter</div></div>" : "")
@@ -3000,7 +3000,7 @@ export default function LenormandApp() {
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
                               const isKombi = KOMBI_POSITIONS.includes(pos);
                               const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
-                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
+                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
                               return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
                           + (vorOutroText ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + vorOutroText + "</div><div class='cnt'>" + vorOutroWc + " Wörter</div></div>" : "")
