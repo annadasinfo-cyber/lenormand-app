@@ -1693,6 +1693,39 @@ export default function LenormandApp() {
     <span style={{fontSize:size}}>{SYMBOLS[num]}</span>
   ) : null;
 
+  // Findet YouTube-Links in einem Text (normale Videos, Shorts und youtu.be-Kurzlinks)
+  // und liefert die Video-ID — wird genutzt, um Lektionen/Beiträge mit Videotext automatisch
+  // als großes eingebettetes Video darzustellen, statt nur als rohen Link.
+  const extractYoutubeId = (url) => {
+    const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+    return m ? m[1] : null;
+  };
+
+  // Zerlegt einen Beitrags-/Antworttext in normale Textabschnitte und YouTube-Links,
+  // und rendert Letztere als großes eingebettetes Video (gleiche Optik wie auf der Willkommensseite).
+  const renderTextWithVideos = (text) => {
+    if (!text) return null;
+    const urlPattern = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlPattern);
+    return parts.map((part, i) => {
+      const videoId = /^https?:\/\//.test(part) ? extractYoutubeId(part) : null;
+      if (videoId) {
+        return (
+          <div key={i} style={{ borderRadius:10, overflow:"hidden", margin:"10px 0", position:"relative", paddingTop:"56.25%" }}>
+            <iframe
+              src={`https://www.youtube.com/embed/${videoId}`}
+              title="Video"
+              style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        );
+      }
+      return part ? <span key={i} style={{whiteSpace:"pre-wrap"}}>{part}</span> : null;
+    });
+  };
+
   // Diese Bereiche sind auch ohne Login erreichbar — alles andere bleibt hinter der Anmeldung.
   // "random" (Frage) ist als kleiner kostenloser Vorgeschmack gedacht; Forum-LESEN ist frei,
   // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
@@ -2461,7 +2494,7 @@ export default function LenormandApp() {
                     )}
                   </div>
                   <div style={{ fontSize:10, color:"#7a6040", marginBottom:10 }}>{forumActivePost.display_name} · {new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
-                  <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7, whiteSpace:"pre-wrap" }}>{forumActivePost.body}</div>
+                  <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
                 </div>
 
                 <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, marginBottom:10, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
@@ -2473,7 +2506,7 @@ export default function LenormandApp() {
                         <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
                       )}
                     </div>
-                    <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, whiteSpace:"pre-wrap" }}>{reply.body}</div>
+                    <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6 }}>{renderTextWithVideos(reply.body)}</div>
                   </div>
                 ))}
 
