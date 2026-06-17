@@ -367,6 +367,7 @@ export default function LenormandApp() {
   // Klient-State
   const [tagebuchView, setTagebuchView] = React.useState("tagebuch");
   const [dailyMode, setDailyMode] = React.useState("tagebuch");
+  const [communityMode, setCommunityMode] = React.useState("forum");
   const [writingView, setWritingView] = React.useState("projekt");
   const [writingProjekt, setWritingProjekt] = React.useState("");
   const [writingBemerkung, setWritingBemerkung] = React.useState("");
@@ -2403,6 +2404,30 @@ export default function LenormandApp() {
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>💬 Community</div>
             </div>
 
+            {/* Untermenü */}
+            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
+              {[["profil","👤 Profil"],["forum","💬 Forum"],["kurse","🎓 Kurse"],["shop","🛍️ Shop"]].map(([m,l]) => (
+                <button key={m} onClick={() => { setCommunityMode(m); if (m === "forum") { setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); } }}
+                  style={{ background:communityMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${communityMode===m?gold:"rgba(200,169,110,0.2)"}`, color:communityMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+
+            {/* PROFIL */}
+            {communityMode === "profil" && (
+              <div style={{ textAlign:"center", padding:"30px 0" }}>
+                <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
+                  {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
+                </div>
+                <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}</div>
+                <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:16 }}>{forumRoleLabel(userRole)}</div>
+                <div style={{ fontSize:12, color:"#5a4a34" }}>Weitere Profil-Einstellungen folgen hier bald.</div>
+              </div>
+            )}
+
+            {/* FORUM */}
+            {communityMode === "forum" && (<>
             {forumError && (
               <div style={{ background:"rgba(180,80,60,0.1)", border:"1px solid rgba(180,80,60,0.3)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#d09080", fontSize:12 }}>
                 {forumError}
@@ -2586,6 +2611,21 @@ export default function LenormandApp() {
                     style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                   <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { createForumReply(); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
                 </div>
+              </div>
+            )}
+            </>)}
+
+            {/* KURSE — Übersicht folgt */}
+            {communityMode === "kurse" && (
+              <div style={{ textAlign:"center", padding:"30px 0", color:"#7a6040", fontSize:13 }}>
+                Die Kurs-Übersicht ist in Arbeit — bald findest du hier alle deine Kurse auf einen Blick.
+              </div>
+            )}
+
+            {/* SHOP — folgt später */}
+            {communityMode === "shop" && (
+              <div style={{ textAlign:"center", padding:"30px 0", color:"#7a6040", fontSize:13 }}>
+                Der Shop für eBooks und Downloads kommt hier bald hinzu.
               </div>
             )}
           </div>
