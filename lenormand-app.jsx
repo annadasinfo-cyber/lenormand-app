@@ -1766,7 +1766,8 @@ export default function LenormandApp() {
     const urlPattern = /(https?:\/\/[^\s]+)/g;
     const parts = text.split(urlPattern);
     return parts.map((part, i) => {
-      const videoId = /^https?:\/\//.test(part) ? extractYoutubeId(part) : null;
+      const isUrl = /^https?:\/\//.test(part);
+      const videoId = isUrl ? extractYoutubeId(part) : null;
       if (videoId) {
         return (
           <div key={i} style={{ borderRadius:10, overflow:"hidden", margin:"10px 0", position:"relative", paddingTop:"56.25%" }}>
@@ -1778,6 +1779,16 @@ export default function LenormandApp() {
               allowFullScreen
             />
           </div>
+        );
+      }
+      // Normale Links (z.B. zur Pro-Mitgliedschafts-Seite) werden klickbar dargestellt,
+      // statt nur als unscheinbarer Text stehen zu bleiben.
+      if (isUrl) {
+        return (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+            style={{ color:gold, textDecoration:"underline", wordBreak:"break-all" }}>
+            {part}
+          </a>
         );
       }
       return part ? <span key={i} style={{whiteSpace:"pre-wrap"}}>{part}</span> : null;
