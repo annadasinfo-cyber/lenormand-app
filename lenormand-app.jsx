@@ -444,6 +444,8 @@ export default function LenormandApp() {
   const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
   const [forumPosts, setForumPosts] = React.useState([]);
   const [forumReadPostIds, setForumReadPostIds] = React.useState(new Set());
+  // Pro user_id: { role, createdAt, postCount } — für die kleine Profilkarte vor jedem Beitrag
+  const [forumProfiles, setForumProfiles] = React.useState({});
   const [forumActivePost, setForumActivePost] = React.useState(null);
   const [forumReplies, setForumReplies] = React.useState([]);
   const [forumNewTitle, setForumNewTitle] = React.useState("");
@@ -485,6 +487,7 @@ export default function LenormandApp() {
       const posts = await pr.json();
       const statsByCategory = {};
       const myUid = getUserId();
+      const postCountByUser = {};
       if (Array.isArray(posts)) {
         posts.forEach(p => {
           const s = statsByCategory[p.category_id] || { count: 0, lastActivity: null, hasUnread: false };
@@ -493,7 +496,24 @@ export default function LenormandApp() {
           // Eigene Beiträge zählen nicht als "ungelesen" — man hat sie ja selbst geschrieben
           if (myUid && p.user_id !== myUid && !forumReadPostIds.has(p.id)) s.hasUnread = true;
           statsByCategory[p.category_id] = s;
+          if (p.user_id) postCountByUser[p.user_id] = (postCountByUser[p.user_id] || 0) + 1;
         });
+      }
+      // Rolle + Mitglied-seit-Datum für alle Personen holen, die hier schon mal geschrieben
+      // haben — für die kleine Profilkarte vor jedem Beitrag/jeder Antwort.
+      const userIds = Object.keys(postCountByUser);
+      if (userIds.length > 0) {
+        try {
+          const prf = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=in.(${userIds.join(",")})&select=id,role,created_at`, {headers: dbHeaders()});
+          const profilesData = await prf.json();
+          if (Array.isArray(profilesData)) {
+            const profMap = {};
+            profilesData.forEach(p => {
+              profMap[p.id] = { role: p.role || "member", createdAt: p.created_at, postCount: postCountByUser[p.id] || 0 };
+            });
+            setForumProfiles(profMap);
+          }
+        } catch {}
       }
       const enriched = cats.map(c => ({
         ...c,
@@ -1726,6 +1746,41 @@ export default function LenormandApp() {
     });
   };
 
+  // Anzahl Sterne anhand der Beitragszahl — Staffelung folgt noch (Platzhalter-Werte).
+  // TODO Anna: hier die finalen Schwellenwerte eintragen, sobald entschieden.
+  const forumStarsForPostCount = (count) => {
+    if (count >= 250) return 5;
+    if (count >= 100) return 4;
+    if (count >= 50) return 3;
+    if (count >= 10) return 2;
+    return 1;
+  };
+
+  const forumRoleLabel = (role) => {
+    if (role === "admin") return "Admin";
+    if (role === "mod") return "Moderator";
+    if (role === "pro") return "Pro-Mitglied";
+    return "Mitglied";
+  };
+
+  // Kleine Profilkarte vor jedem Beitrag/jeder Antwort: Name, Rolle, Sterne, Mitglied seit.
+  const ForumProfileTag = ({ userId, displayName }) => {
+    const p = userId ? forumProfiles[userId] : null;
+    const stars = forumStarsForPostCount(p?.postCount || 0);
+    return (
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
+        <span style={{ fontSize:12, color:gold }}>{displayName}</span>
+        {p && (
+          <>
+            <span style={{ fontSize:9, color:"#7a6040", background:"rgba(200,169,110,0.08)", padding:"2px 7px", borderRadius:10 }}>{forumRoleLabel(p.role)}</span>
+            <span style={{ fontSize:10, color:gold }}>{"★".repeat(stars)}<span style={{color:"rgba(200,169,110,0.2)"}}>{"★".repeat(5-stars)}</span></span>
+            {p.createdAt && <span style={{ fontSize:9, color:"#5a4a34" }}>Mitglied seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"short", year:"numeric"})}</span>}
+          </>
+        )}
+      </div>
+    );
+  };
+
   // Diese Bereiche sind auch ohne Login erreichbar — alles andere bleibt hinter der Anmeldung.
   // "random" (Frage) ist als kleiner kostenloser Vorgeschmack gedacht; Forum-LESEN ist frei,
   // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
@@ -2493,15 +2548,19 @@ export default function LenormandApp() {
                       <button onClick={() => { if(window.confirm("Beitrag wirklich löschen?")) deleteForumPost(forumActivePost.id); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
                     )}
                   </div>
-                  <div style={{ fontSize:10, color:"#7a6040", marginBottom:10 }}>{forumActivePost.display_name} · {new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
+                  <ForumProfileTag userId={forumActivePost.user_id} displayName={forumActivePost.display_name} />
+                  <div style={{ fontSize:9, color:"#5a4a34", marginBottom:10 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
                   <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
                 </div>
 
                 <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, marginBottom:10, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
                 {forumReplies.map(reply => (
                   <div key={reply.id} style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between" }}>
-                      <div style={{ fontSize:10, color:"#7a6040", marginBottom:4 }}>{reply.display_name} · {new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                      <div style={{flex:1}}>
+                        <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
+                        <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
+                      </div>
                       {(isMod || reply.user_id === getUserId()) && (
                         <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
                       )}
