@@ -2915,11 +2915,14 @@ export default function LenormandApp() {
                         const outroText = writingNotes["outro"] || "";
                         const introWc = introText.trim().split(/\s+/).filter(Boolean).length;
                         const outroWc = outroText.trim().split(/\s+/).filter(Boolean).length;
+                        const nachIntroWc = nachIntroText.trim().split(/\s+/).filter(Boolean).length;
+                        const nachRatDerEngelWc = nachRatDerEngelText.trim().split(/\s+/).filter(Boolean).length;
+                        const vorOutroWc = vorOutroText.trim().split(/\s+/).filter(Boolean).length;
                         const posWc = posLabels.reduce((sum, {pos}) => {
                           const t = writingNotes[String(pos)] || "";
                           return sum + t.trim().split(/\s+/).filter(Boolean).length;
                         }, 0);
-                        const totalWc = introWc + posWc + outroWc;
+                        const totalWc = introWc + nachIntroWc + posWc + nachRatDerEngelWc + vorOutroWc + outroWc;
 
                         // 3×3-Matrix-Übersicht als HTML-Grid, in der gewohnten Anordnung (Signifikator in der Mitte)
                         const gridOrder = [0,1,2,3,4,5,6,7,8]; // Gedanken, IST, Rat der Engel, Warnung, Signifikator, Nahe Zukunft, Ursache, Unbew. Zukunft, Ergebnis
@@ -2939,7 +2942,7 @@ export default function LenormandApp() {
                         const sigLine = signifikator ? (SYMBOLS[signifikator] + " " + CARDS[signifikator].name) : matrixFreeText[4] ? ("✏️ " + matrixFreeText[4]) : "–";
 
                         const html = "<html><head><title>Writing Session</title><style>"
-                          + "body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
+                          + "body{font-family:Georgia,serif,'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji';max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
                           + "h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}"
                           + ".meta{font-size:12px;color:#9a8060;margin-bottom:24px}"
                           + ".block{margin-bottom:20px;border-left:3px solid #c8a96e;padding-left:14px}"
@@ -2957,15 +2960,15 @@ export default function LenormandApp() {
                           + ".cell-card{font-size:11px;color:#8a6020;margin-bottom:3px}"
                           + ".cell-insp{font-size:9px;color:#5a4a34;line-height:1.4}"
                           + "</style></head><body>"
-                          + "<h1>✍️ Writing Session</h1>"
-                          + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>"
-                          + (writingHook ? "<br>🎯 " + writingHook : "")
-                          + (writingBemerkung ? "<br>" + writingBemerkung : "")
-                          + "<br>Signifikator: " + sigLine
+                          + "<h1>✍️ " + (writingProjekt || "Ohne Titel") + "</h1>"
+                          + "<div class='meta'>"
+                          + (writingHook ? "🎯 " + writingHook + "<br>" : "")
+                          + (writingBemerkung ? writingBemerkung + "<br>" : "")
+                          + "Signifikator: " + sigLine
                           + "<br>" + heute + "</div>"
                           + matrixGridHtml
                           + (introText ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
-                          + (nachIntroText ? "<div class='block'><div class='lbl'>💥 Teaser</div><div class='txt'>" + nachIntroText + "</div></div>" : "")
+                          + (nachIntroText ? "<div class='block'><div class='lbl'>💥 Teaser</div><div class='txt'>" + nachIntroText + "</div><div class='cnt'>" + nachIntroWc + " Wörter</div></div>" : "")
                           + posLabelsBeforeEngel.map(({pos, label}) => {
                               const cn = matrixCards[pos];
                               const ft = matrixFreeText[pos];
@@ -2988,7 +2991,7 @@ export default function LenormandApp() {
                               const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
                               return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
-                          + (nachRatDerEngelText ? "<div class='block'><div class='lbl'>💕 Subplot</div><div class='txt'>" + nachRatDerEngelText + "</div></div>" : "")
+                          + (nachRatDerEngelText ? "<div class='block'><div class='lbl'>💕 Subplot</div><div class='txt'>" + nachRatDerEngelText + "</div><div class='cnt'>" + nachRatDerEngelWc + " Wörter</div></div>" : "")
                           + posLabelsAfterSubplot.map(({pos, label}) => {
                               const cn = matrixCards[pos];
                               const ft = matrixFreeText[pos];
@@ -3000,7 +3003,7 @@ export default function LenormandApp() {
                               const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
                               return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
-                          + (vorOutroText ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + vorOutroText + "</div></div>" : "")
+                          + (vorOutroText ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + vorOutroText + "</div><div class='cnt'>" + vorOutroWc + " Wörter</div></div>" : "")
                           + (outroText ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + outroText + "</div><div class='cnt'>" + outroWc + " Wörter</div></div>" : "")
                           + "<div class='total'>✦ Gesamt: " + totalWc + " Wörter</div>"
                           + "</body></html>";
