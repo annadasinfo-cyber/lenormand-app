@@ -388,10 +388,12 @@ export default function LenormandApp() {
     } catch {}
   };
 
+  const [templateSaveError, setTemplateSaveError] = React.useState("");
   const saveTemplate = async () => {
     if (!newTemplateName.trim()) return;
     const uid = getUserId();
     if (!uid) return;
+    setTemplateSaveError("");
     try {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates`, {
         method:"POST", headers: {...dbHeaders(), "Prefer":"return=representation"},
@@ -402,30 +404,50 @@ export default function LenormandApp() {
           outro: writingNotes["outro"] || ""
         })
       });
+      if (!r.ok) {
+        const errText = await r.text();
+        setTemplateSaveError(errText.slice(0, 200));
+        return;
+      }
       const data = await r.json();
       if (data && data[0]) {
         setTextTemplates(prev => [...prev, data[0]]);
         setSelectedTemplate(data[0]);
+        setNewTemplateName(""); setShowSaveTemplate(false);
+      } else {
+        setTemplateSaveError("Unbekannte Antwort von der Datenbank.");
       }
-      setNewTemplateName(""); setShowSaveTemplate(false);
-    } catch {}
+    } catch (e) {
+      setTemplateSaveError(String(e?.message || e).slice(0, 200));
+    }
   };
 
   // Aktualisiert eine bereits bestehende Vorlage mit den aktuellen Intro/Outro-Texten
   const updateTemplate = async (tpl) => {
     const uid = getUserId();
     if (!uid) return;
+    setTemplateSaveError("");
     try {
       const updatedFields = { intro: writingNotes["intro"] || "", outro: writingNotes["outro"] || "" };
       const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?id=eq.${tpl.id}`, {
         method:"PATCH", headers: {...dbHeaders(), "Prefer":"return=representation"},
         body: JSON.stringify(updatedFields)
       });
+      if (!r.ok) {
+        const errText = await r.text();
+        setTemplateSaveError(errText.slice(0, 200));
+        return;
+      }
       const data = await r.json();
-      const updated = (data && data[0]) ? data[0] : {...tpl, ...updatedFields};
-      setTextTemplates(prev => prev.map(t => t.id === tpl.id ? updated : t));
-      setSelectedTemplate(updated);
-    } catch {}
+      if (data && data[0]) {
+        setTextTemplates(prev => prev.map(t => t.id === tpl.id ? data[0] : t));
+        setSelectedTemplate(data[0]);
+      } else {
+        setTemplateSaveError("Aktualisierung kam ohne Bestätigung zurück — bitte erneut versuchen.");
+      }
+    } catch (e) {
+      setTemplateSaveError(String(e?.message || e).slice(0, 200));
+    }
   };
 
   // Vorlage umbenennen
@@ -2402,8 +2424,13 @@ export default function LenormandApp() {
 
                     {showSaveTemplate && (
                       <div style={{ marginBottom:10 }}>
+                        {templateSaveError && (
+                          <div style={{ fontSize:10, color:"#c87a6a", marginBottom:6, lineHeight:1.4 }}>
+                            ⚠ Fehler beim Speichern: {templateSaveError}
+                          </div>
+                        )}
                         {selectedTemplate && (
-                          <button onClick={() => { updateTemplate(selectedTemplate); setShowSaveTemplate(false); }}
+                          <button onClick={async () => { await updateTemplate(selectedTemplate); }}
                             style={{ width:"100%", marginBottom:6, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                             💾 "{selectedTemplate.name}" mit aktuellem Intro/Outro aktualisieren
                           </button>
