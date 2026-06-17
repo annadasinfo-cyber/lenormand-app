@@ -443,6 +443,7 @@ export default function LenormandApp() {
   const [forumView, setForumView] = React.useState("liste"); // "liste" | "kategorie" | "post" | "neu"
   const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
   const [forumPosts, setForumPosts] = React.useState([]);
+  const [forumReadPostIds, setForumReadPostIds] = React.useState(new Set());
   const [forumActivePost, setForumActivePost] = React.useState(null);
   const [forumReplies, setForumReplies] = React.useState([]);
   const [forumNewTitle, setForumNewTitle] = React.useState("");
@@ -477,31 +478,35 @@ export default function LenormandApp() {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?order=sort_order.asc`, {headers: dbHeaders()});
       const cats = await r.json();
       if (!Array.isArray(cats)) return;
-      // Schlanke Liste aller Posts holen (nur category_id + created_at), um pro Kategorie
-      // die Anzahl der Beiträge und den Zeitpunkt der letzten Aktivität zu berechnen,
+      // Schlanke Liste aller Posts holen (id + category_id + created_at + Ersteller), um pro
+      // Kategorie Anzahl, letzte Aktivität UND ob es ungelesene Beiträge gibt zu berechnen,
       // ohne für jede Kategorie einen eigenen Request zu brauchen.
-      const pr = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=category_id,created_at`, {headers: dbHeaders()});
+      const pr = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=id,category_id,created_at,user_id`, {headers: dbHeaders()});
       const posts = await pr.json();
       const statsByCategory = {};
+      const myUid = getUserId();
       if (Array.isArray(posts)) {
         posts.forEach(p => {
-          const s = statsByCategory[p.category_id] || { count: 0, lastActivity: null };
+          const s = statsByCategory[p.category_id] || { count: 0, lastActivity: null, hasUnread: false };
           s.count += 1;
           if (!s.lastActivity || p.created_at > s.lastActivity) s.lastActivity = p.created_at;
+          // Eigene Beiträge zählen nicht als "ungelesen" — man hat sie ja selbst geschrieben
+          if (myUid && p.user_id !== myUid && !forumReadPostIds.has(p.id)) s.hasUnread = true;
           statsByCategory[p.category_id] = s;
         });
       }
       const enriched = cats.map(c => ({
         ...c,
         postCount: statsByCategory[c.id]?.count || 0,
-        lastActivity: statsByCategory[c.id]?.lastActivity || null
+        lastActivity: statsByCategory[c.id]?.lastActivity || null,
+        hasUnread: statsByCategory[c.id]?.hasUnread || false
       }));
-      // Angepinnte Kategorien immer zuerst (nach sort_order untereinander),
-      // danach alle anderen nach letzter Aktivität (neueste oben), Kategorien ganz
-      // ohne Beiträge bleiben am Ende in ihrer ursprünglichen Reihenfolge.
+      // Reihenfolge: 1. angepinnt, 2. ungelesen (neueste Aktivität zuerst), 3. der Rest
+      // nach letzter Aktivität, Kategorien ganz ohne Beiträge bleiben am Ende.
       enriched.sort((a, b) => {
         if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
         if (a.pinned && b.pinned) return a.sort_order - b.sort_order;
+        if (a.hasUnread !== b.hasUnread) return a.hasUnread ? -1 : 1;
         if (!a.lastActivity && !b.lastActivity) return a.sort_order - b.sort_order;
         if (!a.lastActivity) return 1;
         if (!b.lastActivity) return -1;
@@ -513,13 +518,44 @@ export default function LenormandApp() {
 
   React.useEffect(() => {
     loadForumCategories();
-  }, []);
+  }, [forumReadPostIds, session]);
 
   const loadForumPosts = async (categoryId) => {
     try {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?category_id=eq.${categoryId}&order=pinned.desc,created_at.desc`, {headers: dbHeaders()});
       const data = await r.json();
       if (Array.isArray(data)) setForumPosts(data);
+    } catch {}
+  };
+
+  // Alle Beitrags-IDs laden, die diese Person schon geöffnet hat — einmal beim Login/Start,
+  // damit "ungelesen" in der ganzen Forum-Übersicht direkt korrekt angezeigt werden kann.
+  const loadForumReadPosts = async () => {
+    const uid = getUserId();
+    if (!uid) { setForumReadPostIds(new Set()); return; }
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_post_reads?user_id=eq.${uid}&select=post_id`, {headers: dbHeaders()});
+      const data = await r.json();
+      if (Array.isArray(data)) setForumReadPostIds(new Set(data.map(d => d.post_id)));
+    } catch {}
+  };
+
+  React.useEffect(() => {
+    loadForumReadPosts();
+  }, [session]);
+
+  // Markiert einen Beitrag als von dieser Person gelesen — wird beim Öffnen aufgerufen.
+  // Optimistisch sofort in der Oberfläche aktualisiert, damit es ohne Verzögerung wirkt.
+  const markForumPostRead = async (postId) => {
+    const uid = getUserId();
+    if (!uid) return; // Gäste haben kein Gelesen-Tracking
+    if (forumReadPostIds.has(postId)) return; // schon als gelesen markiert, nichts zu tun
+    setForumReadPostIds(prev => new Set(prev).add(postId));
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_post_reads`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "resolution=merge-duplicates"},
+        body: JSON.stringify({ user_id: uid, post_id: postId })
+      });
     } catch {}
   };
 
@@ -548,6 +584,7 @@ export default function LenormandApp() {
     setForumActivePost(post);
     setForumView("post");
     loadForumReplies(post.id);
+    markForumPostRead(post.id);
   };
 
   const createForumPost = async () => {
@@ -2321,15 +2358,17 @@ export default function LenormandApp() {
 
                 {forumCategories.map(cat => {
                   const locked = !forumCanEnterCategory(cat);
+                  const glow = cat.hasUnread && !locked;
                   return (
                   <div key={cat.id} onClick={() => openForumCategory(cat)}
-                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background: cat.pinned ? "rgba(200,169,110,0.06)" : "rgba(200,169,110,0.03)", border:`1px solid ${cat.pinned ? "rgba(200,169,110,0.35)" : "rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer", opacity: locked ? 0.7 : 1 }}>
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background: glow ? "rgba(200,169,110,0.1)" : cat.pinned ? "rgba(200,169,110,0.06)" : "rgba(200,169,110,0.03)", border:`1px solid ${glow ? gold : cat.pinned ? "rgba(200,169,110,0.35)" : "rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer", opacity: locked ? 0.7 : 1, boxShadow: glow ? "0 0 14px rgba(200,169,110,0.18)" : "none" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                       <span style={{ fontSize:22, maxWidth:32, overflow:"hidden", flexShrink:0 }}>{(cat.icon || "💬").slice(0, 4)}</span>
                       <div>
                         <div style={{ fontSize:14, color:gold, display:"flex", alignItems:"center", gap:6 }}>
                           {cat.pinned && <span style={{fontSize:11}}>📌</span>}
-                          {cat.name}
+                          {glow && <span style={{width:7, height:7, borderRadius:"50%", background:gold, display:"inline-block", flexShrink:0}}></span>}
+                          <span style={{fontWeight: glow ? "bold" : "normal"}}>{cat.name}</span>
                           {cat.visibility==="pro" && <span style={{fontSize:9, color:"#9a7060"}}>⭐ PRO</span>}
                           {locked && <span style={{fontSize:10, color:"#7a6040"}}>🔒</span>}
                         </div>
@@ -2376,13 +2415,20 @@ export default function LenormandApp() {
                   <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Beiträge — sei die/der Erste!</div>
                 )}
 
-                {forumPosts.map(post => (
+                {forumPosts.map(post => {
+                  const isUnread = !isGuest && post.user_id !== getUserId() && !forumReadPostIds.has(post.id);
+                  return (
                   <div key={post.id} onClick={() => openForumPost(post)}
-                    style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"12px 14px", marginBottom:8, cursor:"pointer" }}>
-                    <div style={{ fontSize:13, color:gold, marginBottom:4 }}>{post.pinned && "📌 "}{post.title}</div>
+                    style={{ background: isUnread ? "rgba(200,169,110,0.07)" : "rgba(200,169,110,0.03)", border:`1px solid ${isUnread ? "rgba(200,169,110,0.3)" : "rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"12px 14px", marginBottom:8, cursor:"pointer" }}>
+                    <div style={{ fontSize:13, color:gold, marginBottom:4, display:"flex", alignItems:"center", gap:6 }}>
+                      {post.pinned && <span>📌</span>}
+                      {isUnread && <span style={{width:7, height:7, borderRadius:"50%", background:gold, display:"inline-block", flexShrink:0}}></span>}
+                      <span style={{fontWeight: isUnread ? "bold" : "normal"}}>{post.title}</span>
+                    </div>
                     <div style={{ fontSize:10, color:"#7a6040" }}>{post.display_name} · {new Date(post.created_at).toLocaleDateString('de-DE')}</div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
