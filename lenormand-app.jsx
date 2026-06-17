@@ -2606,6 +2606,7 @@ export default function LenormandApp() {
                       <div onClick={() => setCollapsedFields(c => ({...c, intro: !c.intro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>🎬</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Intro</div>
+                        {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                         <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.intro ? "▸" : "▾"}</span>
                       </div>
                       {!collapsedFields.intro && (<>
@@ -2629,6 +2630,7 @@ export default function LenormandApp() {
                       <div onClick={() => setCollapsedFields(c => ({...c, nachIntro: !c.nachIntro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>💥</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Teaser</div>
+                        {(writingNotes["nachIntro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                         <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.nachIntro ? "▸" : "▾"}</span>
                       </div>
                       {!collapsedFields.nachIntro && (<>
@@ -2764,6 +2766,7 @@ export default function LenormandApp() {
                       <div onClick={() => setCollapsedFields(c => ({...c, nachRatDerEngel: !c.nachRatDerEngel}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>💕</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Subplot</div>
+                        {(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                         <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.nachRatDerEngel ? "▸" : "▾"}</span>
                       </div>
                       {!collapsedFields.nachRatDerEngel && (<>
@@ -2844,6 +2847,7 @@ export default function LenormandApp() {
                       <div onClick={() => setCollapsedFields(c => ({...c, vorOutro: !c.vorOutro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>💥</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Teaser-Auflösung</div>
+                        {(writingNotes["vorOutro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                         <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.vorOutro ? "▸" : "▾"}</span>
                       </div>
                       {!collapsedFields.vorOutro && (<>
@@ -2865,6 +2869,7 @@ export default function LenormandApp() {
                       <div onClick={() => setCollapsedFields(c => ({...c, outro: !c.outro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>🎬</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Outro</div>
+                        {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                         <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.outro ? "▸" : "▾"}</span>
                       </div>
                       {!collapsedFields.outro && (<>
@@ -2901,6 +2906,8 @@ export default function LenormandApp() {
                           {pos:8, label:"Ergebnis | Pay Off"},
                         ];
                         const posLabels = [...posLabelsBeforeEngel, posLabelNaheZukunft, ...posLabelsAfterSubplot];
+                        // Bei Personen-Modus die passenden Labels statt der Situations-Begriffe nehmen
+                        const labelFor = (pos, fallback) => writingMode === "personen" ? (PERSONEN_POSITION_LABELS[String(pos)] || fallback) : fallback;
                         const nachIntroText = writingNotes["nachIntro"] || "";
                         const nachRatDerEngelText = writingNotes["nachRatDerEngel"] || "";
                         const vorOutroText = writingNotes["vorOutro"] || "";
@@ -2914,6 +2921,23 @@ export default function LenormandApp() {
                         }, 0);
                         const totalWc = introWc + posWc + outroWc;
 
+                        // 3×3-Matrix-Übersicht als HTML-Grid, in der gewohnten Anordnung (Signifikator in der Mitte)
+                        const gridOrder = [0,1,2,3,4,5,6,7,8]; // Gedanken, IST, Rat der Engel, Warnung, Signifikator, Nahe Zukunft, Ursache, Unbew. Zukunft, Ergebnis
+                        const matrixCellsHtml = gridOrder.map(pos => {
+                          const cn = matrixCards[pos];
+                          const ft = matrixFreeText[pos];
+                          const isKombi = KOMBI_POSITIONS.includes(pos);
+                          const lbl = labelFor(pos, POSITION_LABELS[pos]);
+                          const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
+                          const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
+                          return "<div class='cell" + (pos===4?" sig":"") + "'><div class='cell-lbl'>" + lbl + "</div><div class='cell-card'>" + cardLine + "</div>"
+                            + (insp ? "<div class='cell-insp'>" + insp + "</div>" : "") + "</div>";
+                        }).join("");
+                        const matrixGridHtml = "<div class='matrix-title'>" + (writingMode === "personen" ? "👤 Personen-Matrix" : "⬛ Situations-Matrix") + "</div>"
+                          + "<div class='grid'>" + matrixCellsHtml + "</div>";
+
+                        const sigLine = signifikator ? (SYMBOLS[signifikator] + " " + CARDS[signifikator].name) : matrixFreeText[4] ? ("✏️ " + matrixFreeText[4]) : "–";
+
                         const html = "<html><head><title>Writing Session</title><style>"
                           + "body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
                           + "h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}"
@@ -2921,39 +2945,60 @@ export default function LenormandApp() {
                           + ".block{margin-bottom:20px;border-left:3px solid #c8a96e;padding-left:14px}"
                           + ".lbl{font-size:10px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}"
                           + ".karte{font-size:13px;color:#8a6020;margin-bottom:5px}"
+                          + ".insp{font-size:11px;color:#7a6040;font-style:italic;margin-bottom:5px}"
                           + ".txt{font-size:12px;color:#3a2a0a;white-space:pre-wrap}"
                           + ".cnt{font-size:9px;color:#9a8060;margin-top:3px}"
                           + ".total{margin-top:32px;padding-top:12px;border-top:2px solid #c8a96e;font-size:11px;color:#8a6020;text-align:right;letter-spacing:1px}"
+                          + ".matrix-title{font-size:11px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin:28px 0 8px}"
+                          + ".grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}"
+                          + ".cell{border:1px solid #d8c8a0;border-radius:6px;padding:8px;background:#fbf8f0}"
+                          + ".cell.sig{background:#f3e8cc;border-color:#c8a96e}"
+                          + ".cell-lbl{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:#9a8060;margin-bottom:3px}"
+                          + ".cell-card{font-size:11px;color:#8a6020;margin-bottom:3px}"
+                          + ".cell-insp{font-size:9px;color:#5a4a34;line-height:1.4}"
                           + "</style></head><body>"
                           + "<h1>✍️ Writing Session</h1>"
                           + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>"
                           + (writingHook ? "<br>🎯 " + writingHook : "")
                           + (writingBemerkung ? "<br>" + writingBemerkung : "")
-                          + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name
+                          + "<br>Signifikator: " + sigLine
                           + "<br>" + heute + "</div>"
+                          + matrixGridHtml
                           + (introText ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
                           + (nachIntroText ? "<div class='block'><div class='lbl'>💥 Teaser</div><div class='txt'>" + nachIntroText + "</div></div>" : "")
                           + posLabelsBeforeEngel.map(({pos, label}) => {
                               const cn = matrixCards[pos];
+                              const ft = matrixFreeText[pos];
                               const t = writingNotes[String(pos)] || "";
                               if (!t) return "";
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
-                              return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
+                              const isKombi = KOMBI_POSITIONS.includes(pos);
+                              const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
+                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
+                              return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
                           + [posLabelNaheZukunft].map(({pos, label}) => {
                               const cn = matrixCards[pos];
+                              const ft = matrixFreeText[pos];
                               const t = writingNotes[String(pos)] || "";
                               if (!t) return "";
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
-                              return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
+                              const isKombi = KOMBI_POSITIONS.includes(pos);
+                              const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
+                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
+                              return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
                           + (nachRatDerEngelText ? "<div class='block'><div class='lbl'>💕 Subplot</div><div class='txt'>" + nachRatDerEngelText + "</div></div>" : "")
                           + posLabelsAfterSubplot.map(({pos, label}) => {
                               const cn = matrixCards[pos];
+                              const ft = matrixFreeText[pos];
                               const t = writingNotes[String(pos)] || "";
                               if (!t) return "";
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
-                              return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
+                              const isKombi = KOMBI_POSITIONS.includes(pos);
+                              const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
+                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✏️ " + ft) : "–";
+                              return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
                           + (vorOutroText ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + vorOutroText + "</div></div>" : "")
                           + (outroText ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + outroText + "</div><div class='cnt'>" + outroWc + " Wörter</div></div>" : "")
