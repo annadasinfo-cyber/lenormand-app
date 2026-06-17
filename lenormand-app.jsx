@@ -733,6 +733,24 @@ export default function LenormandApp() {
     } catch {}
   };
 
+  // Beitrag innerhalb einer Kategorie anpinnen/lösen — gleiches Prinzip wie bei Kategorien
+  const toggleForumPostPin = async (post) => {
+    const newPinned = !post.pinned;
+    setForumPosts(prev => {
+      const updated = prev.map(p => p.id === post.id ? {...p, pinned: newPinned} : p);
+      updated.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return b.created_at.localeCompare(a.created_at);
+      });
+      return updated;
+    });
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${post.id}`, {
+        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({pinned: newPinned})
+      });
+    } catch {}
+  };
+
   // Speichert Name + Bio im eigenen Profil
   const saveProfile = async () => {
     const uid = getUserId();
@@ -2642,14 +2660,21 @@ export default function LenormandApp() {
                 {forumPosts.map(post => {
                   const isUnread = !isGuest && post.user_id !== getUserId() && !forumReadPostIds.has(post.id);
                   return (
-                  <div key={post.id} onClick={() => openForumPost(post)}
-                    style={{ background: isUnread ? "rgba(200,169,110,0.07)" : "rgba(200,169,110,0.03)", border:`1px solid ${isUnread ? "rgba(200,169,110,0.3)" : "rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"12px 14px", marginBottom:8, cursor:"pointer" }}>
-                    <div style={{ fontSize:13, color:gold, marginBottom:4, display:"flex", alignItems:"center", gap:6 }}>
-                      {post.pinned && <span>📌</span>}
-                      {isUnread && <span style={{width:7, height:7, borderRadius:"50%", background:gold, display:"inline-block", flexShrink:0}}></span>}
-                      <span style={{fontWeight: isUnread ? "bold" : "normal"}}>{post.title}</span>
+                  <div key={post.id}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background: post.pinned ? "rgba(200,169,110,0.07)" : isUnread ? "rgba(200,169,110,0.07)" : "rgba(200,169,110,0.03)", border:`1px solid ${post.pinned ? "rgba(200,169,110,0.35)" : isUnread ? "rgba(200,169,110,0.3)" : "rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"12px 14px", marginBottom:8 }}>
+                    <div onClick={() => openForumPost(post)} style={{ flex:1, minWidth:0, cursor:"pointer" }}>
+                      <div style={{ fontSize:13, color:gold, marginBottom:4, display:"flex", alignItems:"center", gap:6 }}>
+                        {post.pinned && <span>📌</span>}
+                        {isUnread && <span style={{width:7, height:7, borderRadius:"50%", background:gold, display:"inline-block", flexShrink:0}}></span>}
+                        <span style={{fontWeight: isUnread ? "bold" : "normal"}}>{post.title}</span>
+                      </div>
+                      <div style={{ fontSize:10, color:"#7a6040" }}>{post.display_name} · {new Date(post.created_at).toLocaleDateString('de-DE')}</div>
                     </div>
-                    <div style={{ fontSize:10, color:"#7a6040" }}>{post.display_name} · {new Date(post.created_at).toLocaleDateString('de-DE')}</div>
+                    {isMod && (
+                      <button onClick={e => { e.stopPropagation(); toggleForumPostPin(post); }}
+                        title={post.pinned ? "Anpinnen lösen" : "Beitrag anpinnen"}
+                        style={{ background: post.pinned ? "rgba(200,169,110,0.15)" : "transparent", border:`1px solid ${post.pinned ? gold : "rgba(200,169,110,0.25)"}`, color: post.pinned ? gold : "#9a8060", cursor:"pointer", fontSize:12, padding:"4px 8px", borderRadius:5, flexShrink:0 }}>📌</button>
+                    )}
                   </div>
                   );
                 })}
