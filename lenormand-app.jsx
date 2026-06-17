@@ -196,6 +196,7 @@ export default function LenormandApp() {
   const [authView, setAuthView] = React.useState("login");
   const [authEmail, setAuthEmail] = React.useState("");
   const [authPassword, setAuthPassword] = React.useState("");
+  const [authName, setAuthName] = React.useState("");
   const [authMsg, setAuthMsg] = React.useState("");
 
   const handleLogin = async () => {
@@ -207,8 +208,22 @@ export default function LenormandApp() {
 
   const handleRegister = async () => {
     setAuthMsg("");
+    if (!authName.trim()) { setAuthMsg("Bitte gib einen Namen ein."); return; }
     const data = await supabase.auth.signUp({email: authEmail, password: authPassword});
-    if (data.id || data.user) { setAuthMsg("✉️ Fast geschafft! Bitte bestätige deine E-Mail — dann kannst du dich einloggen."); setAuthView("login"); }
+    if (data.id || data.user) {
+      const newUid = data.id || data.user?.id;
+      // Namen direkt im Profil speichern, damit er z.B. im Forum als Anzeigename erscheinen kann
+      if (newUid) {
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+            method: "POST",
+            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" },
+            body: JSON.stringify({ id: newUid, display_name: authName.trim() })
+          });
+        } catch {}
+      }
+      setAuthMsg("✉️ Fast geschafft! Bitte bestätige deine E-Mail — dann kannst du dich einloggen."); setAuthView("login");
+    }
     else { setAuthMsg(data.error_description || data.msg || "Fehler bei der Registrierung"); }
   };
 
@@ -252,6 +267,15 @@ export default function LenormandApp() {
               </button>
             ))}
           </div>
+
+          {authView === "register" && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Name</div>
+              <input type="text" value={authName} onChange={e => setAuthName(e.target.value)}
+                placeholder="Wie du im Forum heißen möchtest"
+                style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+            </div>
+          )}
 
           <div style={{ marginBottom:14 }}>
             <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>E-Mail</div>
@@ -331,6 +355,17 @@ export default function LenormandApp() {
   const [writingHook, setWritingHook] = React.useState("");
   const [writingCards, setWritingCards] = React.useState(null);
   const [writingNotes, setWritingNotes] = React.useState({});
+  // Refs, die immer den allerneuesten Stand halten — wichtig, weil saveProject() über einen
+  // setTimeout-Callback aufgerufen wird und sonst einen veralteten (Closure-)Stand sehen könnte,
+  // z.B. wenn der Timer feuert, bevor der State-Update durch onChange "angekommen" ist.
+  const writingNotesRef = React.useRef(writingNotes);
+  const writingProjektRef = React.useRef(writingProjekt);
+  const writingBemerkungRef = React.useRef(writingBemerkung);
+  const writingHookRef = React.useRef(writingHook);
+  React.useEffect(() => { writingNotesRef.current = writingNotes; }, [writingNotes]);
+  React.useEffect(() => { writingProjektRef.current = writingProjekt; }, [writingProjekt]);
+  React.useEffect(() => { writingBemerkungRef.current = writingBemerkung; }, [writingBemerkung]);
+  React.useEffect(() => { writingHookRef.current = writingHook; }, [writingHook]);
   const [writingSessionId, setWritingSessionId] = React.useState(null);
   const [writingProjectId, setWritingProjectId] = React.useState(null);
   const [savedProjects, setSavedProjects] = React.useState([]);
@@ -382,6 +417,176 @@ export default function LenormandApp() {
   React.useEffect(() => {
     loadAllWritingData();
   }, [session]);
+
+  // ===== FORUM =====
+  const [userRole, setUserRole] = React.useState(null); // null solange nicht geladen / nicht eingeloggt
+  const [userDisplayName, setUserDisplayName] = React.useState("");
+  const [forumCategories, setForumCategories] = React.useState([]);
+  const [forumView, setForumView] = React.useState("liste"); // "liste" | "kategorie" | "post" | "neu"
+  const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
+  const [forumPosts, setForumPosts] = React.useState([]);
+  const [forumActivePost, setForumActivePost] = React.useState(null);
+  const [forumReplies, setForumReplies] = React.useState([]);
+  const [forumNewTitle, setForumNewTitle] = React.useState("");
+  const [forumNewBody, setForumNewBody] = React.useState("");
+  const [forumNewName, setForumNewName] = React.useState(""); // Anzeigename für Gäste
+  const [forumReplyText, setForumReplyText] = React.useState("");
+  const [forumNewCatName, setForumNewCatName] = React.useState("");
+  const [forumNewCatIcon, setForumNewCatIcon] = React.useState("💬");
+  const [forumNewCatVisibility, setForumNewCatVisibility] = React.useState("member");
+  const [forumNewCatGuestPost, setForumNewCatGuestPost] = React.useState(false);
+  const [forumShowNewCat, setForumShowNewCat] = React.useState(false);
+  const [forumError, setForumError] = React.useState("");
+
+  // Nutzerrolle + Anzeigename laden, sobald eingeloggt — ohne Login bleibt userRole bei null (= Gast)
+  React.useEffect(() => {
+    const loadRole = async () => {
+      const uid = getUserId();
+      if (!uid) { setUserRole(null); setUserDisplayName(""); return; }
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name`, {headers: dbHeaders()});
+        const data = await r.json();
+        setUserRole((data && data[0] && data[0].role) || "member");
+        setUserDisplayName((data && data[0] && data[0].display_name) || "");
+      } catch { setUserRole("member"); }
+    };
+    loadRole();
+  }, [session]);
+
+  const loadForumCategories = async () => {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?order=sort_order.asc`, {headers: dbHeaders()});
+      const data = await r.json();
+      if (Array.isArray(data)) setForumCategories(data);
+    } catch {}
+  };
+
+  React.useEffect(() => {
+    loadForumCategories();
+  }, []);
+
+  const loadForumPosts = async (categoryId) => {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?category_id=eq.${categoryId}&order=pinned.desc,created_at.desc`, {headers: dbHeaders()});
+      const data = await r.json();
+      if (Array.isArray(data)) setForumPosts(data);
+    } catch {}
+  };
+
+  const loadForumReplies = async (postId) => {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?post_id=eq.${postId}&order=created_at.asc`, {headers: dbHeaders()});
+      const data = await r.json();
+      if (Array.isArray(data)) setForumReplies(data);
+    } catch {}
+  };
+
+  const openForumCategory = (cat) => {
+    setForumActiveCategory(cat);
+    setForumView("kategorie");
+    loadForumPosts(cat.id);
+  };
+
+  const openForumPost = (post) => {
+    setForumActivePost(post);
+    setForumView("post");
+    loadForumReplies(post.id);
+  };
+
+  const createForumPost = async () => {
+    setForumError("");
+    if (!forumNewTitle.trim() || !forumNewBody.trim()) { setForumError("Bitte Titel und Text ausfüllen."); return; }
+    if (isGuest && !forumNewName.trim()) { setForumError("Bitte gib einen Namen an, unter dem deine Frage erscheinen soll."); return; }
+    const uid = getUserId();
+    try {
+      const payload = {
+        category_id: forumActiveCategory.id,
+        user_id: uid || null,
+        display_name: uid ? (userDisplayName || "Mitglied") : forumNewName.trim(),
+        title: forumNewTitle.trim(),
+        body: forumNewBody.trim()
+      };
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (data && data[0]) {
+        setForumNewTitle(""); setForumNewBody(""); setForumNewName("");
+        loadForumPosts(forumActiveCategory.id);
+        setForumView("kategorie");
+      } else {
+        setForumError("Konnte nicht gespeichert werden. Versuch's gleich noch mal.");
+      }
+    } catch { setForumError("Konnte nicht gespeichert werden. Versuch's gleich noch mal."); }
+  };
+
+  const createForumReply = async () => {
+    if (!forumReplyText.trim()) return;
+    const uid = getUserId();
+    try {
+      const payload = {
+        post_id: forumActivePost.id,
+        user_id: uid || null,
+        display_name: uid ? (userDisplayName || "Mitglied") : (forumNewName.trim() || "Anonym"),
+        body: forumReplyText.trim()
+      };
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_replies`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (data && data[0]) {
+        setForumReplyText("");
+        loadForumReplies(forumActivePost.id);
+      }
+    } catch {}
+  };
+
+  const deleteForumPost = async (id) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
+      setForumPosts(prev => prev.filter(p => p.id !== id));
+      if (forumActivePost?.id === id) { setForumActivePost(null); setForumView("kategorie"); }
+    } catch {}
+  };
+
+  const deleteForumReply = async (id) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
+      setForumReplies(prev => prev.filter(r => r.id !== id));
+    } catch {}
+  };
+
+  const createForumCategory = async () => {
+    if (!forumNewCatName.trim()) return;
+    try {
+      const payload = {
+        name: forumNewCatName.trim(),
+        icon: forumNewCatIcon || "💬",
+        visibility: forumNewCatVisibility,
+        guest_can_post: forumNewCatGuestPost,
+        sort_order: forumCategories.length
+      };
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (data && data[0]) {
+        setForumCategories(prev => [...prev, data[0]]);
+        setForumNewCatName(""); setForumNewCatIcon("💬"); setForumNewCatVisibility("member"); setForumNewCatGuestPost(false);
+        setForumShowNewCat(false);
+      }
+    } catch {}
+  };
+
+  const deleteForumCategory = async (id) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
+      setForumCategories(prev => prev.filter(c => c.id !== id));
+    } catch {}
+  };
 
   const createFolder = async () => {
     if (!newFolderName.trim()) return;
@@ -566,6 +771,24 @@ export default function LenormandApp() {
   const saveProject = async () => {
     const uid = getUserId();
     if (!uid) return;
+    // Immer den allerneuesten Stand aus den Refs lesen, nicht aus dem Closure dieser Funktion —
+    // sonst könnte ein verzögerter Timer-Aufruf einen veralteten (z.B. noch leeren) Stand sehen.
+    const curNotes = writingNotesRef.current;
+    const curProjekt = writingProjektRef.current;
+    const curHook = writingHookRef.current;
+    const curBemerkung = writingBemerkungRef.current;
+    // Nichts speichern, wenn die Session komplett leer ist (nur gewürfelt/Karten gewählt, aber
+    // noch nirgends Text eingegeben) — das hat sonst bei jedem Tab-Wechsel direkt nach dem Würfeln
+    // ein neues, leeres "Unbenannt"-Projekt angelegt.
+    const hasAnyContent = Boolean(
+      (curProjekt && curProjekt.trim()) ||
+      (curHook && curHook.trim()) ||
+      (curBemerkung && curBemerkung.trim()) ||
+      Object.values(curNotes || {}).some(v => v && String(v).trim())
+    );
+    if (!hasAnyContent && !writingProjectId) {
+      return;
+    }
     // Lock: läuft schon ein Speichervorgang, merken wir uns, dass danach nochmal gespeichert werden muss,
     // statt einen zweiten parallelen Request zu starten (das hat zu doppelten/vielfachen Projekten geführt).
     if (writingIsSaving.current) {
@@ -574,16 +797,16 @@ export default function LenormandApp() {
     }
     writingIsSaving.current = true;
     // Auch ohne Namen speichern, damit nichts verloren geht — Fallback-Name verwenden
-    const nameToSave = writingProjekt || ("Unbenannt · " + new Date().toLocaleDateString('de-DE') + " " + new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}));
+    const nameToSave = curProjekt || ("Unbenannt · " + new Date().toLocaleDateString('de-DE') + " " + new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}));
     setWritingSaveStatus("saving");
     setWritingSaveError("");
     try {
       const payload = {
         user_id: uid,
         name: nameToSave,
-        bemerkung: writingBemerkung,
-        hook: writingHook,
-        notes: writingNotes,
+        bemerkung: curBemerkung,
+        hook: curHook,
+        notes: curNotes,
         matrix_cards: matrixCards,
         signifikator: signifikator,
         folder_id: selectedFolder || null,
@@ -664,7 +887,34 @@ export default function LenormandApp() {
     } catch {}
   };
 
+  // Findet Sessions, die nirgends Inhalt haben (nur durch Würfeln/Tab-Wechsel entstanden, nie beschrieben)
+  const isEmptyProject = (p) => {
+    const nameIsAuto = !p.name || p.name.startsWith("Unbenannt");
+    const hasNotes = p.notes && Object.values(p.notes).some(v => v && String(v).trim());
+    return nameIsAuto && !p.bemerkung?.trim() && !p.hook?.trim() && !hasNotes;
+  };
+  const emptyProjectsCount = savedProjects.filter(isEmptyProject).length;
+  const cleanupEmptyProjects = async () => {
+    const uid = getUserId();
+    if (!uid) return;
+    const toDelete = savedProjects.filter(isEmptyProject);
+    if (toDelete.length === 0) return;
+    try {
+      await Promise.all(toDelete.map(p =>
+        fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${p.id}`, {method:"DELETE", headers: dbHeaders()})
+      ));
+      const deletedIds = new Set(toDelete.map(p => p.id));
+      setSavedProjects(prev => prev.filter(p => !deletedIds.has(p.id)));
+      if (deletedIds.has(writingProjectId)) setWritingProjectId(null);
+    } catch {}
+  };
+
   const saveWritingSession = (notes, projekt, bemerkung) => {
+    // Refs sofort synchron aktualisieren (zusätzlich zum useEffect), damit der Timer-Callback
+    // garantiert den aktuellsten Stand sieht, auch wenn er sehr knapp nach einer Änderung feuert.
+    writingNotesRef.current = notes;
+    writingProjektRef.current = projekt;
+    writingBemerkungRef.current = bemerkung;
     if (writingTimer.current) clearTimeout(writingTimer.current);
     setWritingSaveStatus("saving");
     writingTimer.current = setTimeout(() => saveProject(), 1500);
@@ -677,6 +927,19 @@ export default function LenormandApp() {
       const payload = JSON.parse(atob(s.access_token.split('.')[1]));
       return payload.sub;
     } catch { return null; }
+  };
+
+  // Praktische Helfer, um im Code lesbar zu prüfen, was jemand darf
+  const isGuest = !session || !getUserId();
+  const isAdmin = userRole === "admin";
+  const isMod = userRole === "mod" || isAdmin;
+  const isPro = userRole === "pro" || isMod;
+
+  // Kann diese Kategorie überhaupt gesehen werden, je nach Sichtbarkeits-Stufe + eigener Rolle?
+  const forumCanSeeCategory = (cat) => {
+    if (cat.visibility === "guest") return true;
+    if (cat.visibility === "pro") return isPro;
+    return !isGuest; // "member"-Sichtbarkeit: alles außer Gast
   };
 
   const dbHeaders = () => {
@@ -1307,7 +1570,11 @@ export default function LenormandApp() {
     <span style={{fontSize:size}}>{SYMBOLS[num]}</span>
   ) : null;
 
-  if (!session) return loginScreen;
+  // Diese Bereiche sind auch ohne Login erreichbar — alles andere bleibt hinter der Anmeldung.
+  // "random" (Frage) ist als kleiner kostenloser Vorgeschmack gedacht; Forum-LESEN ist frei,
+  // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
+  const freieViews = ["liesmich", "random", "forum"];
+  if (!session && !freieViews.includes(view)) return loginScreen;
 
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
@@ -1419,7 +1686,7 @@ export default function LenormandApp() {
         <div style={{ fontSize:10, color:"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {/* Reihe 1 */}
-          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["tagebuch","✨ Daily"]].map(([v,l]) => (
+          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["matrix","⬛ Matrix"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
@@ -1432,10 +1699,12 @@ export default function LenormandApp() {
           ))}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
-          {[["matrix","⬛ Matrix"],["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["quiz","🎓 Quiz"]].map(([v,l]) => (
+          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","💬 Community"],["quiz","🎓 Quiz"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
+                else if(v==="tagebuch") { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
+                else if(v==="forum") { setView(v); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
                 else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { if(v==="quiz" && view==="quiz") { startQuiz(); } else { setView(v); if(v!==view) { reset(); if(v==="quiz") { setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0); } } } } }
               }}
               style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
@@ -1910,6 +2179,167 @@ export default function LenormandApp() {
           </>)}
         </>)}
 
+        {/* ── FORUM / COMMUNITY ── */}
+        {view === "forum" && (
+          <div style={{ maxWidth:700, margin:"0 auto" }}>
+            <div style={{ textAlign:"center", marginBottom:20 }}>
+              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>💬 Community</div>
+            </div>
+
+            {forumError && (
+              <div style={{ background:"rgba(180,80,60,0.1)", border:"1px solid rgba(180,80,60,0.3)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#d09080", fontSize:12 }}>
+                {forumError}
+              </div>
+            )}
+
+            {/* KATEGORIEN-LISTE */}
+            {forumView === "liste" && (
+              <div>
+                <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+                  {isAdmin && (
+                    <button onClick={() => setForumShowNewCat(v => !v)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                      {forumShowNewCat ? "✕ Abbrechen" : "+ Neue Kategorie"}
+                    </button>
+                  )}
+                </div>
+
+                {isAdmin && forumShowNewCat && (
+                  <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:16, marginBottom:16 }}>
+                    <input placeholder="Name der Kategorie" value={forumNewCatName} onChange={e => setForumNewCatName(e.target.value)}
+                      style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    <input placeholder="Icon (z.B. 💬, 🎙️, 🔮)" value={forumNewCatIcon} onChange={e => setForumNewCatIcon(e.target.value)}
+                      style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+                      {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"]].map(([v,l]) => (
+                        <button key={v} onClick={() => setForumNewCatVisibility(v)} style={{ flex:1, background:forumNewCatVisibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${forumNewCatVisibility===v?gold:"rgba(200,169,110,0.2)"}`, color:forumNewCatVisibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
+                      ))}
+                    </div>
+                    <label style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:11, color:"#9a8060", cursor:"pointer" }}>
+                      <input type="checkbox" checked={forumNewCatGuestPost} onChange={e => setForumNewCatGuestPost(e.target.checked)} />
+                      Gäste dürfen hier auch ohne Login schreiben (z.B. für Mitmach-Mittwoch)
+                    </label>
+                    <button onClick={createForumCategory} style={{ width:"100%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Kategorie anlegen</button>
+                  </div>
+                )}
+
+                {forumCategories.filter(forumCanSeeCategory).length === 0 && (
+                  <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Kategorien vorhanden.</div>
+                )}
+
+                {forumCategories.filter(forumCanSeeCategory).map(cat => (
+                  <div key={cat.id} onClick={() => openForumCategory(cat)}
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                      <span style={{ fontSize:22 }}>{cat.icon}</span>
+                      <div>
+                        <div style={{ fontSize:14, color:gold }}>{cat.name}{cat.visibility==="pro" && <span style={{fontSize:9, color:"#9a7060", marginLeft:6}}>⭐ PRO</span>}</div>
+                        {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{cat.description}</div>}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      {isAdmin && (
+                        <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kategorie "${cat.name}" wirklich löschen? Alle Beiträge darin gehen verloren.`)) deleteForumCategory(cat.id); }}
+                          style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
+                      )}
+                      <span style={{ color:"#5a4a34", fontSize:16 }}>→</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* KATEGORIE: BEITRAGSLISTE */}
+            {forumView === "kategorie" && forumActiveCategory && (
+              <div>
+                <button onClick={() => { setForumView("liste"); setForumActiveCategory(null); }} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kategorien</button>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
+                  <span style={{ fontSize:20 }}>{forumActiveCategory.icon}</span>
+                  <div style={{ fontSize:16, color:gold }}>{forumActiveCategory.name}</div>
+                </div>
+
+                {!isGuest && (
+                  <div style={{ textAlign:"right", marginBottom:14 }}>
+                    <button onClick={() => { setForumView("neu"); setForumError(""); }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                      ✎ {forumActiveCategory.name === "Mitmach-Mittwoch" ? "Frage stellen" : "Neuer Beitrag"}
+                    </button>
+                  </div>
+                )}
+
+                {forumPosts.length === 0 && (
+                  <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Beiträge — sei die/der Erste!</div>
+                )}
+
+                {forumPosts.map(post => (
+                  <div key={post.id} onClick={() => openForumPost(post)}
+                    style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"12px 14px", marginBottom:8, cursor:"pointer" }}>
+                    <div style={{ fontSize:13, color:gold, marginBottom:4 }}>{post.pinned && "📌 "}{post.title}</div>
+                    <div style={{ fontSize:10, color:"#7a6040" }}>{post.display_name} · {new Date(post.created_at).toLocaleDateString('de-DE')}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* NEUER BEITRAG */}
+            {forumView === "neu" && forumActiveCategory && (
+              <div>
+                <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
+                <div style={{ fontSize:14, color:gold, marginBottom:14 }}>✎ Neuer Beitrag in {forumActiveCategory.name}</div>
+                {isGuest && (
+                  <input placeholder="Dein Name (erscheint öffentlich)" value={forumNewName} onChange={e => setForumNewName(e.target.value)}
+                    style={{ width:"100%", padding:"9px 12px", marginBottom:10, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                )}
+                <input placeholder="Titel" value={forumNewTitle} onChange={e => setForumNewTitle(e.target.value)}
+                  style={{ width:"100%", padding:"9px 12px", marginBottom:10, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                <textarea placeholder="Dein Text…" value={forumNewBody} onChange={e => setForumNewBody(e.target.value)} rows={6}
+                  style={{ width:"100%", padding:"10px 12px", marginBottom:12, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                <button onClick={createForumPost} style={{ width:"100%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>Veröffentlichen</button>
+              </div>
+            )}
+
+            {/* POST-DETAIL MIT ANTWORTEN */}
+            {forumView === "post" && forumActivePost && (
+              <div>
+                <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zur Liste</button>
+                <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                    <div style={{ fontSize:15, color:gold, marginBottom:6 }}>{forumActivePost.title}</div>
+                    {(isMod || forumActivePost.user_id === getUserId()) && (
+                      <button onClick={() => { if(window.confirm("Beitrag wirklich löschen?")) deleteForumPost(forumActivePost.id); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
+                    )}
+                  </div>
+                  <div style={{ fontSize:10, color:"#7a6040", marginBottom:10 }}>{forumActivePost.display_name} · {new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
+                  <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7, whiteSpace:"pre-wrap" }}>{forumActivePost.body}</div>
+                </div>
+
+                <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, marginBottom:10, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
+                {forumReplies.map(reply => (
+                  <div key={reply.id} style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between" }}>
+                      <div style={{ fontSize:10, color:"#7a6040", marginBottom:4 }}>{reply.display_name} · {new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
+                      {(isMod || reply.user_id === getUserId()) && (
+                        <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
+                      )}
+                    </div>
+                    <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, whiteSpace:"pre-wrap" }}>{reply.body}</div>
+                  </div>
+                ))}
+
+                {!isGuest && (
+                  <div style={{ marginTop:14 }}>
+                    {isGuest && (
+                      <input placeholder="Dein Name" value={forumNewName} onChange={e => setForumNewName(e.target.value)}
+                        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                    )}
+                    <textarea placeholder="Antworten…" value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
+                      style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    <button onClick={createForumReply} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── QUIZ ── */}
         {view === "quiz" && (
           <div>
@@ -2192,7 +2622,15 @@ export default function LenormandApp() {
                 <div style={{ marginBottom:20 }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
                     <div style={{ fontSize:10, color:"#7a6040", letterSpacing:2, textTransform:"uppercase" }}>📁 Projekte</div>
-                    <button onClick={() => setShowNewFolder(f => !f)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>+ Neu</button>
+                    <div style={{ display:"flex", gap:6 }}>
+                      {emptyProjectsCount > 0 && (
+                        <button onClick={cleanupEmptyProjects} title="Löscht alle Sessions, die noch nirgends Text enthalten"
+                          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a7060", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                          🧹 {emptyProjectsCount} leere aufräumen
+                        </button>
+                      )}
+                      <button onClick={() => setShowNewFolder(f => !f)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>+ Neu</button>
+                    </div>
                   </div>
 
                   {showNewFolder && (
