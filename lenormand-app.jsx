@@ -230,13 +230,16 @@ export default function LenormandApp() {
     const data = await supabase.auth.signUp({email: authEmail, password: authPassword});
     if (data.id || data.user) {
       const newUid = data.id || data.user?.id;
-      // Namen direkt im Profil speichern, damit er z.B. im Forum als Anzeigename erscheinen kann
+      // Namen direkt im Profil speichern, damit er z.B. im Forum als Anzeigename erscheinen kann.
+      // Neuanmeldungen starten automatisch mit 14 Tagen Pro-Testphase, danach Rückstufung
+      // auf "member" beim nächsten Login (siehe loadRole-Logik weiter unten).
       if (newUid) {
+        const trialUntil = new Date(Date.now() + 14 * 86400000).toISOString();
         try {
           await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
             method: "POST",
             headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" },
-            body: JSON.stringify({ id: newUid, display_name: authName.trim() })
+            body: JSON.stringify({ id: newUid, display_name: authName.trim(), role: "pro", pro_trial_until: trialUntil })
           });
         } catch {}
       }
@@ -445,6 +448,7 @@ export default function LenormandApp() {
   const [userRole, setUserRole] = React.useState(null); // null solange nicht geladen / nicht eingeloggt
   const [userDisplayName, setUserDisplayName] = React.useState("");
   const [userBio, setUserBio] = React.useState("");
+  const [proTrialDaysLeft, setProTrialDaysLeft] = React.useState(null);
   const [profileEditing, setProfileEditing] = React.useState(false);
   const [profileEditName, setProfileEditName] = React.useState("");
   const [profileEditBio, setProfileEditBio] = React.useState("");
@@ -471,16 +475,41 @@ export default function LenormandApp() {
   const [forumError, setForumError] = React.useState("");
 
   // Nutzerrolle + Anzeigename + Bio laden, sobald eingeloggt — ohne Login bleibt userRole bei null (= Gast)
+  // Zusätzlich: falls eine Pro-Testphase abgelaufen ist, wird hier automatisch auf
+  // "member" zurückgestuft (sowohl lokal als auch dauerhaft in der Datenbank).
   React.useEffect(() => {
     const loadRole = async () => {
       const uid = getUserId();
-      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); return; }
+      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setProTrialDaysLeft(null); return; }
       try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio`, {headers: dbHeaders()});
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio,pro_trial_until`, {headers: dbHeaders()});
         const data = await r.json();
-        setUserRole((data && data[0] && data[0].role) || "member");
-        setUserDisplayName((data && data[0] && data[0].display_name) || "");
-        setUserBio((data && data[0] && data[0].bio) || "");
+        const profile = (data && data[0]) || {};
+        let role = profile.role || "member";
+        setUserDisplayName(profile.display_name || "");
+        setUserBio(profile.bio || "");
+
+        if (profile.pro_trial_until) {
+          const msLeft = new Date(profile.pro_trial_until).getTime() - Date.now();
+          if (msLeft <= 0) {
+            // Testphase abgelaufen — dauerhaft zurückstufen, außer jemand wurde inzwischen
+            // ohnehin schon zu Mod/Admin gemacht (das soll nicht überschrieben werden).
+            setProTrialDaysLeft(null);
+            if (role === "pro") {
+              role = "member";
+              try {
+                await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`, {
+                  method: "PATCH", headers: dbHeaders(), body: JSON.stringify({ role: "member", pro_trial_until: null })
+                });
+              } catch {}
+            }
+          } else {
+            setProTrialDaysLeft(Math.ceil(msLeft / 86400000));
+          }
+        } else {
+          setProTrialDaysLeft(null);
+        }
+        setUserRole(role);
       } catch { setUserRole("member"); }
     };
     loadRole();
@@ -1963,6 +1992,15 @@ export default function LenormandApp() {
       {access === "trial" && (
         <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:"1px solid rgba(200,169,110,0.2)", padding:"8px 16px", textAlign:"center", fontSize:11, color:"#9a8060" }}>
           ✦ Probezeit: noch {getDaysLeft()} Tage kostenlos &nbsp;·&nbsp;
+          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
+            Jetzt freischalten →
+          </a>
+        </div>
+      )}
+
+      {access !== "trial" && proTrialDaysLeft !== null && (
+        <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:"1px solid rgba(200,169,110,0.2)", padding:"8px 16px", textAlign:"center", fontSize:11, color:"#9a8060" }}>
+          ✦ Pro-Testphase: noch {proTrialDaysLeft} {proTrialDaysLeft === 1 ? "Tag" : "Tage"} kostenlos &nbsp;·&nbsp;
           <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
             Jetzt freischalten →
           </a>
