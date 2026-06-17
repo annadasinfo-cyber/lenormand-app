@@ -1817,14 +1817,18 @@ export default function LenormandApp() {
     });
   };
 
-  // Anzahl Sterne anhand der Beitragszahl — Staffelung folgt noch (Platzhalter-Werte).
-  // TODO Anna: hier die finalen Schwellenwerte eintragen, sobald entschieden.
-  const forumStarsForPostCount = (count) => {
-    if (count >= 250) return 5;
-    if (count >= 100) return 4;
-    if (count >= 50) return 3;
-    if (count >= 10) return 2;
-    return 1;
+  // Rang/Titel anhand der Beitragszahl — Annas eigene Staffelung mit Emoji vor dem Titel.
+  const forumRankForPostCount = (count) => {
+    if (count > 1000) return "🗿 Urgestein";
+    if (count >= 801) return "🌙 Alte Seele";
+    if (count >= 501) return "🐉 Schreib Monster";
+    if (count >= 201) return "✨ Magisches Wesen";
+    if (count >= 101) return "🗝️ Geheimniskrämer";
+    if (count >= 51) return "🔑 Insider";
+    if (count >= 26) return "📜 Wort Weise";
+    if (count >= 11) return "🦉 Wissendes Wesen";
+    if (count >= 6) return "🔍 Spürnase";
+    return "🌱 Newbie";
   };
 
   const forumRoleLabel = (role) => {
@@ -1834,15 +1838,15 @@ export default function LenormandApp() {
     return "Mitglied";
   };
 
-  // Kleine Profilkarte vor jedem Beitrag/jeder Antwort: Name, Rolle, Sterne, Mitglied seit.
-  // Schmale linke Profil-Spalte (Avatar-Platzhalter mit Initiale, Name, Rolle, Sterne,
+  // Kleine Profilkarte vor jedem Beitrag/jeder Antwort: Name, Rolle, Rang, Mitglied seit.
+  // Schmale linke Profil-Spalte (Avatar-Platzhalter mit Initiale, Name, Rolle, Rang,
   // Mitglied seit) — wird neben den Beitragstext gesetzt, wie in einem klassischen Forum.
   const ForumProfileTag = ({ userId, displayName }) => {
     const p = userId ? forumProfiles[userId] : null;
-    const stars = forumStarsForPostCount(p?.postCount || 0);
+    const rank = forumRankForPostCount(p?.postCount || 0);
     const initial = (displayName || "?").trim().charAt(0).toUpperCase() || "?";
     return (
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:72, flexShrink:0, textAlign:"center", gap:4 }}>
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:78, flexShrink:0, textAlign:"center", gap:4 }}>
         <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, color:gold, fontFamily:"Georgia,serif" }}>
           {initial}
         </div>
@@ -1850,7 +1854,7 @@ export default function LenormandApp() {
         {p && (
           <>
             <span style={{ fontSize:8, color:"#7a6040", background:"rgba(200,169,110,0.08)", padding:"2px 6px", borderRadius:8 }}>{forumRoleLabel(p.role)}</span>
-            <span style={{ fontSize:9, color:gold }}>{"★".repeat(stars)}<span style={{color:"rgba(200,169,110,0.2)"}}>{"★".repeat(5-stars)}</span></span>
+            <span style={{ fontSize:9, color:gold, lineHeight:1.3 }}>{rank}</span>
             {p.createdAt && <span style={{ fontSize:7, color:"#5a4a34", lineHeight:1.3 }}>seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"short", year:"numeric"})}</span>}
           </>
         )}
