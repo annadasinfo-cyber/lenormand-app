@@ -440,6 +440,11 @@ export default function LenormandApp() {
   // ===== FORUM =====
   const [userRole, setUserRole] = React.useState(null); // null solange nicht geladen / nicht eingeloggt
   const [userDisplayName, setUserDisplayName] = React.useState("");
+  const [userBio, setUserBio] = React.useState("");
+  const [profileEditing, setProfileEditing] = React.useState(false);
+  const [profileEditName, setProfileEditName] = React.useState("");
+  const [profileEditBio, setProfileEditBio] = React.useState("");
+  const [profileSaveStatus, setProfileSaveStatus] = React.useState("");
   const [forumCategories, setForumCategories] = React.useState([]);
   const [forumView, setForumView] = React.useState("liste"); // "liste" | "kategorie" | "post" | "neu"
   const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
@@ -461,16 +466,17 @@ export default function LenormandApp() {
   const [forumShowNewCat, setForumShowNewCat] = React.useState(false);
   const [forumError, setForumError] = React.useState("");
 
-  // Nutzerrolle + Anzeigename laden, sobald eingeloggt — ohne Login bleibt userRole bei null (= Gast)
+  // Nutzerrolle + Anzeigename + Bio laden, sobald eingeloggt — ohne Login bleibt userRole bei null (= Gast)
   React.useEffect(() => {
     const loadRole = async () => {
       const uid = getUserId();
-      if (!uid) { setUserRole(null); setUserDisplayName(""); return; }
+      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); return; }
       try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name`, {headers: dbHeaders()});
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio`, {headers: dbHeaders()});
         const data = await r.json();
         setUserRole((data && data[0] && data[0].role) || "member");
         setUserDisplayName((data && data[0] && data[0].display_name) || "");
+        setUserBio((data && data[0] && data[0].bio) || "");
       } catch { setUserRole("member"); }
     };
     loadRole();
@@ -725,6 +731,26 @@ export default function LenormandApp() {
         method: "PATCH", headers: dbHeaders(), body: JSON.stringify({pinned: newPinned})
       });
     } catch {}
+  };
+
+  // Speichert Name + Bio im eigenen Profil
+  const saveProfile = async () => {
+    const uid = getUserId();
+    if (!uid) return;
+    setProfileSaveStatus("saving");
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`, {
+        method: "PATCH", headers: dbHeaders(),
+        body: JSON.stringify({ display_name: profileEditName.trim(), bio: profileEditBio.trim() })
+      });
+      setUserDisplayName(profileEditName.trim());
+      setUserBio(profileEditBio.trim());
+      setProfileEditing(false);
+      setProfileSaveStatus("saved");
+      setTimeout(() => setProfileSaveStatus(""), 2000);
+    } catch {
+      setProfileSaveStatus("error");
+    }
   };
 
   const createFolder = async () => {
@@ -1066,6 +1092,17 @@ export default function LenormandApp() {
       const payload = JSON.parse(atob(s.access_token.split('.')[1]));
       return payload.sub;
     } catch { return null; }
+  };
+
+  // Liest die E-Mail-Adresse aus dem Login-Token aus — nur zur Anzeige im Profil,
+  // eine Änderung der E-Mail-Adresse selbst ist (noch) nicht möglich.
+  const getUserEmail = () => {
+    try {
+      const s = JSON.parse(localStorage.getItem("sb_session")||"null");
+      if (!s) return "";
+      const payload = JSON.parse(atob(s.access_token.split('.')[1]));
+      return payload.email || "";
+    } catch { return ""; }
   };
 
   // Praktische Helfer, um im Code lesbar zu prüfen, was jemand darf
@@ -2416,13 +2453,54 @@ export default function LenormandApp() {
 
             {/* PROFIL */}
             {communityMode === "profil" && (
-              <div style={{ textAlign:"center", padding:"30px 0" }}>
-                <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
-                  {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
-                </div>
-                <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}</div>
-                <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:16 }}>{forumRoleLabel(userRole)}</div>
-                <div style={{ fontSize:12, color:"#5a4a34" }}>Weitere Profil-Einstellungen folgen hier bald.</div>
+              <div style={{ maxWidth:420, margin:"0 auto", padding:"20px 0" }}>
+                {!profileEditing && (
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
+                      {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
+                    </div>
+                    <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}</div>
+                    <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:14 }}>{forumRoleLabel(userRole)}</div>
+                    {userBio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:14, whiteSpace:"pre-wrap" }}>{userBio}</div>}
+                    <div style={{ fontSize:11, color:"#5a4a34", marginBottom:20 }}>{getUserEmail()}</div>
+                    <button onClick={() => { setProfileEditName(userDisplayName); setProfileEditBio(userBio); setProfileEditing(true); }}
+                      style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px 20px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                      ✎ Profil bearbeiten
+                    </button>
+                  </div>
+                )}
+
+                {profileEditing && (
+                  <div>
+                    <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 18px" }}>
+                      {(profileEditName || "?").trim().charAt(0).toUpperCase() || "?"}
+                    </div>
+                    <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Name</div>
+                    <input type="text" value={profileEditName} onChange={e => setProfileEditName(e.target.value)}
+                      style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+
+                    <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Über mich</div>
+                    <textarea value={profileEditBio} onChange={e => setProfileEditBio(e.target.value)} rows={4} placeholder="Erzähl ein bisschen über dich…"
+                      style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+
+                    <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>E-Mail</div>
+                    <div style={{ fontSize:12, color:"#5a4a34", marginBottom:18, padding:"9px 12px", background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:7 }}>
+                      {getUserEmail()} <span style={{fontSize:10, color:"#4a3a24"}}>(kann hier noch nicht geändert werden)</span>
+                    </div>
+
+                    <div style={{ display:"flex", gap:8 }}>
+                      <button onClick={saveProfile} disabled={profileSaveStatus==="saving"}
+                        style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"9px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", opacity: profileSaveStatus==="saving" ? 0.6 : 1 }}>
+                        {profileSaveStatus==="saving" ? "Speichert…" : "Speichern"}
+                      </button>
+                      <button onClick={() => setProfileEditing(false)}
+                        style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
+                        Abbrechen
+                      </button>
+                    </div>
+                    {profileSaveStatus==="error" && <div style={{fontSize:11, color:"#c87a6a", marginTop:10, textAlign:"center"}}>Konnte nicht gespeichert werden, versuch's gleich noch mal.</div>}
+                  </div>
+                )}
               </div>
             )}
 
