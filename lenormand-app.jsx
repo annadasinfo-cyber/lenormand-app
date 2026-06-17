@@ -202,7 +202,12 @@ export default function LenormandApp() {
   const handleLogin = async () => {
     setAuthMsg(""); 
     const data = await supabase.auth.signInWithPassword({email: authEmail, password: authPassword});
-    if (data.access_token) { setSession(data); }
+    if (data.access_token) {
+      setSession(data);
+      // Falls der Login ausgelöst wurde, weil jemand im Forum etwas schreiben wollte,
+      // direkt wieder zurück ins Forum springen statt auf einer Zwischenseite zu landen
+      if (view === "forum-login-noetig") { setView("forum"); setForumView(forumActiveCategory ? "kategorie" : "liste"); }
+    }
     else { setAuthMsg(data.error_description || data.msg || "E-Mail oder Passwort falsch"); }
   };
 
@@ -2257,13 +2262,11 @@ export default function LenormandApp() {
                   <div style={{ fontSize:16, color:gold }}>{forumActiveCategory.name}</div>
                 </div>
 
-                {!isGuest && (
-                  <div style={{ textAlign:"right", marginBottom:14 }}>
-                    <button onClick={() => { setForumView("neu"); setForumError(""); }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                      ✎ {forumActiveCategory.name === "Mitmach-Mittwoch" ? "Frage stellen" : "Neuer Beitrag"}
-                    </button>
-                  </div>
-                )}
+                <div style={{ textAlign:"right", marginBottom:14 }}>
+                  <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { setForumView("neu"); setForumError(""); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                    ✎ {forumActiveCategory.name === "Mitmach-Mittwoch" ? "Frage stellen" : "Neuer Beitrag"}
+                  </button>
+                </div>
 
                 {forumPosts.length === 0 && (
                   <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Beiträge — sei die/der Erste!</div>
@@ -2324,17 +2327,11 @@ export default function LenormandApp() {
                   </div>
                 ))}
 
-                {!isGuest && (
-                  <div style={{ marginTop:14 }}>
-                    {isGuest && (
-                      <input placeholder="Dein Name" value={forumNewName} onChange={e => setForumNewName(e.target.value)}
-                        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
-                    )}
-                    <textarea placeholder="Antworten…" value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
-                      style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                    <button onClick={createForumReply} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
-                  </div>
-                )}
+                <div style={{ marginTop:14 }}>
+                  <textarea placeholder="Antworten…" value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
+                    style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                  <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { createForumReply(); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
+                </div>
               </div>
             )}
           </div>
