@@ -1857,7 +1857,7 @@ export default function LenormandApp() {
   // Diese Bereiche sind auch ohne Login erreichbar — alles andere bleibt hinter der Anmeldung.
   // "random" (Frage) ist als kleiner kostenloser Vorgeschmack gedacht; Forum-LESEN ist frei,
   // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
-  const freieViews = ["liesmich", "random", "forum"];
+  const freieViews = ["liesmich", "fragmich", "forum"];
   if (!session && !freieViews.includes(view)) return loginScreen;
 
   return (
@@ -1983,7 +1983,7 @@ export default function LenormandApp() {
           ))}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
-          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","💬 Community"],["quiz","🎓 Quiz"]].map(([v,l]) => (
+          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","💬 Forum"],["quiz","🎓 Quiz"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
@@ -2467,7 +2467,7 @@ export default function LenormandApp() {
         {view === "forum" && (
           <div style={{ maxWidth:700, margin:"0 auto" }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>💬 Community</div>
+              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>💬 Forum</div>
             </div>
 
             {/* Untermenü */}
