@@ -193,6 +193,15 @@ export default function LenormandApp() {
     }
   }, []);
 
+  // Direkter Link zur Community/Forum-Seite, z.B. für die YouTube-Videobeschreibung:
+  // https://lenormand-app-tau.vercel.app/#community
+  React.useEffect(() => {
+    if (window.location.hash === "#community") {
+      setView("forum");
+      setForumView("liste");
+    }
+  }, []);
+
   const [authView, setAuthView] = React.useState("login");
   const [authEmail, setAuthEmail] = React.useState("");
   const [authPassword, setAuthPassword] = React.useState("");
