@@ -1764,17 +1764,23 @@ export default function LenormandApp() {
   };
 
   // Kleine Profilkarte vor jedem Beitrag/jeder Antwort: Name, Rolle, Sterne, Mitglied seit.
+  // Schmale linke Profil-Spalte (Avatar-Platzhalter mit Initiale, Name, Rolle, Sterne,
+  // Mitglied seit) — wird neben den Beitragstext gesetzt, wie in einem klassischen Forum.
   const ForumProfileTag = ({ userId, displayName }) => {
     const p = userId ? forumProfiles[userId] : null;
     const stars = forumStarsForPostCount(p?.postCount || 0);
+    const initial = (displayName || "?").trim().charAt(0).toUpperCase() || "?";
     return (
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap" }}>
-        <span style={{ fontSize:12, color:gold }}>{displayName}</span>
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:72, flexShrink:0, textAlign:"center", gap:4 }}>
+        <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, color:gold, fontFamily:"Georgia,serif" }}>
+          {initial}
+        </div>
+        <span style={{ fontSize:11, color:gold, lineHeight:1.2 }}>{displayName}</span>
         {p && (
           <>
-            <span style={{ fontSize:9, color:"#7a6040", background:"rgba(200,169,110,0.08)", padding:"2px 7px", borderRadius:10 }}>{forumRoleLabel(p.role)}</span>
-            <span style={{ fontSize:10, color:gold }}>{"★".repeat(stars)}<span style={{color:"rgba(200,169,110,0.2)"}}>{"★".repeat(5-stars)}</span></span>
-            {p.createdAt && <span style={{ fontSize:9, color:"#5a4a34" }}>Mitglied seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"short", year:"numeric"})}</span>}
+            <span style={{ fontSize:8, color:"#7a6040", background:"rgba(200,169,110,0.08)", padding:"2px 6px", borderRadius:8 }}>{forumRoleLabel(p.role)}</span>
+            <span style={{ fontSize:9, color:gold }}>{"★".repeat(stars)}<span style={{color:"rgba(200,169,110,0.2)"}}>{"★".repeat(5-stars)}</span></span>
+            {p.createdAt && <span style={{ fontSize:7, color:"#5a4a34", lineHeight:1.3 }}>seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"short", year:"numeric"})}</span>}
           </>
         )}
       </div>
@@ -2548,24 +2554,30 @@ export default function LenormandApp() {
                       <button onClick={() => { if(window.confirm("Beitrag wirklich löschen?")) deleteForumPost(forumActivePost.id); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
                     )}
                   </div>
-                  <ForumProfileTag userId={forumActivePost.user_id} displayName={forumActivePost.display_name} />
-                  <div style={{ fontSize:9, color:"#5a4a34", marginBottom:10 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
-                  <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
+                  <div style={{ display:"flex", gap:14 }}>
+                    <ForumProfileTag userId={forumActivePost.user_id} displayName={forumActivePost.display_name} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:9, color:"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
+                      <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
+                    </div>
+                  </div>
                 </div>
 
                 <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, marginBottom:10, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
                 {forumReplies.map(reply => (
                   <div key={reply.id} style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                      <div style={{flex:1}}>
-                        <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
-                        <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
-                      </div>
+                    <div style={{ display:"flex", justifyContent:"flex-end" }}>
                       {(isMod || reply.user_id === getUserId()) && (
                         <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
                       )}
                     </div>
-                    <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6 }}>{renderTextWithVideos(reply.body)}</div>
+                    <div style={{ display:"flex", gap:12 }}>
+                      <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
+                        <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6 }}>{renderTextWithVideos(reply.body)}</div>
+                      </div>
+                    </div>
                   </div>
                 ))}
 
