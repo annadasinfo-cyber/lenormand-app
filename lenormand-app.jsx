@@ -437,6 +437,7 @@ export default function LenormandApp() {
   const [forumNewName, setForumNewName] = React.useState(""); // Anzeigename für Gäste
   const [forumReplyText, setForumReplyText] = React.useState("");
   const [forumNewCatName, setForumNewCatName] = React.useState("");
+  const [forumNewCatDescription, setForumNewCatDescription] = React.useState("");
   const [forumNewCatIcon, setForumNewCatIcon] = React.useState("💬");
   const [forumNewCatVisibility, setForumNewCatVisibility] = React.useState("member");
   const [forumNewCatGuestPost, setForumNewCatGuestPost] = React.useState(false);
@@ -568,7 +569,8 @@ export default function LenormandApp() {
     try {
       const payload = {
         name: forumNewCatName.trim(),
-        icon: forumNewCatIcon || "💬",
+        description: forumNewCatDescription.trim(),
+        icon: (forumNewCatIcon || "💬").trim().slice(0, 4),
         visibility: forumNewCatVisibility,
         guest_can_post: forumNewCatGuestPost,
         sort_order: forumCategories.length
@@ -580,7 +582,7 @@ export default function LenormandApp() {
       const data = await r.json();
       if (data && data[0]) {
         setForumCategories(prev => [...prev, data[0]]);
-        setForumNewCatName(""); setForumNewCatIcon("💬"); setForumNewCatVisibility("member"); setForumNewCatGuestPost(false);
+        setForumNewCatName(""); setForumNewCatDescription(""); setForumNewCatIcon("💬"); setForumNewCatVisibility("member"); setForumNewCatGuestPost(false);
         setForumShowNewCat(false);
       }
     } catch {}
@@ -2212,8 +2214,15 @@ export default function LenormandApp() {
                   <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:16, marginBottom:16 }}>
                     <input placeholder="Name der Kategorie" value={forumNewCatName} onChange={e => setForumNewCatName(e.target.value)}
                       style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-                    <input placeholder="Icon (z.B. 💬, 🎙️, 🔮)" value={forumNewCatIcon} onChange={e => setForumNewCatIcon(e.target.value)}
+                    <input placeholder="Beschreibung (optional, ein kurzer Satz)" value={forumNewCatDescription} onChange={e => setForumNewCatDescription(e.target.value)}
                       style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                      <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1 }}>Icon</div>
+                      <input placeholder="z.B. 💬" value={forumNewCatIcon} maxLength={4} onChange={e => setForumNewCatIcon(e.target.value)}
+                        style={{ width:60, padding:"6px 8px", textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none" }} />
+                      <div style={{ fontSize:9, color:"#5a4a34" }}>nur 1 Emoji, kein Text — Vorschau:</div>
+                      <span style={{ fontSize:22 }}>{forumNewCatIcon}</span>
+                    </div>
                     <div style={{ display:"flex", gap:8, marginBottom:8 }}>
                       {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"]].map(([v,l]) => (
                         <button key={v} onClick={() => setForumNewCatVisibility(v)} style={{ flex:1, background:forumNewCatVisibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${forumNewCatVisibility===v?gold:"rgba(200,169,110,0.2)"}`, color:forumNewCatVisibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
@@ -2235,7 +2244,7 @@ export default function LenormandApp() {
                   <div key={cat.id} onClick={() => openForumCategory(cat)}
                     style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                      <span style={{ fontSize:22 }}>{cat.icon}</span>
+                      <span style={{ fontSize:22, maxWidth:32, overflow:"hidden", flexShrink:0 }}>{(cat.icon || "💬").slice(0, 4)}</span>
                       <div>
                         <div style={{ fontSize:14, color:gold }}>{cat.name}{cat.visibility==="pro" && <span style={{fontSize:9, color:"#9a7060", marginLeft:6}}>⭐ PRO</span>}</div>
                         {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{cat.description}</div>}
