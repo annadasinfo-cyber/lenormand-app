@@ -213,9 +213,13 @@ export default function LenormandApp() {
     const data = await supabase.auth.signInWithPassword({email: authEmail, password: authPassword});
     if (data.access_token) {
       setSession(data);
-      // Falls der Login ausgelöst wurde, weil jemand im Forum etwas schreiben wollte,
-      // direkt wieder zurück ins Forum springen statt auf einer Zwischenseite zu landen
-      if (view === "forum-login-noetig") { setView("forum"); setForumView(forumActiveCategory ? "kategorie" : "liste"); }
+      // Falls der Login ausgelöst wurde, weil jemand im Forum etwas schreiben oder eine
+      // geschützte Kategorie betreten wollte, direkt wieder dort hin springen
+      if (view === "forum-login-noetig") {
+        setView("forum");
+        if (forumActiveCategory) { setForumView("kategorie"); loadForumPosts(forumActiveCategory.id); }
+        else { setForumView("liste"); }
+      }
     }
     else { setAuthMsg(data.error_description || data.msg || "E-Mail oder Passwort falsch"); }
   };
@@ -528,6 +532,13 @@ export default function LenormandApp() {
   };
 
   const openForumCategory = (cat) => {
+    if (!forumCanEnterCategory(cat)) {
+      // Gast (oder fehlende Pro-Berechtigung) klickt auf eine geschützte Kategorie:
+      // als Appetit-Macher sieht man sie zwar in der Liste, zum Betreten braucht's aber Login/Pro.
+      setForumActiveCategory(cat); // merken, damit man nach dem Login direkt dort landet
+      setView("forum-login-noetig");
+      return;
+    }
     setForumActiveCategory(cat);
     setForumView("kategorie");
     loadForumPosts(cat.id);
@@ -1006,11 +1017,16 @@ export default function LenormandApp() {
   const isPro = userRole === "pro" || isMod;
 
   // Kann diese Kategorie überhaupt gesehen werden, je nach Sichtbarkeits-Stufe + eigener Rolle?
-  const forumCanSeeCategory = (cat) => {
+  // Alle Kategorien werden in der Übersicht angezeigt (auch für Gäste, als Appetit-Macher) —
+  // forumCanEnterCategory entscheidet, ob man tatsächlich hineinklicken kann, oder ob
+  // stattdessen der Login-Bildschirm kommt.
+  const forumCanEnterCategory = (cat) => {
     if (cat.visibility === "guest") return true;
     if (cat.visibility === "pro") return isPro;
     return !isGuest; // "member"-Sichtbarkeit: alles außer Gast
   };
+  // Beibehalten für eventuelle spätere Stellen, die nur die echten Lese-Rechte brauchen
+  const forumCanSeeCategory = forumCanEnterCategory;
 
   const dbHeaders = () => {
     const s = JSON.parse(localStorage.getItem("sb_session")||"null");
@@ -2299,13 +2315,15 @@ export default function LenormandApp() {
                   </div>
                 )}
 
-                {forumCategories.filter(forumCanSeeCategory).length === 0 && (
+                {forumCategories.length === 0 && (
                   <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Kategorien vorhanden.</div>
                 )}
 
-                {forumCategories.filter(forumCanSeeCategory).map(cat => (
+                {forumCategories.map(cat => {
+                  const locked = !forumCanEnterCategory(cat);
+                  return (
                   <div key={cat.id} onClick={() => openForumCategory(cat)}
-                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background: cat.pinned ? "rgba(200,169,110,0.06)" : "rgba(200,169,110,0.03)", border:`1px solid ${cat.pinned ? "rgba(200,169,110,0.35)" : "rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background: cat.pinned ? "rgba(200,169,110,0.06)" : "rgba(200,169,110,0.03)", border:`1px solid ${cat.pinned ? "rgba(200,169,110,0.35)" : "rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer", opacity: locked ? 0.7 : 1 }}>
                     <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                       <span style={{ fontSize:22, maxWidth:32, overflow:"hidden", flexShrink:0 }}>{(cat.icon || "💬").slice(0, 4)}</span>
                       <div>
@@ -2313,10 +2331,11 @@ export default function LenormandApp() {
                           {cat.pinned && <span style={{fontSize:11}}>📌</span>}
                           {cat.name}
                           {cat.visibility==="pro" && <span style={{fontSize:9, color:"#9a7060"}}>⭐ PRO</span>}
+                          {locked && <span style={{fontSize:10, color:"#7a6040"}}>🔒</span>}
                         </div>
                         {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{cat.description}</div>}
                         <div style={{ fontSize:10, color:"#5a4a34", marginTop:3 }}>
-                          {cat.postCount || 0} {cat.postCount === 1 ? "Beitrag" : "Beiträge"}
+                          {cat.postCount || 0} {cat.postCount === 1 ? "Beitrag" : "Beiträge"}{locked && " · Login nötig"}
                         </div>
                       </div>
                     </div>
@@ -2330,10 +2349,11 @@ export default function LenormandApp() {
                         <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kategorie "${cat.name}" wirklich löschen? Alle Beiträge darin gehen verloren.`)) deleteForumCategory(cat.id); }}
                           style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
                       )}
-                      <span style={{ color:"#5a4a34", fontSize:16 }}>→</span>
+                      <span style={{ color:"#5a4a34", fontSize:16 }}>{locked ? "🔒" : "→"}</span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
