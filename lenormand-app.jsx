@@ -272,6 +272,10 @@ export default function LenormandApp() {
       {/* Rechts: Login-Formular */}
       <div style={{ flex:"0 0 min(100%, 400px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 32px", background:"rgba(8,5,18,0.95)" }}>
         <div style={{ width:"100%", maxWidth:360 }}>
+          <button onClick={() => { if (view === "forum-login-noetig") { setView("forum"); } else { const freie = ["liesmich","fragmich","forum"]; if (!freie.includes(view)) setView("liesmich"); } }}
+            style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif" }}>
+            ← zurück zur App
+          </button>
           <div style={{ textAlign:"center", marginBottom:28 }}>
             <div style={{ fontSize:22, color:"#c8a96e", fontWeight:"normal", marginBottom:4 }}>Willkommen</div>
             <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Melde dich an um fortzufahren</div>
