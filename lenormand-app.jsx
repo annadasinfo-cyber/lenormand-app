@@ -1264,6 +1264,17 @@ export default function LenormandApp() {
     return keys[pos] ? m[keys[pos]] : null;
   };
 
+  // Liefert den Inspirationstext für eine Writing-Position: bei Positionen mit comboWith
+  // die Kombination zwischen Signifikator und der dort gewählten Karte, sonst den festen
+  // Matrix-Text (Situations- oder Personen-Matrix, je nach writingMode).
+  const getInspirationText = (pos, comboWith, cardNum) => {
+    if (comboWith !== null) {
+      if (!signifikator || !cardNum) return null;
+      return getCombo(signifikator, cardNum);
+    }
+    return getMatrixText(pos);
+  };
+
   const getPositionContent = (pos) => {
     const card = matrixCards[pos];
     if (pos === 4) {
@@ -2343,9 +2354,9 @@ export default function LenormandApp() {
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
                   <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
                   <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic" }}>Klicke eine Position — dann wähle die Karte</div>
-                  <button onClick={() => { if(signifikator) setWritingView("writing"); }}
-                    disabled={!signifikator}
-                    style={{ background:signifikator?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${signifikator?gold:"rgba(200,169,110,0.2)"}`, color:signifikator?gold:"#4a3a24", padding:"6px 16px", borderRadius:6, cursor:signifikator?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>
+                  <button onClick={() => { if(signifikator || matrixFreeText[4]) setWritingView("writing"); }}
+                    disabled={!signifikator && !matrixFreeText[4]}
+                    style={{ background:(signifikator||matrixFreeText[4])?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${(signifikator||matrixFreeText[4])?gold:"rgba(200,169,110,0.2)"}`, color:(signifikator||matrixFreeText[4])?gold:"#4a3a24", padding:"6px 16px", borderRadius:6, cursor:(signifikator||matrixFreeText[4])?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>
                     Weiter →
                   </button>
                 </div>
@@ -2658,6 +2669,14 @@ export default function LenormandApp() {
                             <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
                           {!collapsedFields[key] && (<>
+                            {(() => {
+                              const inspiration = getInspirationText(pos, comboWith, comboCardNum);
+                              return inspiration ? (
+                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
+                                  💡 {inspiration}
+                                </div>
+                              ) : null;
+                            })()}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -2706,6 +2725,14 @@ export default function LenormandApp() {
                             <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
                           {!collapsedFields[key] && (<>
+                            {(() => {
+                              const inspiration = getInspirationText(pos, comboWith, comboCardNum);
+                              return inspiration ? (
+                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
+                                  💡 {inspiration}
+                                </div>
+                              ) : null;
+                            })()}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -2778,6 +2805,14 @@ export default function LenormandApp() {
                             <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
                           {!collapsedFields[key] && (<>
+                            {(() => {
+                              const inspiration = getInspirationText(pos, comboWith, comboCardNum);
+                              return inspiration ? (
+                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
+                                  💡 {inspiration}
+                                </div>
+                              ) : null;
+                            })()}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
