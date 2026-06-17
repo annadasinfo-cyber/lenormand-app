@@ -320,6 +320,7 @@ export default function LenormandApp() {
   const [showProjects, setShowProjects] = React.useState(false);
   const [folders, setFolders] = React.useState([]);
   const [selectedFolder, setSelectedFolder] = React.useState(null);
+  const [showProjectList, setShowProjectList] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState("");
   const [showNewFolder, setShowNewFolder] = React.useState(false);
   const [activeWritingPos, setActiveWritingPos] = React.useState(null);
@@ -332,7 +333,10 @@ export default function LenormandApp() {
   const [collapsedFields, setCollapsedFields] = React.useState({});
 
   const writingTimer = React.useRef(null);
+  const writingIsSaving = React.useRef(false);
+  const writingPendingResave = React.useRef(false);
   const [writingSaveStatus, setWritingSaveStatus] = React.useState("idle"); // idle | saving | saved | error
+  const [writingSaveError, setWritingSaveError] = React.useState("");
 
   // Ordner, Projekte und Textvorlagen laden
   React.useEffect(() => {
@@ -399,14 +403,52 @@ export default function LenormandApp() {
         })
       });
       const data = await r.json();
-      if (data && data[0]) setTextTemplates(prev => [...prev, data[0]]);
+      if (data && data[0]) {
+        setTextTemplates(prev => [...prev, data[0]]);
+        setSelectedTemplate(data[0]);
+      }
       setNewTemplateName(""); setShowSaveTemplate(false);
+    } catch {}
+  };
+
+  // Aktualisiert eine bereits bestehende Vorlage mit den aktuellen Intro/Outro-Texten
+  const updateTemplate = async (tpl) => {
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      const updatedFields = { intro: writingNotes["intro"] || "", outro: writingNotes["outro"] || "" };
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?id=eq.${tpl.id}`, {
+        method:"PATCH", headers: {...dbHeaders(), "Prefer":"return=representation"},
+        body: JSON.stringify(updatedFields)
+      });
+      const data = await r.json();
+      const updated = (data && data[0]) ? data[0] : {...tpl, ...updatedFields};
+      setTextTemplates(prev => prev.map(t => t.id === tpl.id ? updated : t));
+      setSelectedTemplate(updated);
+    } catch {}
+  };
+
+  // Vorlage umbenennen
+  const renameTemplate = async (tpl, newName) => {
+    if (!newName.trim()) return;
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?id=eq.${tpl.id}`, {
+        method:"PATCH", headers: {...dbHeaders(), "Prefer":"return=representation"},
+        body: JSON.stringify({ name: newName.trim() })
+      });
+      const data = await r.json();
+      const updated = (data && data[0]) ? data[0] : {...tpl, name: newName.trim()};
+      setTextTemplates(prev => prev.map(t => t.id === tpl.id ? updated : t));
+      if (selectedTemplate?.id === tpl.id) setSelectedTemplate(updated);
     } catch {}
   };
 
   const applyTemplate = (tpl) => {
     const n = {...writingNotes, intro: tpl.intro || "", outro: tpl.outro || ""};
     setWritingNotes(n);
+    setSelectedTemplate(tpl);
     saveWritingSession(n, writingProjekt, writingBemerkung);
     setShowLoadTemplate(false);
   };
@@ -473,9 +515,17 @@ export default function LenormandApp() {
   const saveProject = async () => {
     const uid = getUserId();
     if (!uid) return;
+    // Lock: läuft schon ein Speichervorgang, merken wir uns, dass danach nochmal gespeichert werden muss,
+    // statt einen zweiten parallelen Request zu starten (das hat zu doppelten/vielfachen Projekten geführt).
+    if (writingIsSaving.current) {
+      writingPendingResave.current = true;
+      return;
+    }
+    writingIsSaving.current = true;
     // Auch ohne Namen speichern, damit nichts verloren geht — Fallback-Name verwenden
     const nameToSave = writingProjekt || ("Unbenannt · " + new Date().toLocaleDateString('de-DE') + " " + new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}));
     setWritingSaveStatus("saving");
+    setWritingSaveError("");
     try {
       const payload = {
         user_id: uid,
@@ -488,28 +538,42 @@ export default function LenormandApp() {
         folder_id: selectedFolder || null,
         updated_at: new Date().toISOString()
       };
-      let ok = true;
+      let ok = true, errText = "";
       if (writingProjectId) {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${writingProjectId}`, {
           method:"PATCH", headers: dbHeaders(), body: JSON.stringify(payload)
         });
         ok = res.ok;
+        if (!ok) errText = await res.text();
       } else {
         const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects`, {
           method:"POST", headers: {...dbHeaders(), "Prefer":"return=representation"},
           body: JSON.stringify(payload)
         });
         ok = r.ok;
-        const data = await r.json();
-        if (data && data[0]) setWritingProjectId(data[0].id);
+        if (!ok) {
+          errText = await r.text();
+        } else {
+          const data = await r.json();
+          if (data && data[0]) setWritingProjectId(data[0].id);
+        }
       }
       // Refresh list
       const r2 = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()});
       const list = await r2.json();
       if (Array.isArray(list)) setSavedProjects(list);
       setWritingSaveStatus(ok ? "saved" : "error");
-    } catch {
+      if (!ok) setWritingSaveError(errText.slice(0, 200));
+    } catch (e) {
       setWritingSaveStatus("error");
+      setWritingSaveError(String(e?.message || e).slice(0, 200));
+    } finally {
+      writingIsSaving.current = false;
+      // Während des Speicherns kam eine weitere Änderung dazu -> einmal nachspeichern
+      if (writingPendingResave.current) {
+        writingPendingResave.current = false;
+        saveProject();
+      }
     }
   };
 
@@ -519,6 +583,7 @@ export default function LenormandApp() {
     setWritingHook(proj.hook||"");
     setWritingNotes(proj.notes||{});
     setWritingProjectId(proj.id);
+    setSelectedFolder(proj.folder_id || null);
     if (proj.matrix_cards) setMatrixCards(proj.matrix_cards);
     if (proj.signifikator) setSignifikator(proj.signifikator);
     setShowProjects(false);
@@ -538,7 +603,7 @@ export default function LenormandApp() {
   const saveWritingSession = (notes, projekt, bemerkung) => {
     if (writingTimer.current) clearTimeout(writingTimer.current);
     setWritingSaveStatus("saving");
-    writingTimer.current = setTimeout(() => saveProject(), 600);
+    writingTimer.current = setTimeout(() => saveProject(), 1500);
   };
 
   const getUserId = () => {
@@ -573,23 +638,12 @@ export default function LenormandApp() {
         const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
         const data = await r.json();
         if (data && data[0]) {
-          const {heute,wochen,monate,jahre,irgendwann,traum} = data[0];
-          const raw = {heute:heute||"", wochen:wochen||"", monate:monate||"", jahre:jahre||"", irgendwann:irgendwann||"", traum:traum||""};
-          // Migration: alte komma-getrennte Einträge in Zeilenumbruch-Format umwandeln.
-          // Heuristik: Feld enthält ein Komma, aber noch keinen Zeilenumbruch -> alter Stand.
-          let changed = false;
-          const migrated = {};
-          for (const k of ["heute","wochen","monate","jahre","irgendwann","traum"]) {
-            const val = raw[k];
-            if (typeof val === "string" && val.includes(",") && !val.includes("\n")) {
-              migrated[k] = val.split(",").map(s => s.trim()).filter(Boolean).join("\n");
-              changed = true;
-            } else {
-              migrated[k] = val;
-            }
-          }
-          setManifestData(migrated);
-          if (changed) saveManifest(migrated);
+          const {heute,wochen,monate,jahre,irgendwann,traum,checked_items} = data[0];
+          setManifestData({
+            heute:heute||"", wochen:wochen||"", monate:monate||"", jahre:jahre||"",
+            irgendwann:irgendwann||"", traum:traum||"",
+            ...(checked_items || {})
+          });
         }
       } catch {}
     };
@@ -597,30 +651,42 @@ export default function LenormandApp() {
   }, [session]);
 
   const saveManifestTimer = React.useRef(null);
+  const [manifestSaveError, setManifestSaveError] = React.useState("");
   const saveManifestNow = async (data) => {
     const uid = getUserId();
     if (!uid) return;
     setManifestSaveStatus("saving");
+    setManifestSaveError("");
     try {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
       const existing = await r.json();
-      let ok;
+      let ok, errText = "";
+      // Nur die echten Tabellenspalten senden, nicht die UI-internen _checked_* Felder
+      const {heute, wochen, monate, jahre, irgendwann, traum} = data;
+      const checkedItems = Object.fromEntries(
+        Object.entries(data).filter(([k]) => k.startsWith("_checked_"))
+      );
+      const payload = {heute, wochen, monate, jahre, irgendwann, traum, checked_items: checkedItems};
       if (existing && existing[0]) {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}`, {
           method:"PATCH", headers: dbHeaders(),
-          body: JSON.stringify({...data, updated_at: new Date().toISOString()})
+          body: JSON.stringify({...payload, updated_at: new Date().toISOString()})
         });
         ok = res.ok;
+        if (!ok) errText = await res.text();
       } else {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel`, {
           method:"POST", headers: dbHeaders(),
-          body: JSON.stringify({user_id: uid, ...data})
+          body: JSON.stringify({user_id: uid, ...payload})
         });
         ok = res.ok;
+        if (!ok) errText = await res.text();
       }
       setManifestSaveStatus(ok ? "saved" : "error");
-    } catch {
+      if (!ok) setManifestSaveError(errText.slice(0, 200));
+    } catch (e) {
       setManifestSaveStatus("error");
+      setManifestSaveError(String(e?.message || e).slice(0, 200));
     }
   };
   const saveManifest = (data) => {
@@ -648,6 +714,34 @@ export default function LenormandApp() {
     const updated = {...manifestData, [field]: value};
     setManifestData(updated);
     saveManifest(updated);
+  };
+
+  // Entfernt Item an Index `i` aus der Liste `key` und gibt { newText, newChecked, removedWasChecked } zurück.
+  // Sorgt dafür, dass die Checked-Markierungen (die über Indizes laufen) beim Entfernen korrekt mitwandern,
+  // statt am alten Index "kleben" zu bleiben.
+  const removeManifestItem = (data, key, i) => {
+    const items = data[key].split('\n').map(s => s.trim()).filter(Boolean);
+    const removed = items.splice(i, 1)[0];
+    const checkedKey = `_checked_${key}`;
+    const oldChecked = data[checkedKey] || [];
+    const wasChecked = oldChecked.includes(i);
+    // Indizes nach dem entfernten Element um 1 nach unten verschieben, i selbst raus
+    const newChecked = oldChecked
+      .filter(idx => idx !== i)
+      .map(idx => idx > i ? idx - 1 : idx);
+    return { items, removed, wasChecked, newChecked };
+  };
+  // Fügt Item in die Liste `key` ein (an Position `pos`, default Ende) und passt Checked-Indizes an.
+  const insertManifestItem = (data, key, item, wasChecked, pos = null) => {
+    const items = data[key] ? data[key].split('\n').map(s => s.trim()).filter(Boolean) : [];
+    const insertAt = pos === null ? items.length : pos;
+    const checkedKey = `_checked_${key}`;
+    const oldChecked = data[checkedKey] || [];
+    // Indizes ab der Einfügeposition um 1 nach oben verschieben
+    const shiftedChecked = oldChecked.map(idx => idx >= insertAt ? idx + 1 : idx);
+    items.splice(insertAt, 0, item);
+    const newChecked = wasChecked ? [...shiftedChecked, insertAt] : shiftedChecked;
+    return { text: items.join('\n'), checked: newChecked };
   };
   const druckeManifest = () => {
     const heute = new Date();
@@ -2010,7 +2104,7 @@ export default function LenormandApp() {
                   <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Woran arbeitest du heute?</div>
                 </div>
 
-                {/* Ordner */}
+                {/* Ordner / Projekte */}
                 <div style={{ marginBottom:20 }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
                     <div style={{ fontSize:10, color:"#7a6040", letterSpacing:2, textTransform:"uppercase" }}>📁 Projekte</div>
@@ -2027,13 +2121,24 @@ export default function LenormandApp() {
                   )}
 
                   <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
-                    <button onClick={() => setSelectedFolder(null)}
-                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder?gold:"rgba(200,169,110,0.2)"}`, background:!selectedFolder?"rgba(200,169,110,0.12)":"transparent", color:!selectedFolder?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                    <button onClick={() => {
+                      setWritingProjectId(null);
+                      setWritingProjekt("");
+                      setWritingHook("");
+                      setWritingBemerkung("");
+                      setSelectedTemplate(null);
+                      setShowProjectList(false);
+                    }}
+                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${gold}`, background:"rgba(200,169,110,0.18)", color:gold, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", fontWeight:"bold" }}>
+                      ✨ Start (neue Session)
+                    </button>
+                    <button onClick={() => { setSelectedFolder(null); setShowProjectList(true); }}
+                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder && showProjectList?gold:"rgba(200,169,110,0.2)"}`, background:!selectedFolder && showProjectList?"rgba(200,169,110,0.12)":"transparent", color:!selectedFolder && showProjectList?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                       Alle
                     </button>
                     {folders.map(f => (
                       <div key={f.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                        <button onClick={() => setSelectedFolder(f.id)}
+                        <button onClick={() => { setSelectedFolder(f.id); setShowProjectList(true); }}
                           style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedFolder===f.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedFolder===f.id?"rgba(200,169,110,0.12)":"transparent", color:selectedFolder===f.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                           📁 {f.name}
                         </button>
@@ -2045,35 +2150,40 @@ export default function LenormandApp() {
                     ))}
                   </div>
 
-                  {/* Sessions im gewählten Ordner */}
-                  {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).map(proj => (
-                    <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 12px" }}>
-                      <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textAlign:"left" }}>
-                        ✍️ {proj.name}
-                      </button>
-                      <span style={{ fontSize:9, color:"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
-                      <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
+                  {/* Sessions im gewählten Ordner — nur sichtbar wenn "Alle" oder ein Ordner aktiv gewählt wurde, NICHT bei "Start" */}
+                  {showProjectList && (
+                    <div style={{ maxHeight:280, overflowY:"auto" }}>
+                      {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).length === 0 && (
+                        <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Noch keine Sessions hier.</div>
+                      )}
+                      {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).map(proj => (
+                        <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 12px" }}>
+                          <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textAlign:"left" }}>
+                            ✍️ {proj.name}
+                          </button>
+                          <span style={{ fontSize:9, color:"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
+                          <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16, marginBottom:14 }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
                     <div style={{ fontSize:11, color:"#9a8060" }}>Session-Name</div>
-                    {(writingProjectId || writingProjekt || writingHook || writingBemerkung) && (
-                      <button onClick={() => {
-                        setWritingProjectId(null);
-                        setWritingProjekt("");
-                        setWritingHook("");
-                        setWritingBemerkung("");
-                        setSelectedTemplate(null);
-                      }} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                        ✨ Neue Session
-                      </button>
-                    )}
                   </div>
-                  <input placeholder="z.B. Die Karten haben gesprochen… und ich schreibe es auf 😄" value={writingProjekt} onChange={e => setWritingProjekt(e.target.value)}
+                  <input placeholder="z.B. Die Karten haben gesprochen… und ich schreibe es auf 😄" value={writingProjekt}
+                    onChange={e => {
+                      setWritingProjekt(e.target.value);
+                      if (writingProjectId) saveWritingSession(writingNotes, e.target.value, writingBemerkung);
+                    }}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                  {selectedFolder && (
+                    <div style={{ fontSize:10, color:"#7a6040", marginTop:6 }}>
+                      📁 wird abgelegt in: {folders.find(f => f.id === selectedFolder)?.name || ""}
+                    </div>
+                  )}
                 </div>
                 <div style={{ marginBottom:24 }}>
                   <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>🎯 The Hook</div>
@@ -2087,25 +2197,6 @@ export default function LenormandApp() {
                   <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
                   <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                </div>
-
-                <div style={{ marginBottom:24 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:8 }}>📁 Diesem Projekt zuordnen</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                    <button onClick={() => setSelectedFolder(null)}
-                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder?gold:"rgba(200,169,110,0.2)"}`, background:!selectedFolder?"rgba(200,169,110,0.12)":"transparent", color:!selectedFolder?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-                      Kein Projekt
-                    </button>
-                    {folders.map(f => (
-                      <button key={f.id} onClick={() => setSelectedFolder(f.id)}
-                        style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedFolder===f.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedFolder===f.id?"rgba(200,169,110,0.12)":"transparent", color:selectedFolder===f.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-                        📁 {f.name}
-                      </button>
-                    ))}
-                  </div>
-                  {folders.length === 0 && (
-                    <div style={{ fontSize:10, color:"#5a4a34", fontStyle:"italic", marginTop:6 }}>Noch keine Projekte angelegt — das geht weiter unten bei "📁 Projekte".</div>
-                  )}
                 </div>
 
                 <div style={{ marginBottom:24 }}>
@@ -2306,15 +2397,23 @@ export default function LenormandApp() {
                     <div style={{ fontSize:9, marginBottom:8, color: writingSaveStatus==="saved" ? "#5a9a5a" : writingSaveStatus==="saving" ? "#9a8060" : writingSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:13 }}>
                       {writingSaveStatus==="saving" && "Speichert…"}
                       {writingSaveStatus==="saved" && "✓ Gespeichert"}
-                      {writingSaveStatus==="error" && "⚠ Nicht gespeichert — bitte Internetverbindung prüfen"}
+                      {writingSaveStatus==="error" && ("⚠ Nicht gespeichert" + (writingSaveError ? ": " + writingSaveError : " — bitte Internetverbindung prüfen"))}
                     </div>
 
                     {showSaveTemplate && (
-                      <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-                        <input placeholder="Name der Vorlage, z.B. Standard-Intro" value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
-                          onKeyDown={e => e.key==="Enter" && saveTemplate()}
-                          style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
-                        <button onClick={saveTemplate} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>✓</button>
+                      <div style={{ marginBottom:10 }}>
+                        {selectedTemplate && (
+                          <button onClick={() => { updateTemplate(selectedTemplate); setShowSaveTemplate(false); }}
+                            style={{ width:"100%", marginBottom:6, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                            💾 "{selectedTemplate.name}" mit aktuellem Intro/Outro aktualisieren
+                          </button>
+                        )}
+                        <div style={{ display:"flex", gap:8 }}>
+                          <input placeholder="Name für eine NEUE Vorlage" value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
+                            onKeyDown={e => e.key==="Enter" && saveTemplate()}
+                            style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
+                          <button onClick={saveTemplate} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>✓ Neu</button>
+                        </div>
                       </div>
                     )}
 
@@ -2666,7 +2765,7 @@ export default function LenormandApp() {
               <div style={{ fontSize:10, marginBottom:6, color: manifestSaveStatus==="saved" ? "#5a9a5a" : manifestSaveStatus==="saving" ? "#9a8060" : manifestSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:14 }}>
                 {manifestSaveStatus==="saving" && "Speichert…"}
                 {manifestSaveStatus==="saved" && "✓ Gespeichert"}
-                {manifestSaveStatus==="error" && "⚠ Nicht gespeichert — bitte Internetverbindung prüfen"}
+                {manifestSaveStatus==="error" && ("⚠ Nicht gespeichert" + (manifestSaveError ? ": " + manifestSaveError : " — bitte Internetverbindung prüfen"))}
               </div>
               <div style={{ fontSize:14, color:"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
                 Schreibe auf, was du dir wünschst und was du erschaffen willst. Drücke Enter für einen neuen Punkt — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
@@ -2701,7 +2800,7 @@ export default function LenormandApp() {
                   {/* Interaktive Liste */}
                   {manifestData[key] && (
                     <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
-                      {manifestData[key].split('\n').map(s => s.trim()).filter(Boolean).map((item, i) => {
+                      {manifestData[key].split('\n').map(s => s.trim()).filter(Boolean).map((item, i, arr) => {
                         const checkedKey = `_checked_${key}`;
                         const checked = (manifestData[checkedKey] || []).includes(i);
                         const fieldKeys = ["heute","wochen","monate","jahre","irgendwann","traum"];
@@ -2719,37 +2818,85 @@ export default function LenormandApp() {
                             </button>
                             {/* Text */}
                             <span style={{ flex:1, fontSize:11, color: checked?"#5a7a5a":"#9a8060", textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
-                            {/* Verschieben hoch */}
+
+                            {/* Innerhalb der Liste nach oben */}
+                            {i > 0 && (
+                              <button onClick={() => {
+                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
+                                const ck = `_checked_${key}`;
+                                const oldChecked = manifestData[ck] || [];
+                                [items[i-1], items[i]] = [items[i], items[i-1]];
+                                const newChecked = oldChecked.map(idx => {
+                                  if (idx === i) return i-1;
+                                  if (idx === i-1) return i;
+                                  return idx;
+                                });
+                                const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
+                                setManifestData(updated);
+                                saveManifest(updated);
+                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach oben">⬆</button>
+                            )}
+                            {/* Innerhalb der Liste nach unten */}
+                            {i < arr.length-1 && (
+                              <button onClick={() => {
+                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
+                                const ck = `_checked_${key}`;
+                                const oldChecked = manifestData[ck] || [];
+                                [items[i], items[i+1]] = [items[i+1], items[i]];
+                                const newChecked = oldChecked.map(idx => {
+                                  if (idx === i) return i+1;
+                                  if (idx === i+1) return i;
+                                  return idx;
+                                });
+                                const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
+                                setManifestData(updated);
+                                saveManifest(updated);
+                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach unten">⬇</button>
+                            )}
+
+                            {/* Verschieben zur vorherigen Abteilung (z.B. von "3 Wochen" zu "Heute") */}
                             {keyIdx > 0 && (
                               <button onClick={() => {
                                 const prevKey = fieldKeys[keyIdx-1];
-                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
-                                items.splice(i, 1);
-                                const prevItems = manifestData[prevKey] ? manifestData[prevKey].split('\n').map(s=>s.trim()).filter(Boolean) : [];
-                                prevItems.push(item);
-                                const updated = {...manifestData, [key]: items.join('\n'), [prevKey]: prevItems.join('\n')};
+                                const { items, removed, wasChecked, newChecked } = removeManifestItem(manifestData, key, i);
+                                const { text: prevText, checked: prevChecked } = insertManifestItem(
+                                  {...manifestData, [`_checked_${prevKey}`]: manifestData[`_checked_${prevKey}`]},
+                                  prevKey, removed, wasChecked
+                                );
+                                const updated = {
+                                  ...manifestData,
+                                  [key]: items.join('\n'), [`_checked_${key}`]: newChecked,
+                                  [prevKey]: prevText, [`_checked_${prevKey}`]: prevChecked
+                                };
                                 setManifestData(updated);
                                 saveManifest(updated);
                               }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene früher">↑</button>
                             )}
-                            {/* Verschieben runter */}
+                            {/* Verschieben zur nächsten Abteilung (z.B. von "Heute" zu "3 Wochen") */}
                             {keyIdx < fieldKeys.length-1 && (
                               <button onClick={() => {
                                 const nextKey = fieldKeys[keyIdx+1];
-                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
-                                items.splice(i, 1);
-                                const nextItems = manifestData[nextKey] ? manifestData[nextKey].split('\n').map(s=>s.trim()).filter(Boolean) : [];
-                                nextItems.unshift(item);
-                                const updated = {...manifestData, [key]: items.join('\n'), [nextKey]: nextItems.join('\n')};
+                                const { items, removed, wasChecked, newChecked } = removeManifestItem(manifestData, key, i);
+                                const { text: nextText, checked: nextChecked } = insertManifestItem(
+                                  {...manifestData, [`_checked_${nextKey}`]: manifestData[`_checked_${nextKey}`]},
+                                  nextKey, removed, wasChecked, 0
+                                );
+                                const updated = {
+                                  ...manifestData,
+                                  [key]: items.join('\n'), [`_checked_${key}`]: newChecked,
+                                  [nextKey]: nextText, [`_checked_${nextKey}`]: nextChecked
+                                };
                                 setManifestData(updated);
                                 saveManifest(updated);
                               }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene später">↓</button>
                             )}
                             {/* Löschen */}
                             <button onClick={() => {
-                              const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
-                              items.splice(i, 1);
-                              updateManifest(key, items.join('\n'));
+                              const { items, newChecked } = removeManifestItem(manifestData, key, i);
+                              const ck = `_checked_${key}`;
+                              const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
+                              setManifestData(updated);
+                              saveManifest(updated);
                             }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a3a2a", padding:"0 2px" }}>✕</button>
                           </div>
                         );
