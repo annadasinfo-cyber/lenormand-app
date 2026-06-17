@@ -471,8 +471,39 @@ export default function LenormandApp() {
   const loadForumCategories = async () => {
     try {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?order=sort_order.asc`, {headers: dbHeaders()});
-      const data = await r.json();
-      if (Array.isArray(data)) setForumCategories(data);
+      const cats = await r.json();
+      if (!Array.isArray(cats)) return;
+      // Schlanke Liste aller Posts holen (nur category_id + created_at), um pro Kategorie
+      // die Anzahl der Beiträge und den Zeitpunkt der letzten Aktivität zu berechnen,
+      // ohne für jede Kategorie einen eigenen Request zu brauchen.
+      const pr = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=category_id,created_at`, {headers: dbHeaders()});
+      const posts = await pr.json();
+      const statsByCategory = {};
+      if (Array.isArray(posts)) {
+        posts.forEach(p => {
+          const s = statsByCategory[p.category_id] || { count: 0, lastActivity: null };
+          s.count += 1;
+          if (!s.lastActivity || p.created_at > s.lastActivity) s.lastActivity = p.created_at;
+          statsByCategory[p.category_id] = s;
+        });
+      }
+      const enriched = cats.map(c => ({
+        ...c,
+        postCount: statsByCategory[c.id]?.count || 0,
+        lastActivity: statsByCategory[c.id]?.lastActivity || null
+      }));
+      // Angepinnte Kategorien immer zuerst (nach sort_order untereinander),
+      // danach alle anderen nach letzter Aktivität (neueste oben), Kategorien ganz
+      // ohne Beiträge bleiben am Ende in ihrer ursprünglichen Reihenfolge.
+      enriched.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        if (a.pinned && b.pinned) return a.sort_order - b.sort_order;
+        if (!a.lastActivity && !b.lastActivity) return a.sort_order - b.sort_order;
+        if (!a.lastActivity) return 1;
+        if (!b.lastActivity) return -1;
+        return b.lastActivity.localeCompare(a.lastActivity);
+      });
+      setForumCategories(enriched);
     } catch {}
   };
 
@@ -529,6 +560,7 @@ export default function LenormandApp() {
       if (data && data[0]) {
         setForumNewTitle(""); setForumNewBody(""); setForumNewName("");
         loadForumPosts(forumActiveCategory.id);
+        loadForumCategories(); // Zähler + Sortierung nach Aktivität aktualisieren
         setForumView("kategorie");
       } else {
         setForumError("Konnte nicht gespeichert werden. Versuch's gleich noch mal.");
@@ -601,6 +633,28 @@ export default function LenormandApp() {
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
       setForumCategories(prev => prev.filter(c => c.id !== id));
+    } catch {}
+  };
+
+  const toggleForumCategoryPin = async (cat) => {
+    const newPinned = !cat.pinned;
+    // Optimistisch sofort in der Oberfläche aktualisieren, dann erst speichern
+    setForumCategories(prev => {
+      const updated = prev.map(c => c.id === cat.id ? {...c, pinned: newPinned} : c);
+      updated.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        if (a.pinned && b.pinned) return a.sort_order - b.sort_order;
+        if (!a.lastActivity && !b.lastActivity) return a.sort_order - b.sort_order;
+        if (!a.lastActivity) return 1;
+        if (!b.lastActivity) return -1;
+        return b.lastActivity.localeCompare(a.lastActivity);
+      });
+      return updated;
+    });
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${cat.id}`, {
+        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({pinned: newPinned})
+      });
     } catch {}
   };
 
@@ -2251,15 +2305,27 @@ export default function LenormandApp() {
 
                 {forumCategories.filter(forumCanSeeCategory).map(cat => (
                   <div key={cat.id} onClick={() => openForumCategory(cat)}
-                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
+                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background: cat.pinned ? "rgba(200,169,110,0.06)" : "rgba(200,169,110,0.03)", border:`1px solid ${cat.pinned ? "rgba(200,169,110,0.35)" : "rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
                     <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                       <span style={{ fontSize:22, maxWidth:32, overflow:"hidden", flexShrink:0 }}>{(cat.icon || "💬").slice(0, 4)}</span>
                       <div>
-                        <div style={{ fontSize:14, color:gold }}>{cat.name}{cat.visibility==="pro" && <span style={{fontSize:9, color:"#9a7060", marginLeft:6}}>⭐ PRO</span>}</div>
+                        <div style={{ fontSize:14, color:gold, display:"flex", alignItems:"center", gap:6 }}>
+                          {cat.pinned && <span style={{fontSize:11}}>📌</span>}
+                          {cat.name}
+                          {cat.visibility==="pro" && <span style={{fontSize:9, color:"#9a7060"}}>⭐ PRO</span>}
+                        </div>
                         {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{cat.description}</div>}
+                        <div style={{ fontSize:10, color:"#5a4a34", marginTop:3 }}>
+                          {cat.postCount || 0} {cat.postCount === 1 ? "Beitrag" : "Beiträge"}
+                        </div>
                       </div>
                     </div>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      {isAdmin && (
+                        <button onClick={e => { e.stopPropagation(); toggleForumCategoryPin(cat); }}
+                          title={cat.pinned ? "Lösen" : "Anpinnen"}
+                          style={{ background:"transparent", border:"none", color: cat.pinned ? gold : "#5a4a34", cursor:"pointer", fontSize:14 }}>📌</button>
+                      )}
                       {isAdmin && (
                         <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kategorie "${cat.name}" wirklich löschen? Alle Beiträge darin gehen verloren.`)) deleteForumCategory(cat.id); }}
                           style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
