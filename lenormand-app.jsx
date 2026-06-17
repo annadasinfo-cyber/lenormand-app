@@ -2323,8 +2323,8 @@ export default function LenormandApp() {
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                       {isAdmin && (
                         <button onClick={e => { e.stopPropagation(); toggleForumCategoryPin(cat); }}
-                          title={cat.pinned ? "Lösen" : "Anpinnen"}
-                          style={{ background:"transparent", border:"none", color: cat.pinned ? gold : "#5a4a34", cursor:"pointer", fontSize:14 }}>📌</button>
+                          title={cat.pinned ? "Anpinnen lösen" : "Kategorie anpinnen"}
+                          style={{ background: cat.pinned ? "rgba(200,169,110,0.15)" : "transparent", border:`1px solid ${cat.pinned ? gold : "rgba(200,169,110,0.25)"}`, color: cat.pinned ? gold : "#9a8060", cursor:"pointer", fontSize:13, padding:"4px 8px", borderRadius:5 }}>📌</button>
                       )}
                       {isAdmin && (
                         <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kategorie "${cat.name}" wirklich löschen? Alle Beiträge darin gehen verloren.`)) deleteForumCategory(cat.id); }}
