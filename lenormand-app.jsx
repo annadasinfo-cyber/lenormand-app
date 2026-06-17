@@ -338,26 +338,32 @@ export default function LenormandApp() {
   const [writingSaveStatus, setWritingSaveStatus] = React.useState("idle"); // idle | saving | saved | error
   const [writingSaveError, setWritingSaveError] = React.useState("");
 
-  // Ordner, Projekte und Textvorlagen laden
+  // Ordner, Projekte und Textvorlagen laden — eigenständige Funktion, damit sie auch
+  // nach dem Anlegen/Ändern einer Vorlage erneut aufgerufen werden kann, um sicherzugehen,
+  // dass die Liste wirklich den aktuellen Datenbankstand zeigt.
+  const loadAllWritingData = async () => {
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      const [fR, pR, tR] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/writing_project_folders?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()}),
+        fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()}),
+        fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()})
+      ]);
+      const fData = await fR.json();
+      const pData = await pR.json();
+      const tData = await tR.json();
+      if (Array.isArray(fData)) setFolders(fData);
+      if (Array.isArray(pData)) setSavedProjects(pData);
+      if (Array.isArray(tData)) setTextTemplates(tData);
+      return tData;
+    } catch {
+      return null;
+    }
+  };
+
   React.useEffect(() => {
-    const loadAll = async () => {
-      const uid = getUserId();
-      if (!uid) return;
-      try {
-        const [fR, pR, tR] = await Promise.all([
-          fetch(`${SUPABASE_URL}/rest/v1/writing_project_folders?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()}),
-          fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()}),
-          fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()})
-        ]);
-        const fData = await fR.json();
-        const pData = await pR.json();
-        const tData = await tR.json();
-        if (Array.isArray(fData)) setFolders(fData);
-        if (Array.isArray(pData)) setSavedProjects(pData);
-        if (Array.isArray(tData)) setTextTemplates(tData);
-      } catch {}
-    };
-    loadAll();
+    loadAllWritingData();
   }, [session]);
 
   const createFolder = async () => {
@@ -411,8 +417,11 @@ export default function LenormandApp() {
       }
       const data = await r.json();
       if (data && data[0]) {
-        setTextTemplates(prev => [...prev, data[0]]);
-        setSelectedTemplate(data[0]);
+        // Liste komplett frisch aus der Datenbank holen, statt nur lokal zu ergänzen —
+        // verhindert, dass ein veralteter lokaler Stand später zu Verwechslungen führt.
+        const freshList = await loadAllWritingData();
+        const fresh = freshList?.find(t => t.id === data[0].id) || data[0];
+        setSelectedTemplate(fresh);
         setNewTemplateName(""); setShowSaveTemplate(false);
       } else {
         setTemplateSaveError("Unbekannte Antwort von der Datenbank.");
@@ -440,8 +449,10 @@ export default function LenormandApp() {
       }
       const data = await r.json();
       if (data && data[0]) {
-        setTextTemplates(prev => prev.map(t => t.id === tpl.id ? data[0] : t));
-        setSelectedTemplate(data[0]);
+        const freshList = await loadAllWritingData();
+        const fresh = freshList?.find(t => t.id === tpl.id) || data[0];
+        setSelectedTemplate(fresh);
+        setShowSaveTemplate(false);
       } else {
         setTemplateSaveError("Aktualisierung kam ohne Bestätigung zurück — bitte erneut versuchen.");
       }
@@ -558,6 +569,7 @@ export default function LenormandApp() {
         matrix_cards: matrixCards,
         signifikator: signifikator,
         folder_id: selectedFolder || null,
+        template_id: selectedTemplate?.id || null,
         updated_at: new Date().toISOString()
       };
       let ok = true, errText = "";
@@ -608,6 +620,14 @@ export default function LenormandApp() {
     setSelectedFolder(proj.folder_id || null);
     if (proj.matrix_cards) setMatrixCards(proj.matrix_cards);
     if (proj.signifikator) setSignifikator(proj.signifikator);
+    // Falls die Session ursprünglich mit einer Vorlage erstellt wurde, diese wieder als "ausgewählt" markieren,
+    // damit "Speichern unter" → "Vorlage aktualisieren" korrekt die richtige Vorlage anbietet
+    if (proj.template_id) {
+      const tpl = textTemplates.find(t => t.id === proj.template_id);
+      setSelectedTemplate(tpl || null);
+    } else {
+      setSelectedTemplate(null);
+    }
     setShowProjects(false);
     setWritingView("writing");
   };
@@ -2051,7 +2071,7 @@ export default function LenormandApp() {
           <div style={{ paddingBottom:30 }}>
 
             {/* Untermenü */}
-            <div style={{ display:"flex", justifyContent:"flex-start", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
+            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
               {[["tagebuch","📓 Tagebuch"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
                 <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt"); }}
                   style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
@@ -2242,6 +2262,13 @@ export default function LenormandApp() {
                           <button onClick={() => deleteTemplate(tpl.id)} style={{ background:"transparent", border:"none", color:"#4a3a2a", cursor:"pointer", fontSize:10 }}>✕</button>
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {selectedTemplate && (
+                    <div style={{ marginTop:10, padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:6, fontSize:10, color:"#9a8060", lineHeight:1.6 }}>
+                      <div style={{ color:gold, marginBottom:3 }}>Vorschau "{selectedTemplate.name}":</div>
+                      <div><strong>Intro:</strong> {selectedTemplate.intro ? selectedTemplate.intro.slice(0, 80) + (selectedTemplate.intro.length > 80 ? "…" : "") : "(leer)"}</div>
+                      <div><strong>Outro:</strong> {selectedTemplate.outro ? selectedTemplate.outro.slice(0, 80) + (selectedTemplate.outro.length > 80 ? "…" : "") : "(leer)"}</div>
                     </div>
                   )}
                 </div>
