@@ -2590,6 +2590,22 @@ export default function LenormandApp() {
                   </div>
                   );
                 })}
+
+                {/* Statistik-Zeile — Fake-Zahlen als Platzhalter, echte Zählung folgt später */}
+                <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:24, paddingTop:16, borderTop:"1px solid rgba(200,169,110,0.12)", flexWrap:"wrap" }}>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:18, color:gold }}>1.260</div>
+                    <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Mitglieder</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:18, color:gold }}>63</div>
+                    <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heute online</div>
+                  </div>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:18, color:gold }}>752</div>
+                    <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Highscore</div>
+                  </div>
+                </div>
               </div>
             )}
 
