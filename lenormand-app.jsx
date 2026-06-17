@@ -79,6 +79,15 @@ const KOMBI_POSITIONS = [1, 5, 7]; // positions that show combinations
 const MATRIX_FIELDS = ["gendanken", "ist_situation", "rat_der_engel", "warnung", "signifikator", "nahe_zukunft", "wo_es_herkommt", "unbewusste_zukunft", "ergebnis_und_wann"];
 const MATRIX_KEYS = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
 
+// Sprechende Bezeichnungen für die Felder einer Writing-Vorlage (für die Vorschau)
+const TEMPLATE_FIELD_LABELS = {
+  intro: "Intro", nachIntro: "Teaser",
+  "4": "Signifikator", "0": "Gedanken", "1": "IST-Situation", "2": "Rat der Engel",
+  "5": "Nahe Zukunft", nachRatDerEngel: "Subplot",
+  "6": "Ursache", "7": "Unbewusste Zukunft", "3": "Warnung", "8": "Ergebnis",
+  vorOutro: "Teaser-Auflösung", outro: "Outro"
+};
+
 // Textarea, die mit ihrem Inhalt mitwächst statt zu scrollen
 function AutoTextarea({ value, onChange, placeholder, style, minRows = 2, ...rest }) {
   const ref = React.useRef(null);
@@ -406,8 +415,7 @@ export default function LenormandApp() {
         body: JSON.stringify({
           user_id: uid,
           name: newTemplateName.trim(),
-          intro: writingNotes["intro"] || "",
-          outro: writingNotes["outro"] || ""
+          notes: writingNotes
         })
       });
       if (!r.ok) {
@@ -431,13 +439,13 @@ export default function LenormandApp() {
     }
   };
 
-  // Aktualisiert eine bereits bestehende Vorlage mit den aktuellen Intro/Outro-Texten
+  // Aktualisiert eine bereits bestehende Vorlage mit dem kompletten aktuellen Notizen-Stand
   const updateTemplate = async (tpl) => {
     const uid = getUserId();
     if (!uid) return;
     setTemplateSaveError("");
     try {
-      const updatedFields = { intro: writingNotes["intro"] || "", outro: writingNotes["outro"] || "" };
+      const updatedFields = { notes: writingNotes };
       const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?id=eq.${tpl.id}`, {
         method:"PATCH", headers: {...dbHeaders(), "Prefer":"return=representation"},
         body: JSON.stringify(updatedFields)
@@ -479,7 +487,9 @@ export default function LenormandApp() {
   };
 
   const applyTemplate = (tpl) => {
-    const n = {...writingNotes, intro: tpl.intro || "", outro: tpl.outro || ""};
+    // Komplettes Notizen-Objekt der Vorlage übernehmen (alle Felder: Intro, Teaser,
+    // alle Kartenpositionen, Subplot, Teaser-Auflösung, Outro), nicht nur Intro/Outro.
+    const n = {...(tpl.notes || {})};
     setWritingNotes(n);
     setSelectedTemplate(tpl);
     saveWritingSession(n, writingProjekt, writingBemerkung);
@@ -2267,8 +2277,13 @@ export default function LenormandApp() {
                   {selectedTemplate && (
                     <div style={{ marginTop:10, padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:6, fontSize:10, color:"#9a8060", lineHeight:1.6 }}>
                       <div style={{ color:gold, marginBottom:3 }}>Vorschau "{selectedTemplate.name}":</div>
-                      <div><strong>Intro:</strong> {selectedTemplate.intro ? selectedTemplate.intro.slice(0, 80) + (selectedTemplate.intro.length > 80 ? "…" : "") : "(leer)"}</div>
-                      <div><strong>Outro:</strong> {selectedTemplate.outro ? selectedTemplate.outro.slice(0, 80) + (selectedTemplate.outro.length > 80 ? "…" : "") : "(leer)"}</div>
+                      {Object.entries(selectedTemplate.notes || {}).filter(([k,v]) => v && String(v).trim()).length === 0 ? (
+                        <div style={{ fontStyle:"italic" }}>(noch keine Inhalte in dieser Vorlage)</div>
+                      ) : (
+                        Object.entries(selectedTemplate.notes || {}).filter(([k,v]) => v && String(v).trim()).map(([k,v]) => (
+                          <div key={k}><strong>{TEMPLATE_FIELD_LABELS[k] || k}:</strong> {String(v).slice(0, 80)}{String(v).length > 80 ? "…" : ""}</div>
+                        ))
+                      )}
                     </div>
                   )}
                 </div>
@@ -2276,7 +2291,7 @@ export default function LenormandApp() {
                 <div style={{ display:"flex", justifyContent:"center", gap:10 }}>
                   <button onClick={() => {
                     writingRandom();
-                    setWritingNotes(selectedTemplate ? {intro: selectedTemplate.intro||"", outro: selectedTemplate.outro||""} : {});
+                    setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
                     setWritingProjectId(null);
                     setWritingView("writing");
                   }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
@@ -2285,7 +2300,7 @@ export default function LenormandApp() {
                   <button onClick={() => {
                     setMatrixCards(Array(9).fill(null));
                     setSignifikator(null);
-                    setWritingNotes(selectedTemplate ? {intro: selectedTemplate.intro||"", outro: selectedTemplate.outro||""} : {});
+                    setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
                     setWritingProjectId(null);
                     setWritingView("picking");
                   }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.4)`, color:"#c8a96e", padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
@@ -2456,12 +2471,20 @@ export default function LenormandApp() {
                             ⚠ Fehler beim Speichern: {templateSaveError}
                           </div>
                         )}
-                        {selectedTemplate && (
-                          <button onClick={async () => { await updateTemplate(selectedTemplate); }}
-                            style={{ width:"100%", marginBottom:6, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 10px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-                            💾 "{selectedTemplate.name}" mit aktuellem Intro/Outro aktualisieren
-                          </button>
+                        {textTemplates.length > 0 && (
+                          <div style={{ marginBottom:8 }}>
+                            <div style={{ fontSize:9, color:"#7a6040", marginBottom:4 }}>Bestehende Vorlage mit dem aktuellen Stand aktualisieren:</div>
+                            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                              {textTemplates.map(tpl => (
+                                <button key={tpl.id} onClick={async () => { await updateTemplate(tpl); }}
+                                  style={{ padding:"5px 10px", borderRadius:5, border:`1px solid ${gold}`, background:"rgba(200,169,110,0.08)", color:gold, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                                  💾 {tpl.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         )}
+                        <div style={{ fontSize:9, color:"#7a6040", marginBottom:4 }}>Oder als neue Vorlage anlegen:</div>
                         <div style={{ display:"flex", gap:8 }}>
                           <input placeholder="Name für eine NEUE Vorlage" value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
                             onKeyDown={e => e.key==="Enter" && saveTemplate()}
