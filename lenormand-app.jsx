@@ -580,6 +580,8 @@ export default function LenormandApp() {
         signifikator: signifikator,
         folder_id: selectedFolder || null,
         template_id: selectedTemplate?.id || null,
+        writing_mode: writingMode,
+        matrix_free_text: matrixFreeText,
         updated_at: new Date().toISOString()
       };
       let ok = true, errText = "";
@@ -630,6 +632,8 @@ export default function LenormandApp() {
     setSelectedFolder(proj.folder_id || null);
     if (proj.matrix_cards) setMatrixCards(proj.matrix_cards);
     if (proj.signifikator) setSignifikator(proj.signifikator);
+    setWritingMode(proj.writing_mode || "situation");
+    setMatrixFreeText(proj.matrix_free_text || {});
     // Falls die Session ursprünglich mit einer Vorlage erstellt wurde, diese wieder als "ausgewählt" markieren,
     // damit "Speichern unter" → "Vorlage aktualisieren" korrekt die richtige Vorlage anbietet
     if (proj.template_id) {
@@ -1038,8 +1042,11 @@ export default function LenormandApp() {
     saveStats(newS);
   };
   const [signifikator, setSignifikator] = useState(null);
+  const [writingMode, setWritingMode] = useState("situation"); // "situation" | "personen" — welche Matrix für die Textdeutung im Writing-Bereich genutzt wird
   const [matrixCards, setMatrixCards] = useState(Array(9).fill(null)); // 9 positions, pos 4 = signifikator
   const [activePos, setActivePos] = useState(null); // which position is being filled
+  const [matrixFreeText, setMatrixFreeText] = useState({}); // { [pos]: "freier Text statt Karte" } — für die freie Matrix beim Karten-Wählen
+  const [pickerMode, setPickerMode] = useState("karte"); // "karte" | "freitext" — was im Karten-Picker gerade angeboten wird
 
   // Beim Verlassen der Seite / Tab-Wechsel sofort speichern, statt auf den Debounce-Timer zu warten
   React.useEffect(() => {
@@ -1245,6 +1252,12 @@ export default function LenormandApp() {
 
   const getMatrixText = (pos) => {
     if (!signifikator) return null;
+    if (writingMode === "personen") {
+      const pm = PERSON_MATRIX[String(signifikator)];
+      if (!pm) return null;
+      const perKeys = ["sternzeichen", "haarfarbe", "charakter", "figur", null, "beruf", "groesse", "alter", "woher"];
+      return perKeys[pos] ? pm[perKeys[pos]] : null;
+    }
     const m = MATRIX[String(signifikator)];
     if (!m) return null;
     const keys = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
@@ -2288,9 +2301,11 @@ export default function LenormandApp() {
                   )}
                 </div>
 
-                <div style={{ display:"flex", justifyContent:"center", gap:10 }}>
+                <div style={{ display:"flex", justifyContent:"center", gap:10, flexWrap:"wrap" }}>
                   <button onClick={() => {
                     writingRandom();
+                    setWritingMode("situation");
+                    setMatrixFreeText({});
                     setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
                     setWritingProjectId(null);
                     setWritingView("writing");
@@ -2298,8 +2313,20 @@ export default function LenormandApp() {
                     🎲 Würfeln →
                   </button>
                   <button onClick={() => {
+                    writingRandom();
+                    setWritingMode("personen");
+                    setMatrixFreeText({});
+                    setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
+                    setWritingProjectId(null);
+                    setWritingView("writing");
+                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                    👤 Personen →
+                  </button>
+                  <button onClick={() => {
                     setMatrixCards(Array(9).fill(null));
                     setSignifikator(null);
+                    setWritingMode("situation");
+                    setMatrixFreeText({});
                     setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
                     setWritingProjectId(null);
                     setWritingView("picking");
@@ -2327,54 +2354,112 @@ export default function LenormandApp() {
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
                   {[0,1,2,3,4,5,6,7,8].map(pos => {
                     const card = matrixCards ? matrixCards[pos] : null;
+                    const freeText = matrixFreeText[pos];
                     const isCenter = pos === 4;
                     const labels = ["Gedanken","IST-Situation","Rat der Engel","Warnung","Signifikator","Nahe Zukunft","Ursache","Unbew. Zukunft","Ergebnis"];
                     const isActive = activePos === pos;
                     return (
-                      <div key={pos} onClick={() => setActivePos(isActive ? null : pos)}
-                        style={{ border:`1.5px solid ${isActive?gold:card?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 6px", textAlign:"center", cursor:"pointer", background:isCenter?"rgba(200,169,110,0.08)":isActive?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", minHeight:80 }}>
+                      <div key={pos} onClick={() => {
+                        const willActivate = !isActive;
+                        setActivePos(willActivate ? pos : null);
+                        if (willActivate) setPickerMode(matrixFreeText[pos] ? "freitext" : "karte");
+                      }}
+                        style={{ border:`1.5px solid ${isActive?gold:(card||freeText)?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 6px", textAlign:"center", cursor:"pointer", background:isCenter?"rgba(200,169,110,0.08)":isActive?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", minHeight:80 }}>
                         <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", marginBottom:4 }}>{labels[pos]}</div>
                         {card ? (<>
                           <div style={{ fontSize:24 }}>{SYMBOLS[card]}</div>
                           <div style={{ fontSize:8, color:gold, marginTop:2 }}>{CARDS[card].name}</div>
-                        </>) : <div style={{ fontSize:10, color:"#3a2a18", marginTop:8 }}>+</div>}
+                        </>) : freeText ? (
+                          <div style={{ fontSize:10, color:gold, marginTop:10, lineHeight:1.3, wordBreak:"break-word" }}>✏️ {freeText.slice(0, 40)}{freeText.length > 40 ? "…" : ""}</div>
+                        ) : <div style={{ fontSize:10, color:"#3a2a18", marginTop:8 }}>+</div>}
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Karten-Suche und Grid */}
+                {/* Karten-Suche und Grid, oder freier Text */}
                 {activePos !== null && (
                   <div>
-                    <div style={{ marginBottom:8 }}>
-                      <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                        style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                    <div style={{ display:"flex", gap:6, marginBottom:8 }}>
+                      <button onClick={() => setPickerMode(m => m === "freitext" ? "karte" : "freitext")}
+                        style={{ background: pickerMode==="freitext" ? "rgba(200,169,110,0.15)" : "transparent", border:`1px solid ${pickerMode==="freitext"?gold:"rgba(200,169,110,0.2)"}`, color: pickerMode==="freitext"?gold:"#7a6040", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                        {pickerMode === "freitext" ? "🃏 stattdessen Karte wählen" : "✏️ stattdessen eigenen Text eintragen"}
+                      </button>
+                      {(matrixCards?.[activePos] || matrixFreeText[activePos]) && (
+                        <button onClick={() => {
+                          const newCards = [...(matrixCards || Array(9).fill(null))];
+                          newCards[activePos] = null;
+                          setMatrixCards(newCards);
+                          const newFree = {...matrixFreeText};
+                          delete newFree[activePos];
+                          setMatrixFreeText(newFree);
+                          if (activePos === 4) setSignifikator(null);
+                        }} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                          ✕ leeren
+                        </button>
+                      )}
                     </div>
-                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:6, maxHeight:260, overflowY:"auto" }}>
-                      {filteredCards().map(num => {
-                        const alreadyUsed = matrixCards && matrixCards.includes(num) && matrixCards[activePos] !== num;
-                        return (
-                          <button key={num} onClick={() => {
-                            if (alreadyUsed) return;
-                            const newCards = [...(matrixCards || Array(9).fill(null))];
-                            newCards[activePos] = num;
-                            setMatrixCards(newCards);
-                            if (activePos === 4) setSignifikator(num);
-                            setActivePos(null);
+
+                    {pickerMode === "freitext" ? (
+                      <div>
+                        <textarea
+                          placeholder="Eigener Begriff oder Thema für dieses Feld…"
+                          value={matrixFreeText[activePos] || ""}
+                          onChange={e => {
+                            setMatrixFreeText({...matrixFreeText, [activePos]: e.target.value});
+                            // Freitext und Karte schließen sich an dieser Position gegenseitig aus
+                            if (matrixCards?.[activePos]) {
+                              const newCards = [...matrixCards];
+                              newCards[activePos] = null;
+                              setMatrixCards(newCards);
+                              if (activePos === 4) setSignifikator(null);
+                            }
                           }}
-                            style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif" }}>
-                            <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
-                            <div style={{ fontSize:9, color:"#9a8060", marginTop:3 }}>{num}. {CARDS[num].name}</div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                          rows={2}
+                          style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none" }} />
+                        {activePos === 4 && (
+                          <div style={{ fontSize:9, color:"#7a6040", marginTop:4, fontStyle:"italic" }}>Hinweis: Der Signifikator wird für Kombinationen gebraucht — bei freiem Text entfallen die Kartenkombinationen in den entsprechenden Feldern.</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ marginBottom:8 }}>
+                          <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
+                            style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                        </div>
+                        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:6, maxHeight:260, overflowY:"auto" }}>
+                          {filteredCards().map(num => {
+                            const alreadyUsed = matrixCards && matrixCards.includes(num) && matrixCards[activePos] !== num;
+                            return (
+                              <button key={num} onClick={() => {
+                                if (alreadyUsed) return;
+                                const newCards = [...(matrixCards || Array(9).fill(null))];
+                                newCards[activePos] = num;
+                                setMatrixCards(newCards);
+                                if (activePos === 4) setSignifikator(num);
+                                // Karte und Freitext schließen sich an dieser Position gegenseitig aus
+                                if (matrixFreeText[activePos]) {
+                                  const newFree = {...matrixFreeText};
+                                  delete newFree[activePos];
+                                  setMatrixFreeText(newFree);
+                                }
+                                setActivePos(null);
+                              }}
+                                style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif" }}>
+                                <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
+                                <div style={{ fontSize:9, color:"#9a8060", marginTop:3 }}>{num}. {CARDS[num].name}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
 
-            {writingView === "writing" && signifikator && matrixCards && (
+            {writingView === "writing" && (signifikator || matrixFreeText[4]) && matrixCards && (
               <div>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
                   <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
@@ -2452,7 +2537,9 @@ export default function LenormandApp() {
                   {/* RECHTS: Writing-Positionen */}
                   <div className="writing-notes">
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase" }}>✍️ Deine Notizen</div>
+                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase" }}>
+                        ✍️ Deine Notizen {writingMode === "personen" ? "· 👤 Personen-Matrix" : ""}
+                      </div>
                       <button onClick={() => setShowSaveTemplate(v => !v)}
                         style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
                         💾 Speichern unter
@@ -2554,11 +2641,14 @@ export default function LenormandApp() {
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
                             <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
-                            {/* Karte(n) anzeigen */}
+                            {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
                               <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
                             </>)}
+                            {!cardNum && matrixFreeText[pos] && (
+                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✏️ {matrixFreeText[pos]}</span>
+                            )}
                             {comboCardNum && (<>
                               <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
                               <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
@@ -2569,7 +2659,7 @@ export default function LenormandApp() {
                           </div>
                           {!collapsedFields[key] && (<>
                             <AutoTextarea
-                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
                               onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                               onFocus={() => setActiveWritingPos(pos)}
@@ -2599,11 +2689,14 @@ export default function LenormandApp() {
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
                             <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
-                            {/* Karte(n) anzeigen */}
+                            {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
                               <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
                             </>)}
+                            {!cardNum && matrixFreeText[pos] && (
+                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✏️ {matrixFreeText[pos]}</span>
+                            )}
                             {comboCardNum && (<>
                               <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
                               <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
@@ -2614,7 +2707,7 @@ export default function LenormandApp() {
                           </div>
                           {!collapsedFields[key] && (<>
                             <AutoTextarea
-                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
                               onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                               onFocus={() => setActiveWritingPos(pos)}
@@ -2668,11 +2761,14 @@ export default function LenormandApp() {
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
                             <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
-                            {/* Karte(n) anzeigen */}
+                            {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
                               <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
                             </>)}
+                            {!cardNum && matrixFreeText[pos] && (
+                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✏️ {matrixFreeText[pos]}</span>
+                            )}
                             {comboCardNum && (<>
                               <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
                               <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
@@ -2683,7 +2779,7 @@ export default function LenormandApp() {
                           </div>
                           {!collapsedFields[key] && (<>
                             <AutoTextarea
-                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
                               onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                               onFocus={() => setActiveWritingPos(pos)}
