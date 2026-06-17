@@ -88,6 +88,14 @@ const TEMPLATE_FIELD_LABELS = {
   vorOutro: "Teaser-Auflösung", outro: "Outro"
 };
 
+// Personen-spezifische Bezeichnungen für die Writing-Positionen, wenn writingMode === "personen" —
+// die normalen Labels ("Rat der Engel", "Katharsis" etc.) passen nicht zu einer Personenbeschreibung.
+// Muss exakt zur perKeys-Reihenfolge in getMatrixText passen: [sternzeichen, haarfarbe, charakter, figur, -, beruf, groesse, alter, woher]
+const PERSONEN_POSITION_LABELS = {
+  "4": "Signifikator | Die Person", "0": "Sternzeichen", "1": "Haarfarbe",
+  "2": "Charakter", "3": "Figur", "5": "Beruf", "6": "Größe", "7": "Alter", "8": "Woher"
+};
+
 // Textarea, die mit ihrem Inhalt mitwächst statt zu scrollen
 function AutoTextarea({ value, onChange, placeholder, style, minRows = 2, ...rest }) {
   const ref = React.useRef(null);
@@ -2497,7 +2505,8 @@ export default function LenormandApp() {
                   {/* LINKS: Echte Matrix mit Deutungen */}
                   <div className="writing-matrix">
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
-                      {SYMBOLS[signifikator]} {CARDS[signifikator].name} · Situations-Matrix
+                      {signifikator ? (<>{SYMBOLS[signifikator]} {CARDS[signifikator].name}</>) : matrixFreeText[4] ? (<>✏️ {matrixFreeText[4]}</>) : null}
+                      {" · "}{writingMode === "personen" ? "Personen-Matrix" : "Situations-Matrix"}
                     </div>
                     {writingHook && (
                       <div style={{ marginBottom:10, fontSize:10, color:"#c8a96e", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:8 }}>
@@ -2515,10 +2524,8 @@ export default function LenormandApp() {
                         const isSignifikator = pos === 4;
                         const isKombi = KOMBI_POSITIONS.includes(pos);
                         const isActive = activeWritingPos === pos || (activeWritingPos !== null && isSignifikator && [1,5,7].includes(activeWritingPos));
-                        const sitKeys = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
-                        const cardForText = card ? MATRIX[String(card)] : null;
-                        const fixedText = sitKeys[pos] && cardForText ? cardForText[sitKeys[pos]] : null;
-                        const comboText = isKombi && card ? getCombo(signifikator, card) : null;
+                        const fixedText = getInspirationText(pos, isKombi ? 4 : null, isKombi ? card : null);
+                        const posLabel = writingMode === "personen" ? (PERSONEN_POSITION_LABELS[String(pos)] || POSITION_LABELS[pos]) : POSITION_LABELS[pos];
                         return (
                           <div key={pos} style={{
                             background: isActive ? "rgba(200,169,110,0.12)" : isSignifikator ? "rgba(200,169,110,0.08)" : isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
@@ -2527,7 +2534,7 @@ export default function LenormandApp() {
                             transition:"all 0.2s"
                           }}>
                             <div style={{ fontSize:8, letterSpacing:2, color: isKombi ? "rgba(212,184,120,0.8)" : "#8a7050", textTransform:"uppercase", marginBottom:4 }}>
-                              {POSITION_LABELS[pos]}{isKombi ? " ✦" : ""}
+                              {posLabel}{isKombi ? " ✦" : ""}
                             </div>
                             {card && (
                               <div style={{ marginBottom:4, display:"flex", alignItems:"center", gap:3 }}>
@@ -2535,10 +2542,12 @@ export default function LenormandApp() {
                                 <span style={{fontSize:7, color:gold}}>{CARDS[card].name}</span>
                               </div>
                             )}
-                            {isSignifikator && <div style={{ fontSize:8, color:"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
-                            {isKombi && comboText && <div style={{ fontSize:9, color:"#d8c8a0", lineHeight:1.6 }}>{comboText}</div>}
-                            {fixedText && <div style={{ fontSize:9, color:"#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
-                            {!isSignifikator && !isKombi && !fixedText && card && <div style={{ fontSize:8, color:"#3a2a18" }}>–</div>}
+                            {!card && matrixFreeText[pos] && (
+                              <div style={{ marginBottom:4, fontSize:9, color:gold, fontStyle:"italic" }}>✏️ {matrixFreeText[pos]}</div>
+                            )}
+                            {isSignifikator && signifikator && <div style={{ fontSize:8, color:"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
+                            {fixedText && <div style={{ fontSize:9, color: isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
+                            {!isSignifikator && !fixedText && (card || matrixFreeText[pos]) && <div style={{ fontSize:8, color:"#3a2a18" }}>–</div>}
                           </div>
                         );
                       })}
@@ -2651,7 +2660,7 @@ export default function LenormandApp() {
                         <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
+                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
                             {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
@@ -2707,7 +2716,7 @@ export default function LenormandApp() {
                         <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
+                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
                             {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
@@ -2787,7 +2796,7 @@ export default function LenormandApp() {
                         <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
+                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
                             {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
