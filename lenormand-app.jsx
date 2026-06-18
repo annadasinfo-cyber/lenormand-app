@@ -469,6 +469,13 @@ export default function LenormandApp() {
   // Wenn gesetzt: die nächste Antwort bezieht sich auf eine bestehende Antwort (verschachtelt),
   // statt direkt auf den Beitrag selbst.
   const [forumReplyToId, setForumReplyToId] = React.useState(null);
+  // Welcher Beitrag/welche Antwort wird gerade bearbeitet (id) + Zwischenspeicher für den
+  // bearbeiteten Text, bis "Speichern" gedrückt wird.
+  const [forumEditingPostId, setForumEditingPostId] = React.useState(null);
+  const [forumEditPostTitle, setForumEditPostTitle] = React.useState("");
+  const [forumEditPostBody, setForumEditPostBody] = React.useState("");
+  const [forumEditingReplyId, setForumEditingReplyId] = React.useState(null);
+  const [forumEditReplyBody, setForumEditReplyBody] = React.useState("");
   const [forumReplyToName, setForumReplyToName] = React.useState("");
   const [forumNewCatName, setForumNewCatName] = React.useState("");
   const [forumNewCatDescription, setForumNewCatDescription] = React.useState("");
@@ -717,6 +724,53 @@ export default function LenormandApp() {
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
       setForumReplies(prev => prev.filter(r => r.id !== id));
+    } catch {}
+  };
+
+  // Eigene Beiträge/Antworten dürfen nur innerhalb von 24 Stunden nach dem Erstellen
+  // bearbeitet werden — danach bleibt der Text fest, damit alte Diskussionen nicht
+  // nachträglich beliebig verändert werden können. Mods/Admins dürfen ohnehin löschen,
+  // aber auch für sie gilt dieses Zeitfenster fürs Bearbeiten (nur Inhalt, nicht Löschen).
+  const forumCanEdit = (item, authorId) => {
+    if (authorId !== getUserId()) return false;
+    const ageMs = Date.now() - new Date(item.created_at).getTime();
+    return ageMs < 24 * 60 * 60 * 1000;
+  };
+
+  const startEditForumPost = (post) => {
+    setForumEditingPostId(post.id);
+    setForumEditPostTitle(post.title);
+    setForumEditPostBody(post.body);
+  };
+
+  const saveEditForumPost = async () => {
+    if (!forumEditPostTitle.trim() || !forumEditPostBody.trim()) return;
+    const id = forumEditingPostId;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${id}`, {
+        method: "PATCH", headers: dbHeaders(),
+        body: JSON.stringify({ title: forumEditPostTitle.trim(), body: forumEditPostBody.trim() })
+      });
+      setForumPosts(prev => prev.map(p => p.id === id ? {...p, title: forumEditPostTitle.trim(), body: forumEditPostBody.trim()} : p));
+      if (forumActivePost?.id === id) setForumActivePost(prev => ({...prev, title: forumEditPostTitle.trim(), body: forumEditPostBody.trim()}));
+      setForumEditingPostId(null);
+    } catch {}
+  };
+
+  const startEditForumReply = (reply) => {
+    setForumEditingReplyId(reply.id);
+    setForumEditReplyBody(reply.body);
+  };
+
+  const saveEditForumReply = async () => {
+    if (!forumEditReplyBody.trim()) return;
+    const id = forumEditingReplyId;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?id=eq.${id}`, {
+        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({ body: forumEditReplyBody.trim() })
+      });
+      setForumReplies(prev => prev.map(r => r.id === id ? {...r, body: forumEditReplyBody.trim()} : r));
+      setForumEditingReplyId(null);
     } catch {}
   };
 
@@ -1904,25 +1958,40 @@ export default function LenormandApp() {
   const ForumReplyThread = ({ reply, allReplies, depth }) => {
     const children = allReplies.filter(r => r.reply_to_id === reply.id);
     const indent = Math.min(depth, 4) * 22;
+    const isEditing = forumEditingReplyId === reply.id;
     return (
       <div style={{ marginLeft: indent }}>
         <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
-          <div style={{ display:"flex", justifyContent:"flex-end" }}>
-            {(isMod || reply.user_id === getUserId()) && (
-              <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
-            )}
-          </div>
-          <div style={{ display:"flex", gap:12 }}>
-            <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
-              <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:6 }}>{renderTextWithVideos(reply.body)}</div>
-              <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); }}
-                style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
-                ↩ Antworten
-              </button>
+          {isEditing ? (
+            <div>
+              <textarea value={forumEditReplyBody} onChange={e => setForumEditReplyBody(e.target.value)} rows={3}
+                style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={saveEditForumReply} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Speichern</button>
+                <button onClick={() => setForumEditingReplyId(null)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Abbrechen</button>
+              </div>
             </div>
-          </div>
+          ) : (<>
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
+              {forumCanEdit(reply, reply.user_id) && (
+                <button onClick={() => startEditForumReply(reply)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:11 }}>✎</button>
+              )}
+              {(isMod || reply.user_id === getUserId()) && (
+                <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
+              )}
+            </div>
+            <div style={{ display:"flex", gap:12 }}>
+              <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
+                <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:6 }}>{renderTextWithVideos(reply.body)}</div>
+                <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); }}
+                  style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
+                  ↩ Antworten
+                </button>
+              </div>
+            </div>
+          </>)}
         </div>
         {children.map(child => (
           <ForumReplyThread key={child.id} reply={child} allReplies={allReplies} depth={depth + 1} />
@@ -2789,19 +2858,37 @@ export default function LenormandApp() {
               <div>
                 <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zur Liste</button>
                 <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                    <div style={{ fontSize:15, color:gold, marginBottom:6 }}>{forumActivePost.title}</div>
-                    {(isMod || forumActivePost.user_id === getUserId()) && (
-                      <button onClick={() => { if(window.confirm("Beitrag wirklich löschen?")) deleteForumPost(forumActivePost.id); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
-                    )}
-                  </div>
-                  <div style={{ display:"flex", gap:14 }}>
-                    <ForumProfileTag userId={forumActivePost.user_id} displayName={forumActivePost.display_name} />
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:9, color:"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
-                      <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
+                  {forumEditingPostId === forumActivePost.id ? (
+                    <div>
+                      <input type="text" value={forumEditPostTitle} onChange={e => setForumEditPostTitle(e.target.value)}
+                        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:gold, fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
+                      <textarea value={forumEditPostBody} onChange={e => setForumEditPostBody(e.target.value)} rows={4}
+                        style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                      <div style={{ display:"flex", gap:8 }}>
+                        <button onClick={saveEditForumPost} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
+                        <button onClick={() => setForumEditingPostId(null)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (<>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                      <div style={{ fontSize:15, color:gold, marginBottom:6 }}>{forumActivePost.title}</div>
+                      <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                        {forumCanEdit(forumActivePost, forumActivePost.user_id) && (
+                          <button onClick={() => startEditForumPost(forumActivePost)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                        )}
+                        {(isMod || forumActivePost.user_id === getUserId()) && (
+                          <button onClick={() => { if(window.confirm("Beitrag wirklich löschen?")) deleteForumPost(forumActivePost.id); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", gap:14 }}>
+                      <ForumProfileTag userId={forumActivePost.user_id} displayName={forumActivePost.display_name} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:9, color:"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
+                        <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
+                      </div>
+                    </div>
+                  </>)}
                 </div>
 
                 <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, marginBottom:10, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
