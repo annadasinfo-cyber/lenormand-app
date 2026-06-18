@@ -462,6 +462,18 @@ export default function LenormandApp() {
   const [forumProfiles, setForumProfiles] = React.useState({});
   const [forumActivePost, setForumActivePost] = React.useState(null);
   const [forumReplies, setForumReplies] = React.useState([]);
+  // Sortierung der Top-Level-Antworten: "neueste" (Standard) oder "beliebteste" (nach Likes).
+  // Unterantworten innerhalb eines Threads bleiben immer chronologisch (älteste zuerst),
+  // damit ein Gesprächsverlauf nachvollziehbar bleibt.
+  const [forumReplySort, setForumReplySort] = React.useState("neueste");
+  // Wie viele Top-Level-Antworten aktuell sichtbar sind — wächst beim Scrollen.
+  // Unterantworten zu bereits sichtbaren Top-Level-Antworten zählen nicht mit dazu,
+  // damit kein Thread mitten drin abgeschnitten wird.
+  const [forumRepliesVisibleCount, setForumRepliesVisibleCount] = React.useState(20);
+  // userId -> true, für Antworten, die die aktuell eingeloggte Person bereits geliked hat
+  const [forumMyLikes, setForumMyLikes] = React.useState({});
+  // replyId -> Anzahl Likes
+  const [forumLikeCounts, setForumLikeCounts] = React.useState({});
   const [forumNewTitle, setForumNewTitle] = React.useState("");
   const [forumNewBody, setForumNewBody] = React.useState("");
   const [forumNewName, setForumNewName] = React.useState(""); // Anzeigename für Gäste
@@ -637,10 +649,54 @@ export default function LenormandApp() {
   };
 
   const loadForumReplies = async (postId) => {
+    setForumRepliesVisibleCount(20); // bei jedem neuen Beitrag wieder von vorn beginnen
     try {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?post_id=eq.${postId}&order=created_at.asc`, {headers: dbHeaders()});
       const data = await r.json();
-      if (Array.isArray(data)) setForumReplies(data);
+      if (Array.isArray(data)) {
+        setForumReplies(data);
+        const replyIds = data.map(rep => rep.id);
+        if (replyIds.length > 0) {
+          try {
+            const lr = await fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes?reply_id=in.(${replyIds.join(",")})&select=reply_id,user_id`, {headers: dbHeaders()});
+            const likesData = await lr.json();
+            if (Array.isArray(likesData)) {
+              const counts = {};
+              const mine = {};
+              const uid = getUserId();
+              likesData.forEach(l => {
+                counts[l.reply_id] = (counts[l.reply_id] || 0) + 1;
+                if (uid && l.user_id === uid) mine[l.reply_id] = true;
+              });
+              setForumLikeCounts(counts);
+              setForumMyLikes(mine);
+            }
+          } catch {}
+        } else {
+          setForumLikeCounts({});
+          setForumMyLikes({});
+        }
+      }
+    } catch {}
+  };
+
+  // Schaltet einen Like für eine Antwort um — optimistisches Update zuerst (fühlt sich
+  // sofort an), dann der eigentliche Datenbank-Befehl im Hintergrund.
+  const toggleForumReplyLike = async (replyId) => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    const alreadyLiked = !!forumMyLikes[replyId];
+    setForumMyLikes(prev => ({ ...prev, [replyId]: !alreadyLiked }));
+    setForumLikeCounts(prev => ({ ...prev, [replyId]: (prev[replyId] || 0) + (alreadyLiked ? -1 : 1) }));
+    try {
+      if (alreadyLiked) {
+        await fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes?reply_id=eq.${replyId}&user_id=eq.${uid}`, {method:"DELETE", headers: dbHeaders()});
+      } else {
+        await fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes`, {
+          method: "POST", headers: {...dbHeaders(), "Prefer": "resolution=merge-duplicates"},
+          body: JSON.stringify({ reply_id: replyId, user_id: uid })
+        });
+      }
     } catch {}
   };
 
@@ -2006,10 +2062,16 @@ export default function LenormandApp() {
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
                 <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:6 }}>{renderTextWithVideos(reply.body)}</div>
-                <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); }}
-                  style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
-                  ↩ Antworten
-                </button>
+                <div style={{ display:"flex", gap:14, alignItems:"center" }}>
+                  <button onClick={() => toggleForumReplyLike(reply.id)}
+                    style={{ background:"transparent", border:"none", color:forumMyLikes[reply.id]?gold:"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:4 }}>
+                    {forumMyLikes[reply.id] ? "★" : "☆"} {forumLikeCounts[reply.id] || 0}
+                  </button>
+                  <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); }}
+                    style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
+                    ↩ Antworten
+                  </button>
+                </div>
               </div>
             </div>
           </>)}
@@ -2965,10 +3027,53 @@ export default function LenormandApp() {
                   </>)}
                 </div>
 
-                <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, marginBottom:10, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
-                {forumReplies.filter(r => !r.reply_to_id).map(reply => (
-                  <ForumReplyThread key={reply.id} reply={reply} allReplies={forumReplies} depth={0} />
-                ))}
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                  <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
+                  <div style={{ display:"flex", gap:6 }}>
+                    {[["neueste","Neueste"],["beliebteste","Beliebteste"]].map(([s,l]) => (
+                      <button key={s} onClick={() => { setForumReplySort(s); setForumRepliesVisibleCount(20); }}
+                        style={{ background:forumReplySort===s?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${forumReplySort===s?gold:"rgba(200,169,110,0.2)"}`, color:forumReplySort===s?gold:"#7a6040", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(() => {
+                  // Nur Top-Level-Antworten werden sortiert/paginiert — Unterantworten zu
+                  // einer sichtbaren Top-Level-Antwort werden immer komplett mitgeladen,
+                  // damit kein Gesprächsverlauf mitten drin abgeschnitten wird.
+                  const topLevel = forumReplies.filter(r => !r.reply_to_id);
+                  const sorted = [...topLevel].sort((a, b) => {
+                    if (forumReplySort === "beliebteste") {
+                      const diff = (forumLikeCounts[b.id] || 0) - (forumLikeCounts[a.id] || 0);
+                      if (diff !== 0) return diff;
+                      return new Date(b.created_at) - new Date(a.created_at); // bei Gleichstand: neueste zuerst
+                    }
+                    return new Date(b.created_at) - new Date(a.created_at); // "neueste"
+                  });
+                  const visible = sorted.slice(0, forumRepliesVisibleCount);
+                  const hasMore = forumRepliesVisibleCount < sorted.length;
+                  return (<>
+                    {visible.map(reply => (
+                      <ForumReplyThread key={reply.id} reply={reply} allReplies={forumReplies} depth={0} />
+                    ))}
+                    {hasMore && (
+                      <div ref={el => {
+                          if (!el) return;
+                          const observer = new IntersectionObserver((entries) => {
+                            if (entries[0].isIntersecting) {
+                              setForumRepliesVisibleCount(prev => prev + 20);
+                              observer.disconnect();
+                            }
+                          }, { rootMargin: "200px" });
+                          observer.observe(el);
+                        }}
+                        style={{ textAlign:"center", padding:"10px 0" }}>
+                        <span style={{ fontSize:11, color:"#7a6040" }}>Lade weitere Antworten…</span>
+                      </div>
+                    )}
+                  </>);
+                })()}
 
                 <div style={{ marginTop:14 }}>
                   {forumReplyToId && (
