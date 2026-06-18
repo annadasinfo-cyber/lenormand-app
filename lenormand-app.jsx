@@ -4419,10 +4419,17 @@ export default function LenormandApp() {
             style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             🐞 Fehler melden
           </a>
-          <button onClick={handleLogout}
-            style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-            ↩ Logout
-          </button>
+          {isGuest ? (
+            <button onClick={() => setView("forum-login-noetig")}
+              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+              ↪ Login
+            </button>
+          ) : (
+            <button onClick={handleLogout}
+              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+              ↩ Logout
+            </button>
+          )}
         </div>
         <div style={{ fontSize:9, color:"#2a1a08", letterSpacing:3, marginBottom:4 }}>
           ANNA BENOIR · LENORMAND MATRIX · 2014 · ALLE RECHTE VORBEHALTEN
