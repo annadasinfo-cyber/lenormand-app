@@ -250,6 +250,42 @@ function CategoryEditBox({ initialName, initialDescription, initialIcon, initial
   );
 }
 
+// Gleiches Prinzip wie die anderen Edit-Boxen — eigener lokaler State damit Fokus beim
+// Tippen stabil bleibt, unabhängig von Re-Renders der Hauptkomponente.
+function ProfileEditBox({ initialName, initialBio, initialSignature, saveStatus, onSave, onCancel, gold }) {
+  const [name, setName] = useState(initialName);
+  const [bio, setBio] = useState(initialBio);
+  const [signature, setSignature] = useState(initialSignature);
+  return (
+    <div>
+      <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 18px" }}>
+        {(name || "?").trim().charAt(0).toUpperCase() || "?"}
+      </div>
+      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Name</div>
+      <input type="text" value={name} onChange={e => setName(e.target.value)} autoFocus
+        style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Über mich</div>
+      <textarea value={bio} onChange={e => setBio(e.target.value)} rows={4} placeholder="Erzähl ein bisschen über dich…"
+        style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Signatur <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(erscheint unter deinen Beiträgen &amp; Antworten)</span></div>
+      <input type="text" value={signature} onChange={e => setSignature(e.target.value)} maxLength={120} placeholder="z.B. ✨ Die Karten lügen nie — nur wir manchmal."
+        style={{ width:"100%", padding:"9px 12px", marginBottom:4, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", fontStyle:"italic" }} />
+      <div style={{ fontSize:9, color:"#5a4a34", marginBottom:18, textAlign:"right" }}>{signature.length}/120</div>
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={() => onSave({ name, bio, signature })} disabled={saveStatus==="saving"}
+          style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"9px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", opacity: saveStatus==="saving" ? 0.6 : 1 }}>
+          {saveStatus==="saving" ? "Speichert…" : "Speichern"}
+        </button>
+        <button onClick={onCancel}
+          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
+          Abbrechen
+        </button>
+      </div>
+      {saveStatus==="error" && <div style={{fontSize:11, color:"#c87a6a", marginTop:10, textAlign:"center"}}>Konnte nicht gespeichert werden, versuch's gleich noch mal.</div>}
+    </div>
+  );
+}
+
 export default function LenormandApp() {
   const gold = "#c8a96e";
   const [view, setView] = useState("liesmich");
@@ -529,10 +565,9 @@ export default function LenormandApp() {
   const [userRole, setUserRole] = React.useState(null); // null solange nicht geladen / nicht eingeloggt
   const [userDisplayName, setUserDisplayName] = React.useState("");
   const [userBio, setUserBio] = React.useState("");
+  const [userSignature, setUserSignature] = React.useState("");
   const [proTrialDaysLeft, setProTrialDaysLeft] = React.useState(null);
   const [profileEditing, setProfileEditing] = React.useState(false);
-  const [profileEditName, setProfileEditName] = React.useState("");
-  const [profileEditBio, setProfileEditBio] = React.useState("");
   const [profileSaveStatus, setProfileSaveStatus] = React.useState("");
   const [forumCategories, setForumCategories] = React.useState([]);
   const [forumView, setForumView] = React.useState("liste"); // "liste" | "kategorie" | "post" | "neu"
@@ -590,14 +625,15 @@ export default function LenormandApp() {
   React.useEffect(() => {
     const loadRole = async () => {
       const uid = getUserId();
-      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setProTrialDaysLeft(null); return; }
+      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setUserSignature(""); setProTrialDaysLeft(null); return; }
       try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio,pro_trial_until`, {headers: dbHeaders()});
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio,signature,pro_trial_until`, {headers: dbHeaders()});
         const data = await r.json();
         const profile = (data && data[0]) || {};
         let role = profile.role || "member";
         setUserDisplayName(profile.display_name || "");
         setUserBio(profile.bio || "");
+        setUserSignature(profile.signature || "");
 
         if (profile.pro_trial_until) {
           const msLeft = new Date(profile.pro_trial_until).getTime() - Date.now();
@@ -654,14 +690,12 @@ export default function LenormandApp() {
       const userIds = Object.keys(postCountByUser);
       if (userIds.length > 0) {
         try {
-          // Bewusst nur diese Felder: id, role, created_at, bio, display_name. KEINE E-Mail —
-          // das hier ist eine öffentlich sichtbare Profilkarte, die E-Mail bleibt privat.
-          const prf = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=in.(${userIds.join(",")})&select=id,role,created_at,bio,display_name`, {headers: dbHeaders()});
+          const prf = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=in.(${userIds.join(",")})&select=id,role,created_at,bio,display_name,signature`, {headers: dbHeaders()});
           const profilesData = await prf.json();
           if (Array.isArray(profilesData)) {
             const profMap = {};
             profilesData.forEach(p => {
-              profMap[p.id] = { role: p.role || "member", createdAt: p.created_at, postCount: postCountByUser[p.id] || 0, bio: p.bio || "", displayName: p.display_name || "" };
+              profMap[p.id] = { role: p.role || "member", createdAt: p.created_at, postCount: postCountByUser[p.id] || 0, bio: p.bio || "", displayName: p.display_name || "", signature: p.signature || "" };
             });
             setForumProfiles(profMap);
           }
@@ -1006,17 +1040,18 @@ export default function LenormandApp() {
   };
 
   // Speichert Name + Bio im eigenen Profil
-  const saveProfile = async () => {
+  const saveProfile = async (fields) => {
     const uid = getUserId();
     if (!uid) return;
     setProfileSaveStatus("saving");
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`, {
         method: "PATCH", headers: dbHeaders(),
-        body: JSON.stringify({ display_name: profileEditName.trim(), bio: profileEditBio.trim() })
+        body: JSON.stringify({ display_name: fields.name.trim(), bio: fields.bio.trim(), signature: fields.signature.trim() })
       });
-      setUserDisplayName(profileEditName.trim());
-      setUserBio(profileEditBio.trim());
+      setUserDisplayName(fields.name.trim());
+      setUserBio(fields.bio.trim());
+      setUserSignature(fields.signature.trim());
       setProfileEditing(false);
       setProfileSaveStatus("saved");
       setTimeout(() => setProfileSaveStatus(""), 2000);
@@ -2157,6 +2192,14 @@ export default function LenormandApp() {
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
                 <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:6 }}>{renderTextWithVideos(reply.body)}</div>
+                {(() => {
+                  const sig = reply.user_id === getUserId()
+                    ? userSignature
+                    : forumProfiles[reply.user_id]?.signature;
+                  return sig ? (
+                    <div style={{ marginBottom:6, paddingTop:6, borderTop:"1px solid rgba(200,169,110,0.08)", fontSize:10, color:"#7a6040", fontStyle:"italic" }}>{sig}</div>
+                  ) : null;
+                })()}
                 <div style={{ display:"flex", gap:14, alignItems:"center" }}>
                   <button onClick={() => toggleForumReplyLike(reply.id)}
                     style={{ background:"transparent", border:"none", color:forumMyLikes[reply.id]?gold:"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:4 }}>
@@ -2877,8 +2920,9 @@ export default function LenormandApp() {
                     <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}</div>
                     <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:14 }}>{forumRoleLabel(userRole)}</div>
                     {userBio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:14, whiteSpace:"pre-wrap" }}>{userBio}</div>}
+                    {userSignature && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginBottom:14, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.1)" }}>{userSignature}</div>}
                     <div style={{ fontSize:11, color:"#5a4a34", marginBottom:20 }}>{getUserEmail()}</div>
-                    <button onClick={() => { setProfileEditName(userDisplayName); setProfileEditBio(userBio); setProfileEditing(true); }}
+                    <button onClick={() => setProfileEditing(true)}
                       style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px 20px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
                       ✎ Profil bearbeiten
                     </button>
@@ -2886,35 +2930,15 @@ export default function LenormandApp() {
                 )}
 
                 {profileEditing && (
-                  <div>
-                    <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 18px" }}>
-                      {(profileEditName || "?").trim().charAt(0).toUpperCase() || "?"}
-                    </div>
-                    <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Name</div>
-                    <input type="text" value={profileEditName} onChange={e => setProfileEditName(e.target.value)}
-                      style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-
-                    <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Über mich</div>
-                    <textarea value={profileEditBio} onChange={e => setProfileEditBio(e.target.value)} rows={4} placeholder="Erzähl ein bisschen über dich…"
-                      style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-
-                    <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>E-Mail</div>
-                    <div style={{ fontSize:12, color:"#5a4a34", marginBottom:18, padding:"9px 12px", background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:7 }}>
-                      {getUserEmail()} <span style={{fontSize:10, color:"#4a3a24"}}>(kann hier noch nicht geändert werden)</span>
-                    </div>
-
-                    <div style={{ display:"flex", gap:8 }}>
-                      <button onClick={saveProfile} disabled={profileSaveStatus==="saving"}
-                        style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"9px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", opacity: profileSaveStatus==="saving" ? 0.6 : 1 }}>
-                        {profileSaveStatus==="saving" ? "Speichert…" : "Speichern"}
-                      </button>
-                      <button onClick={() => setProfileEditing(false)}
-                        style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
-                        Abbrechen
-                      </button>
-                    </div>
-                    {profileSaveStatus==="error" && <div style={{fontSize:11, color:"#c87a6a", marginTop:10, textAlign:"center"}}>Konnte nicht gespeichert werden, versuch's gleich noch mal.</div>}
-                  </div>
+                  <ProfileEditBox
+                    initialName={userDisplayName}
+                    initialBio={userBio}
+                    initialSignature={userSignature}
+                    saveStatus={profileSaveStatus}
+                    onSave={saveProfile}
+                    onCancel={() => setProfileEditing(false)}
+                    gold={gold}
+                  />
                 )}
               </div>
             )}
@@ -3029,15 +3053,15 @@ export default function LenormandApp() {
                 {/* Statistik-Zeile — Fake-Zahlen als Platzhalter, echte Zählung folgt später */}
                 <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:24, paddingTop:16, borderTop:"1px solid rgba(200,169,110,0.12)", flexWrap:"wrap" }}>
                   <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:18, color:gold }}>1.260</div>
+                    <div style={{ fontSize:18, color:gold }}>🌙 1.260</div>
                     <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Mitglieder</div>
                   </div>
                   <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:18, color:gold }}>63</div>
+                    <div style={{ fontSize:18, color:gold }}>✨ 63</div>
                     <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heute online</div>
                   </div>
                   <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:18, color:gold }}>752</div>
+                    <div style={{ fontSize:18, color:gold }}>🏆 752</div>
                     <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Highscore</div>
                   </div>
                 </div>
@@ -3133,6 +3157,14 @@ export default function LenormandApp() {
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:9, color:"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
                         <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
+                        {(() => {
+                          const sig = forumActivePost.user_id === getUserId()
+                            ? userSignature
+                            : forumProfiles[forumActivePost.user_id]?.signature;
+                          return sig ? (
+                            <div style={{ marginTop:10, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.1)", fontSize:11, color:"#7a6040", fontStyle:"italic" }}>{sig}</div>
+                          ) : null;
+                        })()}
                       </div>
                     </div>
                   </>)}
