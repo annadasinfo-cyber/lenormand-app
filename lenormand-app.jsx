@@ -1879,6 +1879,9 @@ export default function LenormandApp() {
 
   // Zerlegt einen Beitrags-/Antworttext in normale Textabschnitte und YouTube-Links,
   // und rendert Letztere als großes eingebettetes Video (gleiche Optik wie auf der Willkommensseite).
+  // Erkennt GIF-Links (auch mit Query-Parametern dahinter, wie bei Tenor/Giphy-Links üblich)
+  const isGifUrl = (url) => /\.gif(\?.*)?$/i.test(url);
+
   const renderTextWithVideos = (text) => {
     if (!text) return null;
     const urlPattern = /(https?:\/\/[^\s]+)/g;
@@ -1897,6 +1900,14 @@ export default function LenormandApp() {
               allowFullScreen
             />
           </div>
+        );
+      }
+      // GIFs werden direkt eingebettet und spielen automatisch ab — wirkt wie ein kleines
+      // Video, macht das Forum lebendiger statt nur einen Link anzuzeigen.
+      if (isUrl && isGifUrl(part)) {
+        return (
+          <img key={i} src={part} alt="GIF" loading="lazy"
+            style={{ maxWidth:"100%", borderRadius:10, margin:"10px 0", display:"block" }} />
         );
       }
       // Normale Links (z.B. zur Pro-Mitgliedschafts-Seite) werden klickbar dargestellt,
