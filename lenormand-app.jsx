@@ -288,7 +288,7 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, saveStatus,
 
 export default function LenormandApp() {
   const gold = "#c8a96e";
-  const [view, setView] = useState("liesmich");
+  const [view, setView] = useState(() => sessionStorage.getItem("lenni_view") || "liesmich");
 
   // Auth
   const [session, setSession] = React.useState(() => supabase.auth.getSession());
@@ -318,6 +318,11 @@ export default function LenormandApp() {
       setForumView("liste");
     }
   }, []);
+
+  // view bei jeder Änderung in sessionStorage sichern, damit ein Reload die Person
+  // auf derselben Seite lässt (dailyMode/communityMode werden weiter unten gesichert,
+  // direkt nachdem sie deklariert sind).
+  React.useEffect(() => { sessionStorage.setItem("lenni_view", view); }, [view]);
 
   const [authView, setAuthView] = React.useState("login");
   const [authEmail, setAuthEmail] = React.useState("");
@@ -490,8 +495,10 @@ export default function LenormandApp() {
 
   // Klient-State
   const [tagebuchView, setTagebuchView] = React.useState("tagebuch");
-  const [dailyMode, setDailyMode] = React.useState("tagebuch");
-  const [communityMode, setCommunityMode] = React.useState("forum");
+  const [dailyMode, setDailyMode] = React.useState(() => sessionStorage.getItem("lenni_dailyMode") || "tagebuch");
+  const [communityMode, setCommunityMode] = React.useState(() => sessionStorage.getItem("lenni_communityMode") || "forum");
+  React.useEffect(() => { sessionStorage.setItem("lenni_dailyMode", dailyMode); }, [dailyMode]);
+  React.useEffect(() => { sessionStorage.setItem("lenni_communityMode", communityMode); }, [communityMode]);
   const [writingView, setWritingView] = React.useState("projekt");
   const [writingProjekt, setWritingProjekt] = React.useState("");
   const [writingBemerkung, setWritingBemerkung] = React.useState("");
@@ -877,6 +884,49 @@ export default function LenormandApp() {
     setForumView("post");
     loadForumReplies(post.id);
     markForumPostRead(post.id);
+  };
+
+  // Teilt die aktuell angezeigte Tageskarte als Beitrag in der "Tageskarten"-Kategorie.
+  // Sucht die Kategorie anhand des Namens — falls sie fehlt (SQL noch nicht ausgeführt),
+  // gibt es eine klare Fehlermeldung statt eines stillen Fehlschlags.
+  const shareTageskarteToForum = async (includeNotes) => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    setShareTageskarteStatus("sharing");
+    try {
+      let cat = forumCategories.find(c => c.name === "Tageskarten");
+      if (!cat) {
+        // Kategorie evtl. noch nicht im lokalen State (z.B. gerade erst angelegt) — frisch nachladen
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?name=eq.Tageskarten&section=eq.forum`, {headers: dbHeaders()});
+        const data = await r.json();
+        cat = data && data[0];
+      }
+      if (!cat) { setShareTageskarteStatus("error"); return; }
+
+      const cardNames = `${CARDS[selectedCard.c1].name} & ${CARDS[selectedCard.c2].name}`;
+      const title = `${SYMBOLS[selectedCard.c1]}${SYMBOLS[selectedCard.c2]} ${cardNames} — ${formatDate(selectedDateKey)}`;
+      let body = `Meine Tageskombination am ${formatDate(selectedDateKey)}: ${cardNames}.`;
+      if (includeNotes) {
+        const parts = [];
+        if (selectedEntry.gedanken.trim()) parts.push(`💭 Gedanken: ${selectedEntry.gedanken.trim()}`);
+        if (selectedEntry.reflexionen.trim()) parts.push(`🌙 Reflexionen: ${selectedEntry.reflexionen.trim()}`);
+        if (selectedEntry.resumee.trim()) parts.push(`📝 Resümee: ${selectedEntry.resumee.trim()}`);
+        if (parts.length) body += `\n\n${parts.join("\n\n")}`;
+      }
+
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
+        body: JSON.stringify({ category_id: cat.id, user_id: uid, display_name: userDisplayName || "Mitglied", title, body })
+      });
+      const data = await r.json();
+      if (data && data[0]) {
+        setShareTageskarteStatus("done");
+        loadForumCategories();
+        setTimeout(() => { setShareTageskarteOpen(false); setShareTageskarteStatus(""); }, 1500);
+      } else {
+        setShareTageskarteStatus("error");
+      }
+    } catch { setShareTageskarteStatus("error"); }
   };
 
   const createForumPost = async () => {
@@ -1649,6 +1699,11 @@ export default function LenormandApp() {
 
   const [tagebuchData, setTagebuchData] = React.useState(() => loadTagebuch());
   const [tippVisible, setTippVisible] = React.useState(false);
+  // Teilen-Dialog: zeigt eine kleine Auswahl (Notizen mitschicken ja/nein) bevor
+  // die Tageskarte als Beitrag im Forum landet.
+  const [shareTageskarteOpen, setShareTageskarteOpen] = React.useState(false);
+  const [shareTageskarteIncludeNotes, setShareTageskarteIncludeNotes] = React.useState(false);
+  const [shareTageskarteStatus, setShareTageskarteStatus] = React.useState(""); // "" | "sharing" | "done" | "error"
   const todayKey = getTodayKey();
   // Navigation: welcher Tag wird gerade angezeigt? Standard: heute.
   const [selectedDateKey, setSelectedDateKey] = React.useState(todayKey);
@@ -3741,17 +3796,59 @@ export default function LenormandApp() {
                     </button>
                   ) : (
                     <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
+                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Emanuel sagt</div>
                       <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[selectedCard.comboKey] || "Vertraue deiner Intuition."}</div>
                       <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
                     </div>
                   )}
                 </div>
-                <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
+                <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16, display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
                   <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     🖨️ Drucken
                   </button>
+                  <button onClick={() => { setShareTageskarteOpen(true); setShareTageskarteIncludeNotes(false); setShareTageskarteStatus(""); }}
+                    style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                    💬 Im Forum teilen
+                  </button>
                 </div>
+
+                {shareTageskarteOpen && (
+                  <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:20 }}
+                    onClick={() => { if (shareTageskarteStatus !== "sharing") { setShareTageskarteOpen(false); setShareTageskarteStatus(""); } }}>
+                    <div onClick={e => e.stopPropagation()}
+                      style={{ background:"#0f0a1a", border:"1px solid rgba(200,169,110,0.3)", borderRadius:12, padding:"24px 22px", maxWidth:340, width:"100%", textAlign:"center" }}>
+                      {shareTageskarteStatus === "done" ? (
+                        <div style={{ color:gold, fontSize:14 }}>✨ Geteilt! Du findest deinen Beitrag unter „Tageskarten" im Forum.</div>
+                      ) : shareTageskarteStatus === "error" ? (
+                        <div>
+                          <div style={{ color:"#c87a6a", fontSize:13, marginBottom:14 }}>Konnte nicht geteilt werden. Versuch's gleich noch mal.</div>
+                          <button onClick={() => { setShareTageskarteOpen(false); setShareTageskarteStatus(""); }} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Schließen</button>
+                        </div>
+                      ) : (
+                        <>
+                          <div style={{ fontSize:14, color:gold, marginBottom:14 }}>Tageskombination teilen</div>
+                          <div style={{ fontSize:12, color:"#9a8060", marginBottom:16, lineHeight:1.6 }}>
+                            {SYMBOLS[selectedCard.c1]}{SYMBOLS[selectedCard.c2]} {CARDS[selectedCard.c1].name} &amp; {CARDS[selectedCard.c2].name} — {formatDate(selectedDateKey)}
+                          </div>
+                          <label style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, fontSize:12, color:"#d4c4a0", cursor:"pointer", textAlign:"left" }}>
+                            <input type="checkbox" checked={shareTageskarteIncludeNotes} onChange={e => setShareTageskarteIncludeNotes(e.target.checked)} />
+                            Meine Notizen (Gedanken, Reflexionen, Resümee) mit teilen
+                          </label>
+                          <div style={{ display:"flex", gap:8 }}>
+                            <button onClick={() => shareTageskarteToForum(shareTageskarteIncludeNotes)} disabled={shareTageskarteStatus==="sharing"}
+                              style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"9px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", opacity:shareTageskarteStatus==="sharing"?0.6:1 }}>
+                              {shareTageskarteStatus==="sharing" ? "Teilt…" : "Teilen"}
+                            </button>
+                            <button onClick={() => setShareTageskarteOpen(false)} disabled={shareTageskarteStatus==="sharing"}
+                              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
+                              Abbrechen
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
