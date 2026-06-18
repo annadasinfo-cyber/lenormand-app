@@ -573,6 +573,13 @@ export default function LenormandApp() {
   const [forumView, setForumView] = React.useState("liste"); // "liste" | "kategorie" | "post" | "neu"
   const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
   const [forumPosts, setForumPosts] = React.useState([]);
+  // Kurse-Bereich: eigene States, gleiche Struktur wie Forum
+  // Kategorie = Kurs, Beitrag = Lektion, Antworten = Fragen/Diskussion
+  const [kurseCategories, setKurseCategories] = React.useState([]);
+  const [kurseView, setKurseView] = React.useState("liste");
+  const [kurseActiveCategory, setKurseActiveCategory] = React.useState(null);
+  const [kursePosts, setKursePosts] = React.useState([]);
+  const [kurseActivePost, setKurseActivePost] = React.useState(null);
   const [forumReadPostIds, setForumReadPostIds] = React.useState(new Set());
   // Pro user_id: { role, createdAt, postCount } — für die kleine Profilkarte vor jedem Beitrag
   const [forumProfiles, setForumProfiles] = React.useState({});
@@ -663,7 +670,7 @@ export default function LenormandApp() {
 
   const loadForumCategories = async () => {
     try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?order=sort_order.asc`, {headers: dbHeaders()});
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?section=eq.forum&order=sort_order.asc`, {headers: dbHeaders()});
       const cats = await r.json();
       if (!Array.isArray(cats)) return;
       // Schlanke Liste aller Posts holen (id + category_id + created_at + Ersteller), um pro
@@ -718,8 +725,6 @@ export default function LenormandApp() {
         lastActivity: statsByCategory[c.id]?.lastActivity || null,
         hasUnread: statsByCategory[c.id]?.hasUnread || false
       }));
-      // Reihenfolge: 1. angepinnt, 2. ungelesen (neueste Aktivität zuerst), 3. der Rest
-      // nach letzter Aktivität, Kategorien ganz ohne Beiträge bleiben am Ende.
       enriched.sort((a, b) => {
         if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
         if (a.pinned && b.pinned) return a.sort_order - b.sort_order;
@@ -733,8 +738,34 @@ export default function LenormandApp() {
     } catch {}
   };
 
+  // Kurse-Bereich: Kategorien laden (section=kurse), Sortierung nach sort_order —
+  // Kurse sollen in der Reihenfolge erscheinen, in der du sie anlegt, nicht nach Aktivität.
+  const loadKurseCategories = async () => {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?section=eq.kurse&order=sort_order.asc`, {headers: dbHeaders()});
+      const cats = await r.json();
+      if (!Array.isArray(cats)) return;
+      // Lektionen-Anzahl pro Kurs berechnen
+      const pr = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=id,category_id`, {headers: dbHeaders()});
+      const posts = await pr.json();
+      const countByCat = {};
+      if (Array.isArray(posts)) posts.forEach(p => { countByCat[p.category_id] = (countByCat[p.category_id] || 0) + 1; });
+      setKurseCategories(cats.map(c => ({ ...c, postCount: countByCat[c.id] || 0 })));
+    } catch {}
+  };
+
+  const loadKursePosts = async (categoryId) => {
+    try {
+      // Lektionen in fester Reihenfolge — älteste zuerst, damit Lektion 1 oben steht
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?category_id=eq.${categoryId}&order=created_at.asc`, {headers: dbHeaders()});
+      const data = await r.json();
+      if (Array.isArray(data)) setKursePosts(data);
+    } catch {}
+  };
+
   React.useEffect(() => {
     loadForumCategories();
+    loadKurseCategories();
   }, [forumReadPostIds, session]);
 
   const loadForumPosts = async (categoryId) => {
@@ -960,7 +991,7 @@ export default function LenormandApp() {
     } catch {}
   };
 
-  const createForumCategory = async () => {
+  const createForumCategory = async (section = "forum") => {
     if (!forumNewCatName.trim()) return;
     try {
       const payload = {
@@ -969,7 +1000,8 @@ export default function LenormandApp() {
         icon: (forumNewCatIcon || "💬").trim().slice(0, 4),
         visibility: forumNewCatVisibility,
         guest_can_post: forumNewCatGuestPost,
-        sort_order: forumCategories.length
+        section,
+        sort_order: section === "kurse" ? kurseCategories.length : forumCategories.length
       };
       const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories`, {
         method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
@@ -977,7 +1009,8 @@ export default function LenormandApp() {
       });
       const data = await r.json();
       if (data && data[0]) {
-        setForumCategories(prev => [...prev, data[0]]);
+        if (section === "kurse") setKurseCategories(prev => [...prev, data[0]]);
+        else setForumCategories(prev => [...prev, data[0]]);
         setForumNewCatName(""); setForumNewCatDescription(""); setForumNewCatIcon("💬"); setForumNewCatVisibility("member"); setForumNewCatGuestPost(false);
         setForumShowNewCat(false);
       }
@@ -1429,6 +1462,9 @@ export default function LenormandApp() {
   const isAdmin = userRole === "admin";
   const isMod = userRole === "mod" || isAdmin;
   const isPro = userRole === "pro" || isMod;
+  // Nur echte Käufer — Test-PRO ("pro" via 14-Tage-Trial) kommt hier nicht rein.
+  // Du vergibst pro_full manuell im Supabase-Dashboard bei jedem echten Kauf.
+  const isProFull = userRole === "pro_full" || isMod;
 
   // Kann diese Kategorie überhaupt gesehen werden, je nach Sichtbarkeits-Stufe + eigener Rolle?
   // Alle Kategorien werden in der Übersicht angezeigt (auch für Gäste, als Appetit-Macher) —
@@ -3246,11 +3282,183 @@ export default function LenormandApp() {
             </>)}
 
             {/* KURSE — Übersicht folgt */}
-            {communityMode === "kurse" && (
-              <div style={{ textAlign:"center", padding:"30px 0", color:"#7a6040", fontSize:13 }}>
-                Die Kurs-Übersicht ist in Arbeit — bald findest du hier alle deine Kurse auf einen Blick.
-              </div>
-            )}
+            {communityMode === "kurse" && (<>
+              {/* Zugriffssperre für alle ohne pro_full */}
+              {!isProFull ? (
+                <div style={{ textAlign:"center", padding:"40px 20px" }}>
+                  <div style={{ fontSize:32, marginBottom:14 }}>🎓</div>
+                  <div style={{ fontSize:16, color:gold, marginBottom:10 }}>Kursbereich</div>
+                  <div style={{ fontSize:13, color:"#7a6040", lineHeight:1.7, marginBottom:20, maxWidth:320, margin:"0 auto 20px" }}>
+                    Dieser Bereich ist ausschließlich für Mitglieder mit vollem PRO-Zugang — nicht für die 14-tägige Testphase.
+                  </div>
+                  <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
+                    style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 26px", borderRadius:6, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
+                    Jetzt freischalten →
+                  </a>
+                </div>
+              ) : (<>
+
+                {/* KURS-LISTE */}
+                {kurseView === "liste" && (
+                  <div>
+                    {isAdmin && (
+                      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+                        <button onClick={() => setForumShowNewCat(v => !v)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                          {forumShowNewCat ? "✕ Abbrechen" : "+ Neuer Kurs"}
+                        </button>
+                      </div>
+                    )}
+                    {isAdmin && forumShowNewCat && (
+                      <CategoryEditBox
+                        initialName="" initialDescription="" initialIcon="🎓"
+                        initialVisibility="pro" initialGuestPost={false}
+                        onSave={(fields) => { setForumNewCatName(fields.name); setForumNewCatDescription(fields.description); setForumNewCatIcon(fields.icon); setForumNewCatVisibility(fields.visibility); setForumNewCatGuestPost(fields.guestPost); setTimeout(() => createForumCategory("kurse"), 0); }}
+                        onCancel={() => setForumShowNewCat(false)}
+                        gold={gold}
+                      />
+                    )}
+                    {kurseCategories.length === 0 && (
+                      <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>
+                        Noch keine Kurse vorhanden — bald geht's los! 🌙
+                      </div>
+                    )}
+                    {kurseCategories.map(cat => (
+                      <div key={cat.id} onClick={() => { setKurseActiveCategory(cat); setKurseView("kategorie"); loadKursePosts(cat.id); }}
+                        style={{ display:"flex", alignItems:"center", gap:14, background:"rgba(200,169,110,0.03)", border:`1px solid rgba(200,169,110,0.2)`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
+                        <span style={{ fontSize:28, flexShrink:0 }}>{cat.icon || "🎓"}</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:14, color:gold, marginBottom:3 }}>{cat.name}</div>
+                          {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic" }}>{cat.description}</div>}
+                          <div style={{ fontSize:10, color:"#5a4a34", marginTop:3 }}>{cat.postCount || 0} {cat.postCount === 1 ? "Lektion" : "Lektionen"}</div>
+                        </div>
+                        {isAdmin && (
+                          <button onClick={e => { e.stopPropagation(); setForumEditingCategoryId(cat.id); }} title="Kurs bearbeiten"
+                            style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                        )}
+                        {isAdmin && (
+                          <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kurs "${cat.name}" wirklich löschen?`)) deleteForumCategory(cat.id); }}
+                            style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
+                        )}
+                        <span style={{ color:"#5a4a34", fontSize:16 }}>→</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* LEKTIONEN-LISTE */}
+                {kurseView === "kategorie" && kurseActiveCategory && (
+                  <div>
+                    <button onClick={() => { setKurseView("liste"); setKurseActiveCategory(null); setKursePosts([]); }}
+                      style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kursen</button>
+                    <div style={{ fontSize:22, color:gold, marginBottom:4 }}>{kurseActiveCategory.icon} {kurseActiveCategory.name}</div>
+                    {kurseActiveCategory.description && <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:16 }}>{kurseActiveCategory.description}</div>}
+
+                    {isAdmin && (
+                      <div style={{ marginBottom:16 }}>
+                        <button onClick={() => setKurseView("neu")} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.3)`, color:gold, padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                          + Neue Lektion
+                        </button>
+                      </div>
+                    )}
+
+                    {kursePosts.length === 0 && (
+                      <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"20px 0" }}>Noch keine Lektionen in diesem Kurs.</div>
+                    )}
+                    {kursePosts.map((post, idx) => (
+                      <div key={post.id} onClick={() => { setKurseActivePost(post); setKurseView("post"); loadForumReplies(post.id); markForumPostRead(post.id); }}
+                        style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"12px 16px", marginBottom:8, cursor:"pointer" }}>
+                        <div style={{ width:28, height:28, borderRadius:"50%", background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:gold, flexShrink:0 }}>{idx + 1}</div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:13, color:gold }}>{post.title}</div>
+                          <div style={{ fontSize:10, color:"#5a4a34", marginTop:2 }}>{new Date(post.created_at).toLocaleDateString('de-DE')}</div>
+                        </div>
+                        <span style={{ color:"#5a4a34", fontSize:14 }}>→</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* NEUE LEKTION ANLEGEN — nur Admin */}
+                {kurseView === "neu" && kurseActiveCategory && isAdmin && (
+                  <div>
+                    <button onClick={() => setKurseView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
+                    <div style={{ fontSize:14, color:gold, marginBottom:16 }}>Neue Lektion in „{kurseActiveCategory.name}"</div>
+                    <InlinePostEditBox
+                      initialTitle="" initialBody=""
+                      onSave={async (title, body) => {
+                        if (!title.trim()) return;
+                        try {
+                          const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
+                            method:"POST", headers:{...dbHeaders(), "Prefer":"return=representation"},
+                            body: JSON.stringify({ category_id: kurseActiveCategory.id, title: title.trim(), body: body.trim(), user_id: getUserId(), display_name: userDisplayName || "Anna" })
+                          });
+                          const data = await r.json();
+                          if (data && data[0]) {
+                            setKursePosts(prev => [...prev, data[0]]);
+                            setKurseView("kategorie");
+                          }
+                        } catch {}
+                      }}
+                      onCancel={() => setKurseView("kategorie")}
+                    />
+                  </div>
+                )}
+
+                {/* LEKTION DETAIL MIT FRAGEN/DISKUSSION */}
+                {kurseView === "post" && kurseActivePost && (
+                  <div>
+                    <button onClick={() => { setKurseView("kategorie"); setKurseActivePost(null); }}
+                      style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zum Kurs</button>
+                    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+                      {forumEditingPostId === kurseActivePost.id ? (
+                        <InlinePostEditBox
+                          initialTitle={kurseActivePost.title} initialBody={kurseActivePost.body}
+                          onSave={(newTitle, newBody) => saveEditForumPost(kurseActivePost.id, newTitle, newBody)}
+                          onCancel={() => setForumEditingPostId(null)}
+                        />
+                      ) : (<>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                          <div style={{ fontSize:16, color:gold }}>{kurseActivePost.title}</div>
+                          {isAdmin && (
+                            <div style={{ display:"flex", gap:8 }}>
+                              <button onClick={() => setForumEditingPostId(kurseActivePost.id)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                              <button onClick={async () => { if(window.confirm("Lektion wirklich löschen?")) { await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${kurseActivePost.id}`, {method:"DELETE", headers:dbHeaders()}); setKursePosts(prev => prev.filter(p => p.id !== kurseActivePost.id)); setKurseView("kategorie"); setKurseActivePost(null); } }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(kurseActivePost.body)}</div>
+                      </>)}
+                    </div>
+
+                    {/* Fragen & Diskussion — nutzt dasselbe Reply-System wie das Forum */}
+                    <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>
+                      💬 Fragen & Diskussion ({forumReplies.length})
+                    </div>
+                    {forumReplies.filter(r => !r.reply_to_id).map(reply => (
+                      <ForumReplyThread key={reply.id} reply={reply} allReplies={forumReplies} depth={0} />
+                    ))}
+                    {!isGuest && (
+                      <div style={{ marginTop:14 }}>
+                        {forumReplyToId && (
+                          <div style={{ fontSize:11, color:"#7a6040", marginBottom:6 }}>
+                            ↩ Antwort auf {forumReplyToName} &nbsp;
+                            <button onClick={() => { setForumReplyToId(null); setForumReplyToName(""); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10 }}>✕</button>
+                          </div>
+                        )}
+                        <textarea value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
+                          placeholder="Deine Frage oder Anmerkung zur Lektion…"
+                          style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                        <button onClick={() => createForumReply(kurseActivePost.id)}
+                          style={{ marginTop:8, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                          Frage stellen
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </>)}
+            </>)}
 
             {/* SHOP — folgt später */}
             {communityMode === "shop" && (
