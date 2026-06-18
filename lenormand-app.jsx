@@ -1682,7 +1682,7 @@ export default function LenormandApp() {
       + "<div class='block'><div class='label'>🌙 3 Monate</div><div class='date'>bis " + monate.toLocaleDateString('de-DE') + "</div>" + toList(manifestData.monate) + "</div>"
       + "<div class='block'><div class='label'>🌟 3 Jahre</div><div class='date'>bis " + jahre.toLocaleDateString('de-DE') + "</div>" + toList(manifestData.jahre) + "</div>"
       + (manifestData.irgendwann ? "<div class='block'><div class='label'>🌙 Irgendwann</div>" + toList(manifestData.irgendwann) + "</div>" : "")
-      + (manifestData.traum ? "<div class='block'><div class='label'>💫 Mein größter Traum</div>" + toList(manifestData.traum) + "</div>" : "")
+      + (manifestData.traum ? "<div class='block'><div class='label'>💫 Beweise finden für:</div>" + toList(manifestData.traum) + "</div>" : "")
       + "</div></body></html>";
     const w = window.open("","_blank");
     w.document.write(html);
@@ -4731,7 +4731,7 @@ export default function LenormandApp() {
                 {key:"monate", icon:"🌙", label:"3 Monate", sub:"Was wächst gerade?",            placeholder:"z.B. ein neues Auto\n5 kg abnehmen\neinen Kurs belegen\nmehr Zeit für Familie"},
                 {key:"jahre",  icon:"🌟", label:"3 Jahre",  sub:"Was ist dein großes Bild?",     placeholder:"z.B. ein Haus kaufen\nden Job wechseln\neine Reise machen\nfinanziell frei sein"},
                 {key:"irgendwann", icon:"✨", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen\nein Buch schreiben\nam Meer leben…"},
-                {key:"traum",  icon:"💫", label:"Mein größter Traum", sub:"Das eine große Ding", placeholder:"Das was so groß ist, dass man es kaum auszusprechen wagt…"},
+                {key:"traum",  icon:"💫", label:"Beweise finden für:", sub:"finde Emanuel im Alltag", placeholder:"z.B. ein zufälliger Moment der Leichtigkeit\neine Begegnung zur richtigen Zeit\nein Gefühl von Klarheit, das einfach da war…"},
               ].map(({key, icon, label, sub, placeholder}) => (
                 <div key={key} style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 14px 10px" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
