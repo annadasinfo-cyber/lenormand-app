@@ -466,6 +466,10 @@ export default function LenormandApp() {
   const [forumNewBody, setForumNewBody] = React.useState("");
   const [forumNewName, setForumNewName] = React.useState(""); // Anzeigename für Gäste
   const [forumReplyText, setForumReplyText] = React.useState("");
+  // Wenn gesetzt: die nächste Antwort bezieht sich auf eine bestehende Antwort (verschachtelt),
+  // statt direkt auf den Beitrag selbst.
+  const [forumReplyToId, setForumReplyToId] = React.useState(null);
+  const [forumReplyToName, setForumReplyToName] = React.useState("");
   const [forumNewCatName, setForumNewCatName] = React.useState("");
   const [forumNewCatDescription, setForumNewCatDescription] = React.useState("");
   const [forumNewCatIcon, setForumNewCatIcon] = React.useState("💬");
@@ -684,7 +688,8 @@ export default function LenormandApp() {
         post_id: forumActivePost.id,
         user_id: uid || null,
         display_name: uid ? (userDisplayName || "Mitglied") : (forumNewName.trim() || "Anonym"),
-        body: forumReplyText.trim()
+        body: forumReplyText.trim(),
+        reply_to_id: forumReplyToId || null
       };
       const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_replies`, {
         method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
@@ -693,6 +698,8 @@ export default function LenormandApp() {
       const data = await r.json();
       if (data && data[0]) {
         setForumReplyText("");
+        setForumReplyToId(null);
+        setForumReplyToName("");
         loadForumReplies(forumActivePost.id);
       }
     } catch {}
@@ -1891,6 +1898,39 @@ export default function LenormandApp() {
     );
   };
 
+  // Stellt eine Antwort + alle ihre verschachtelten Unter-Antworten dar (rekursiv, mit
+  // wachsendem Einzug pro Ebene). depth steuert den Einzug, maxDepth begrenzt ihn nach
+  // unten hin, damit es auf schmalen Bildschirmen nicht zu eng wird.
+  const ForumReplyThread = ({ reply, allReplies, depth }) => {
+    const children = allReplies.filter(r => r.reply_to_id === reply.id);
+    const indent = Math.min(depth, 4) * 22;
+    return (
+      <div style={{ marginLeft: indent }}>
+        <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
+          <div style={{ display:"flex", justifyContent:"flex-end" }}>
+            {(isMod || reply.user_id === getUserId()) && (
+              <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
+            )}
+          </div>
+          <div style={{ display:"flex", gap:12 }}>
+            <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
+              <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:6 }}>{renderTextWithVideos(reply.body)}</div>
+              <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); }}
+                style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
+                ↩ Antworten
+              </button>
+            </div>
+          </div>
+        </div>
+        {children.map(child => (
+          <ForumReplyThread key={child.id} reply={child} allReplies={allReplies} depth={depth + 1} />
+        ))}
+      </div>
+    );
+  };
+
   // Diese Bereiche sind auch ohne Login erreichbar — alles andere bleibt hinter der Anmeldung.
   // "random" (Frage) ist als kleiner kostenloser Vorgeschmack gedacht; Forum-LESEN ist frei,
   // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
@@ -2765,24 +2805,17 @@ export default function LenormandApp() {
                 </div>
 
                 <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, marginBottom:10, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
-                {forumReplies.map(reply => (
-                  <div key={reply.id} style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
-                    <div style={{ display:"flex", justifyContent:"flex-end" }}>
-                      {(isMod || reply.user_id === getUserId()) && (
-                        <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
-                      )}
-                    </div>
-                    <div style={{ display:"flex", gap:12 }}>
-                      <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
-                        <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6 }}>{renderTextWithVideos(reply.body)}</div>
-                      </div>
-                    </div>
-                  </div>
+                {forumReplies.filter(r => !r.reply_to_id).map(reply => (
+                  <ForumReplyThread key={reply.id} reply={reply} allReplies={forumReplies} depth={0} />
                 ))}
 
                 <div style={{ marginTop:14 }}>
+                  {forumReplyToId && (
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11, color:"#9a8060", marginBottom:6, background:"rgba(200,169,110,0.05)", padding:"5px 10px", borderRadius:6 }}>
+                      <span>Antwort an {forumReplyToName}</span>
+                      <button onClick={() => { setForumReplyToId(null); setForumReplyToName(""); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
+                    </div>
+                  )}
                   <textarea placeholder="Antworten…" value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
                     style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                   <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { createForumReply(); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
