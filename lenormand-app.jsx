@@ -669,8 +669,12 @@ export default function LenormandApp() {
       // Schlanke Liste aller Posts holen (id + category_id + created_at + Ersteller), um pro
       // Kategorie Anzahl, letzte Aktivität UND ob es ungelesene Beiträge gibt zu berechnen,
       // ohne für jede Kategorie einen eigenen Request zu brauchen.
-      const pr = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=id,category_id,created_at,user_id`, {headers: dbHeaders()});
+      const [pr, rr] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=id,category_id,created_at,user_id`, {headers: dbHeaders()}),
+        fetch(`${SUPABASE_URL}/rest/v1/forum_replies?select=user_id`, {headers: dbHeaders()}),
+      ]);
       const posts = await pr.json();
+      const replies = await rr.json();
       const statsByCategory = {};
       const myUid = getUserId();
       const postCountByUser = {};
@@ -683,6 +687,13 @@ export default function LenormandApp() {
           if (myUid && p.user_id !== myUid && !forumReadPostIds.has(p.id)) s.hasUnread = true;
           statsByCategory[p.category_id] = s;
           if (p.user_id) postCountByUser[p.user_id] = (postCountByUser[p.user_id] || 0) + 1;
+        });
+      }
+      // Antworten (inkl. Unterantworten) gleichwertig mitzählen — aktive Diskussion
+      // ist genauso viel wert wie das Eröffnen eines Beitrags.
+      if (Array.isArray(replies)) {
+        replies.forEach(r => {
+          if (r.user_id) postCountByUser[r.user_id] = (postCountByUser[r.user_id] || 0) + 1;
         });
       }
       // Rolle + Mitglied-seit-Datum für alle Personen holen, die hier schon mal geschrieben
@@ -911,6 +922,7 @@ export default function LenormandApp() {
   // nachträglich beliebig verändert werden können. Mods/Admins dürfen ohnehin löschen,
   // aber auch für sie gilt dieses Zeitfenster fürs Bearbeiten (nur Inhalt, nicht Löschen).
   const forumCanEdit = (item, authorId) => {
+    if (isMod) return true; // Mods und Admins dürfen immer, egal wann und von wem
     if (authorId !== getUserId()) return false;
     const ageMs = Date.now() - new Date(item.created_at).getTime();
     return ageMs < 24 * 60 * 60 * 1000;
@@ -2306,7 +2318,7 @@ export default function LenormandApp() {
           }}>
           <img
             src={splashImage}
-            alt="Lenormand Matrix"
+            alt="Lenormandia"
             style={{ width:"100%", height:"100%", objectFit:"contain", objectPosition:"center center", position:"absolute", inset:0 }}
           />
           <div style={{
@@ -2331,7 +2343,7 @@ export default function LenormandApp() {
       {access === "expired" && (
         <div style={{ position:"fixed", inset:0, background:"linear-gradient(160deg,#080512,#0f0a1a)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", zIndex:1000, padding:24 }}>
           <div style={{ fontSize:40, marginBottom:16 }}>🔐</div>
-          <h2 style={{ color:"#c8a96e", fontWeight:"normal", fontSize:22, marginBottom:8, textAlign:"center" }}>Lenormand Matrix</h2>
+          <h2 style={{ color:"#c8a96e", fontWeight:"normal", fontSize:22, marginBottom:8, textAlign:"center" }}>Lenormandia</h2>
           <p style={{ color:"#7a6040", fontSize:13, marginBottom:24, textAlign:"center", maxWidth:320 }}>
             Deine 14-tägige Probezeit ist abgelaufen.<br/>Gib dein Passwort ein um weiterzumachen.
           </p>
@@ -2415,7 +2427,7 @@ export default function LenormandApp() {
             <div style={{ borderRadius:12, overflow:"hidden", marginBottom:24, position:"relative", paddingTop:"56.25%" }}>
               <iframe
                 src="https://www.youtube.com/embed/N9sWhC_j_qE"
-                title="Anna Benoir - Lenormand Matrix"
+                title="Anna Benoir - Lenormandia"
                 style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -2773,7 +2785,7 @@ export default function LenormandApp() {
                     return {label:posLabels[pos], card:cardDisplay, text, isSig, isKombi:isKombi&&!isPersonen};
                   });
 
-                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lenormand Matrix</title>
+                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lenormandia</title>
                   <style>
                     body{font-family:Georgia,serif;color:#1a1a1a;background:white;margin:0;padding:24px 32px;}
                     h1{font-size:20px;font-weight:normal;text-align:center;margin:0 0 4px;}
@@ -2888,7 +2900,7 @@ export default function LenormandApp() {
               <div style={{ fontSize:12, color:gold, marginBottom:6 }}>{rank}</div>
               {p?.createdAt && <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14 }}>Mitglied seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"long", year:"numeric"})}</div>}
               {p?.bio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginTop:14, whiteSpace:"pre-wrap", textAlign:"left", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"14px 16px" }}>{p.bio}</div>}
-              <div style={{ fontSize:11, color:"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag" : "Beiträge"} im Forum</div>
+              <div style={{ fontSize:11, color:"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag oder Antwort" : "Beiträge &amp; Antworten"} im Forum</div>
             </div>
           );
         })()}
