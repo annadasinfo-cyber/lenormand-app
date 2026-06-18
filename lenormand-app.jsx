@@ -1418,7 +1418,7 @@ export default function LenormandApp() {
 
   const druckeTagebuch = () => {
     const entries = Object.entries(tagebuchData).sort().reverse();
-    const html = `<html><head><title>Lenormand Tagebuch</title><style>
+    const html = `<html><head><title>Lenormand Tageskarten</title><style>
       body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}
       h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}
       .entry{margin-bottom:32px;border-left:3px solid #c8a96e;padding-left:16px}
@@ -1427,7 +1427,7 @@ export default function LenormandApp() {
       .label{font-size:10px;color:#9a8060;letter-spacing:1px;text-transform:uppercase;margin-top:10px}
       .text{font-size:14px;color:#3a2a0a;margin-top:2px;white-space:pre-wrap}
     </style></head><body>
-    <h1>📓 Lenormand Tagebuch · Anna Benoir</h1>
+    <h1>📓 Lenormand Tageskarten · Anna Benoir</h1>
     ${entries.map(([key, entry]) => {
       const cardNum = (() => {
         const d = new Date(key);
@@ -2005,6 +2005,38 @@ export default function LenormandApp() {
   // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
   const freieViews = ["liesmich", "fragmich", "forum"];
   if (!session && !freieViews.includes(view)) return loginScreen;
+
+  // PRO-geschützte Bereiche: das sind die Inhalte, die früher exklusiv im gedruckten Buch
+  // standen (Kombinationen, alle Karten, Personen-Matrix, Situations-Matrix) sowie
+  // Zauberzettel und Writing. "Frage" bleibt bewusst frei als kostenloser Vorgeschmack,
+  // genau wie Tageskarten, Forum und Quiz.
+  const proGatedView = () => {
+    if (view === "picker" || view === "cards") return true;
+    if (view === "matrix" && mode === "situation") return true;
+    if (view === "personen" && mode === "personen") return true;
+    if (view === "tagebuch" && (dailyMode === "manifest" || dailyMode === "writing")) return true;
+    return false;
+  };
+  if (session && !isPro && proGatedView()) {
+    return (
+      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+        <div style={{ maxWidth:440, textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:14, padding:"40px 32px" }}>
+          <div style={{ fontSize:32, marginBottom:14 }}>🔒</div>
+          <div style={{ fontSize:18, color:gold, marginBottom:12 }}>Dieser Bereich ist PRO</div>
+          <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.7, marginBottom:24 }}>
+            Dieser Inhalt gehört zu den Kernkapiteln der Lenormand Matrix und ist daher Teil des PRO-Zugangs, genau wie im Buch.
+          </div>
+          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
+            style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 26px", borderRadius:6, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
+            Jetzt freischalten →
+          </a>
+          <div style={{ marginTop:18 }}>
+            <button onClick={() => { setView("liesmich"); }} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>← Zurück zur Übersicht</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
@@ -3131,7 +3163,7 @@ export default function LenormandApp() {
 
             {/* Untermenü */}
             <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-              {[["tagebuch","📓 Tagebuch"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
+              {[["tagebuch","📓 Tageskarten"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
                 <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt"); }}
                   style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
                   {l}
