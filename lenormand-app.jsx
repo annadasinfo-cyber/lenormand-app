@@ -475,8 +475,8 @@ export default function LenormandApp() {
   const saveTagebuch = (data) => {
     try { localStorage.setItem("lenni_tagebuch", JSON.stringify(data)); } catch {}
   };
-  const getDailyCard = (klientSeed) => {
-    const d = new Date();
+  const getDailyCard = (klientSeed, dateKey) => {
+    const d = dateKey ? new Date(dateKey + "T12:00:00") : new Date();
     const dateSeed = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
     const baseSeed = klientSeed !== undefined ? klientSeed : getDeviceId();
     const seed = dateSeed + baseSeed;
@@ -1650,11 +1650,24 @@ export default function LenormandApp() {
   const [tagebuchData, setTagebuchData] = React.useState(() => loadTagebuch());
   const [tippVisible, setTippVisible] = React.useState(false);
   const todayKey = getTodayKey();
-  const todayCard = getDailyCard(getKlientSeed());
-  const todayEntry = tagebuchData[todayKey] || {gedanken:"", reflexionen:"", resumee:""};
+  // Navigation: welcher Tag wird gerade angezeigt? Standard: heute.
+  const [selectedDateKey, setSelectedDateKey] = React.useState(todayKey);
+  const selectedCard = getDailyCard(getKlientSeed(), selectedDateKey);
+  const selectedEntry = tagebuchData[selectedDateKey] || {gedanken:"", reflexionen:"", resumee:""};
+  const isToday = selectedDateKey === todayKey;
+
+  const navigateDay = (direction) => {
+    const d = new Date(selectedDateKey + "T12:00:00");
+    d.setDate(d.getDate() + direction);
+    const newKey = d.toISOString().slice(0, 10);
+    // Nicht in die Zukunft navigieren
+    if (newKey > todayKey) return;
+    setSelectedDateKey(newKey);
+    setTippVisible(false);
+  };
 
   const updateTagebuch = (field, value) => {
-    const updated = {...tagebuchData, [todayKey]: {...todayEntry, [field]: value}};
+    const updated = {...tagebuchData, [selectedDateKey]: {...selectedEntry, [field]: value}};
     setTagebuchData(updated);
     saveTagebuch(updated);
   };
@@ -3685,9 +3698,18 @@ export default function LenormandApp() {
             {dailyMode === "tagebuch" && (
               <div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
-                  <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:12 }}>
+                    <button onClick={() => navigateDay(-1)}
+                      style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:gold, width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>‹</button>
+                    <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase" }}>
+                      Tageskombination · {formatDate(selectedDateKey)}
+                      {isToday && <span style={{ marginLeft:6, color:gold, fontSize:8 }}>● heute</span>}
+                    </div>
+                    <button onClick={() => navigateDay(1)} disabled={isToday}
+                      style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:isToday?"#3a2a18":gold, width:32, height:32, borderRadius:"50%", cursor:isToday?"default":"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, opacity:isToday?0.3:1 }}>›</button>
+                  </div>
                   <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
-                    {[todayCard.c1, todayCard.c2].map((num, i) => (
+                    {[selectedCard.c1, selectedCard.c2].map((num, i) => (
                       <div key={i} style={{ textAlign:"center" }}>
                         <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
                         <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
@@ -3698,17 +3720,17 @@ export default function LenormandApp() {
                 </div>
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
-                  <textarea placeholder="Was siehst du in dieser Kombination?" value={todayEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
+                  <textarea placeholder="Was siehst du in dieser Kombination?" value={selectedEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
-                  <textarea placeholder="Was hat sich bewahrheitet?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
+                  <textarea placeholder="Was hat sich bewahrheitet?" value={selectedEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:18 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
-                  <textarea placeholder="Das Fazit des Tages…" value={todayEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
+                  <textarea placeholder="Das Fazit des Tages…" value={selectedEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
@@ -3720,7 +3742,7 @@ export default function LenormandApp() {
                   ) : (
                     <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
                       <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
-                      <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[todayCard.comboKey] || "Vertraue deiner Intuition."}</div>
+                      <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[selectedCard.comboKey] || "Vertraue deiner Intuition."}</div>
                       <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
                     </div>
                   )}
