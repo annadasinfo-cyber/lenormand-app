@@ -384,8 +384,8 @@ export default function LenormandApp() {
         <div style={{ textAlign:"center", padding:40 }}>
           <div style={{ fontSize:60, marginBottom:20 }}>🐍</div>
           <div style={{ fontSize:10, letterSpacing:6, color:"rgba(200,169,110,0.6)", textTransform:"uppercase", marginBottom:10 }}>Anna Benoir</div>
-          <div style={{ fontSize:36, color:gold, fontWeight:"normal", letterSpacing:2, marginBottom:8 }}>Lenormand Matrix</div>
-          <div style={{ fontSize:12, color:"rgba(200,169,110,0.4)", fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
+          <div style={{ fontSize:36, color:gold, fontWeight:"normal", letterSpacing:2, marginBottom:8 }}>Lenormandia</div>
+          <div style={{ fontSize:12, color:"rgba(200,169,110,0.4)", fontStyle:"italic" }}>wo Karten Geheimnisse offenbaren — und du nicht allein damit bist</div>
         </div>
       </div>
 
@@ -2374,8 +2374,8 @@ export default function LenormandApp() {
       {/* Header */}
       <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:"1px solid rgba(200,169,110,0.15)", position:"relative" }}>
         <div style={{ fontSize:10, letterSpacing:6, color:"#7a6040", marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
-        <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color:gold, margin:"0 0 4px", letterSpacing:2, textShadow:"0 0 30px rgba(200,169,110,0.25)" }}>Lenormand Matrix</h1>
-        <div style={{ fontSize:10, color:"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
+        <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color:gold, margin:"0 0 4px", letterSpacing:2, textShadow:"0 0 30px rgba(200,169,110,0.25)" }}>Lenormandia</h1>
+        <div style={{ fontSize:10, color:"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>wo Karten Geheimnisse offenbaren — und du nicht allein damit bist</div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {/* Reihe 1 */}
           {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["matrix","⬛ Matrix"]].map(([v,l]) => (
