@@ -475,6 +475,10 @@ export default function LenormandApp() {
   const [forumEditPostTitle, setForumEditPostTitle] = React.useState("");
   const [forumEditPostBody, setForumEditPostBody] = React.useState("");
   const [forumEditingReplyId, setForumEditingReplyId] = React.useState(null);
+  // Wenn gesetzt: zeigt die öffentliche Profilkarte dieser Person (statt der normalen
+  // Forum-Ansicht). Enthält absichtlich keine E-Mail — die bleibt privat.
+  const [viewedProfileId, setViewedProfileId] = React.useState(null);
+  const [viewedProfileName, setViewedProfileName] = React.useState("");
   const [forumEditReplyBody, setForumEditReplyBody] = React.useState("");
   const [forumReplyToName, setForumReplyToName] = React.useState("");
   const [forumNewCatName, setForumNewCatName] = React.useState("");
@@ -555,12 +559,14 @@ export default function LenormandApp() {
       const userIds = Object.keys(postCountByUser);
       if (userIds.length > 0) {
         try {
-          const prf = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=in.(${userIds.join(",")})&select=id,role,created_at`, {headers: dbHeaders()});
+          // Bewusst nur diese Felder: id, role, created_at, bio, display_name. KEINE E-Mail —
+          // das hier ist eine öffentlich sichtbare Profilkarte, die E-Mail bleibt privat.
+          const prf = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=in.(${userIds.join(",")})&select=id,role,created_at,bio,display_name`, {headers: dbHeaders()});
           const profilesData = await prf.json();
           if (Array.isArray(profilesData)) {
             const profMap = {};
             profilesData.forEach(p => {
-              profMap[p.id] = { role: p.role || "member", createdAt: p.created_at, postCount: postCountByUser[p.id] || 0 };
+              profMap[p.id] = { role: p.role || "member", createdAt: p.created_at, postCount: postCountByUser[p.id] || 0, bio: p.bio || "", displayName: p.display_name || "" };
             });
             setForumProfiles(profMap);
           }
@@ -1935,8 +1941,12 @@ export default function LenormandApp() {
     const p = userId ? forumProfiles[userId] : null;
     const rank = forumRankForPostCount(p?.postCount || 0);
     const initial = (displayName || "?").trim().charAt(0).toUpperCase() || "?";
+    // Nur klickbar, wenn es eine echte userId gibt — Gast-/Anonym-Beiträge haben keine
+    // und sollen nicht zu einem leeren Profil führen.
+    const clickable = !!userId;
     return (
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", width:78, flexShrink:0, textAlign:"center", gap:4 }}>
+      <div onClick={() => { if (clickable) { setViewedProfileId(userId); setViewedProfileName(displayName); } }}
+        style={{ display:"flex", flexDirection:"column", alignItems:"center", width:78, flexShrink:0, textAlign:"center", gap:4, cursor:clickable?"pointer":"default" }}>
         <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, color:gold, fontFamily:"Georgia,serif" }}>
           {initial}
         </div>
@@ -2651,7 +2661,28 @@ export default function LenormandApp() {
         </>)}
 
         {/* ── FORUM / COMMUNITY ── */}
-        {view === "forum" && (
+        {view === "forum" && viewedProfileId && (() => {
+          const p = forumProfiles[viewedProfileId];
+          const rank = forumRankForPostCount(p?.postCount || 0);
+          const initial = (viewedProfileName || "?").trim().charAt(0).toUpperCase() || "?";
+          return (
+            <div style={{ maxWidth:420, margin:"0 auto", padding:"20px 0", textAlign:"center" }}>
+              <button onClick={() => { setViewedProfileId(null); setViewedProfileName(""); }}
+                style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück zum Forum</button>
+              <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
+                {initial}
+              </div>
+              <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{viewedProfileName || "Mitglied"}</div>
+              <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:10 }}>{forumRoleLabel(p?.role)}</div>
+              <div style={{ fontSize:12, color:gold, marginBottom:6 }}>{rank}</div>
+              {p?.createdAt && <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14 }}>Mitglied seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"long", year:"numeric"})}</div>}
+              {p?.bio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginTop:14, whiteSpace:"pre-wrap", textAlign:"left", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"14px 16px" }}>{p.bio}</div>}
+              <div style={{ fontSize:11, color:"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag" : "Beiträge"} im Forum</div>
+            </div>
+          );
+        })()}
+
+        {view === "forum" && !viewedProfileId && (
           <div style={{ maxWidth:700, margin:"0 auto" }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>💬 Forum</div>
