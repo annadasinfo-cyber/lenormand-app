@@ -169,6 +169,87 @@ function ConfettiCanvas() {
 }
 
 
+// Eigenständige, stabile Komponente außerhalb von LenormandApp definiert — wichtig, damit
+// sie bei jedem Tastendruck NICHT neu erzeugt wird. Wäre sie (wie ursprünglich) innerhalb
+// von LenormandApp verschachtelt, würde jeder Tastendruck (der ja den State und damit ein
+// Re-Render der riesigen Hauptkomponente auslöst) die Funktion neu definieren — React kann
+// das DOM-<textarea>-Element dann nicht mehr zuverlässig wiederverwenden und der Cursor/Fokus
+// springt weg, noch bevor das erste Zeichen sichtbar wird. Mit eigenem lokalem State hier
+// bleibt die Texteingabe komplett unabhängig von allem, was in LenormandApp passiert, bis
+// "Speichern" gedrückt wird.
+function InlineEditBox({ initialValue, onSave, onCancel, rows, fontSize }) {
+  const [value, setValue] = useState(initialValue);
+  return (
+    <div>
+      <textarea value={value} onChange={e => setValue(e.target.value)} rows={rows || 3} autoFocus
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:fontSize || 12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={() => onSave(value)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Speichern</button>
+        <button onClick={onCancel} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Abbrechen</button>
+      </div>
+    </div>
+  );
+}
+
+// Gleiches Prinzip wie InlineEditBox, nur mit zwei Feldern (Titel + Text) für die
+// Bearbeitung eines ganzen Beitrags statt nur einer Antwort.
+function InlinePostEditBox({ initialTitle, initialBody, onSave, onCancel }) {
+  const [title, setTitle] = useState(initialTitle);
+  const [body, setBody] = useState(initialBody);
+  return (
+    <div>
+      <input type="text" value={title} onChange={e => setTitle(e.target.value)} autoFocus
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#c8a96e", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
+      <textarea value={body} onChange={e => setBody(e.target.value)} rows={4}
+        style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={() => onSave(title, body)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
+        <button onClick={onCancel} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
+      </div>
+    </div>
+  );
+}
+
+// Gleiches Prinzip wie InlineEditBox/InlinePostEditBox — eigener lokaler State, damit
+// das Tippen in den Feldern unabhängig von Re-Renders der Hauptkomponente bleibt.
+function CategoryEditBox({ initialName, initialDescription, initialIcon, initialVisibility, initialGuestPost, onSave, onCancel, gold }) {
+  const [name, setName] = useState(initialName);
+  const [description, setDescription] = useState(initialDescription);
+  const [icon, setIcon] = useState(initialIcon);
+  const [visibility, setVisibility] = useState(initialVisibility);
+  const [guestPost, setGuestPost] = useState(initialGuestPost);
+  return (
+    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:16, marginBottom:10 }}>
+      <input placeholder="Name der Kategorie" value={name} onChange={e => setName(e.target.value)} autoFocus
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+      <input placeholder="Beschreibung (optional, ein kurzer Satz)" value={description} onChange={e => setDescription(e.target.value)}
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1 }}>Icon</div>
+        <input placeholder="z.B. 💬" value={icon} maxLength={4} onChange={e => setIcon(e.target.value)}
+          style={{ width:60, padding:"6px 8px", textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none" }} />
+        <div style={{ fontSize:9, color:"#5a4a34" }}>nur 1 Emoji, kein Text — Vorschau:</div>
+        <span style={{ fontSize:22 }}>{icon}</span>
+      </div>
+      <div style={{ display:"flex", gap:8, marginBottom:8 }}>
+        {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"]].map(([v,l]) => (
+          <button key={v} onClick={() => setVisibility(v)} style={{ flex:1, background:visibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${visibility===v?gold:"rgba(200,169,110,0.2)"}`, color:visibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
+        ))}
+      </div>
+      <label style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:11, color:"#9a8060", cursor:"pointer" }}>
+        <input type="checkbox" checked={guestPost} onChange={e => setGuestPost(e.target.checked)} />
+        Gäste dürfen hier auch ohne Login schreiben (z.B. für Mitmach-Mittwoch)
+      </label>
+      <div style={{ display:"flex", gap:8 }}>
+        <button onClick={() => onSave({ name, description, icon, visibility, guestPost })}
+          style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
+        <button onClick={onCancel}
+          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
+      </div>
+    </div>
+  );
+}
+
 export default function LenormandApp() {
   const gold = "#c8a96e";
   const [view, setView] = useState("liesmich");
@@ -481,17 +562,15 @@ export default function LenormandApp() {
   // Wenn gesetzt: die nächste Antwort bezieht sich auf eine bestehende Antwort (verschachtelt),
   // statt direkt auf den Beitrag selbst.
   const [forumReplyToId, setForumReplyToId] = React.useState(null);
-  // Welcher Beitrag/welche Antwort wird gerade bearbeitet (id) + Zwischenspeicher für den
-  // bearbeiteten Text, bis "Speichern" gedrückt wird.
+  // Welcher Beitrag/welche Antwort wird gerade bearbeitet (id) — der bearbeitete Text selbst
+  // lebt lokal in InlineEditBox/InlinePostEditBox, nicht hier (siehe deren Definition oben
+  // für die Begründung: stabiler Fokus beim Tippen).
   const [forumEditingPostId, setForumEditingPostId] = React.useState(null);
-  const [forumEditPostTitle, setForumEditPostTitle] = React.useState("");
-  const [forumEditPostBody, setForumEditPostBody] = React.useState("");
   const [forumEditingReplyId, setForumEditingReplyId] = React.useState(null);
   // Wenn gesetzt: zeigt die öffentliche Profilkarte dieser Person (statt der normalen
   // Forum-Ansicht). Enthält absichtlich keine E-Mail — die bleibt privat.
   const [viewedProfileId, setViewedProfileId] = React.useState(null);
   const [viewedProfileName, setViewedProfileName] = React.useState("");
-  const [forumEditReplyBody, setForumEditReplyBody] = React.useState("");
   const [forumReplyToName, setForumReplyToName] = React.useState("");
   const [forumNewCatName, setForumNewCatName] = React.useState("");
   const [forumNewCatDescription, setForumNewCatDescription] = React.useState("");
@@ -499,6 +578,10 @@ export default function LenormandApp() {
   const [forumNewCatVisibility, setForumNewCatVisibility] = React.useState("member");
   const [forumNewCatGuestPost, setForumNewCatGuestPost] = React.useState(false);
   const [forumShowNewCat, setForumShowNewCat] = React.useState(false);
+  // Welche Kategorie wird gerade bearbeitet (id) — die Feldwerte selbst leben lokal in
+  // der CategoryEditBox-Komponente, aus dem gleichen Grund wie bei InlineEditBox: stabiler
+  // Fokus beim Tippen, unabhängig von Re-Renders der großen Hauptkomponente.
+  const [forumEditingCategoryId, setForumEditingCategoryId] = React.useState(null);
   const [forumError, setForumError] = React.useState("");
 
   // Nutzerrolle + Anzeigename + Bio laden, sobald eingeloggt — ohne Login bleibt userRole bei null (= Gast)
@@ -801,37 +884,32 @@ export default function LenormandApp() {
 
   const startEditForumPost = (post) => {
     setForumEditingPostId(post.id);
-    setForumEditPostTitle(post.title);
-    setForumEditPostBody(post.body);
   };
 
-  const saveEditForumPost = async () => {
-    if (!forumEditPostTitle.trim() || !forumEditPostBody.trim()) return;
-    const id = forumEditingPostId;
+  const saveEditForumPost = async (id, newTitle, newBody) => {
+    if (!newTitle.trim() || !newBody.trim()) return;
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${id}`, {
         method: "PATCH", headers: dbHeaders(),
-        body: JSON.stringify({ title: forumEditPostTitle.trim(), body: forumEditPostBody.trim() })
+        body: JSON.stringify({ title: newTitle.trim(), body: newBody.trim() })
       });
-      setForumPosts(prev => prev.map(p => p.id === id ? {...p, title: forumEditPostTitle.trim(), body: forumEditPostBody.trim()} : p));
-      if (forumActivePost?.id === id) setForumActivePost(prev => ({...prev, title: forumEditPostTitle.trim(), body: forumEditPostBody.trim()}));
+      setForumPosts(prev => prev.map(p => p.id === id ? {...p, title: newTitle.trim(), body: newBody.trim()} : p));
+      if (forumActivePost?.id === id) setForumActivePost(prev => ({...prev, title: newTitle.trim(), body: newBody.trim()}));
       setForumEditingPostId(null);
     } catch {}
   };
 
   const startEditForumReply = (reply) => {
     setForumEditingReplyId(reply.id);
-    setForumEditReplyBody(reply.body);
   };
 
-  const saveEditForumReply = async () => {
-    if (!forumEditReplyBody.trim()) return;
-    const id = forumEditingReplyId;
+  const saveEditForumReply = async (id, newBody) => {
+    if (!newBody.trim()) return;
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?id=eq.${id}`, {
-        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({ body: forumEditReplyBody.trim() })
+        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({ body: newBody.trim() })
       });
-      setForumReplies(prev => prev.map(r => r.id === id ? {...r, body: forumEditReplyBody.trim()} : r));
+      setForumReplies(prev => prev.map(r => r.id === id ? {...r, body: newBody.trim()} : r));
       setForumEditingReplyId(null);
     } catch {}
   };
@@ -864,6 +942,26 @@ export default function LenormandApp() {
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
       setForumCategories(prev => prev.filter(c => c.id !== id));
+    } catch {}
+  };
+
+  // Bestehende Kategorie bearbeiten (Name, Beschreibung, Icon, Sichtbarkeit, Gäste-Schreibrecht).
+  // sort_order bleibt hier unangetastet — Umsortieren ist ein eigenes Feature für später.
+  const saveEditForumCategory = async (id, fields) => {
+    if (!fields.name.trim()) return;
+    const payload = {
+      name: fields.name.trim(),
+      description: fields.description.trim(),
+      icon: (fields.icon || "💬").trim().slice(0, 4),
+      visibility: fields.visibility,
+      guest_can_post: fields.guestPost,
+    };
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${id}`, {
+        method: "PATCH", headers: dbHeaders(), body: JSON.stringify(payload)
+      });
+      setForumCategories(prev => prev.map(c => c.id === id ? {...c, ...payload} : c));
+      setForumEditingCategoryId(null);
     } catch {}
   };
 
@@ -2040,14 +2138,11 @@ export default function LenormandApp() {
       <div style={{ marginLeft: indent }}>
         <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
           {isEditing ? (
-            <div>
-              <textarea value={forumEditReplyBody} onChange={e => setForumEditReplyBody(e.target.value)} rows={3}
-                style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-              <div style={{ display:"flex", gap:8 }}>
-                <button onClick={saveEditForumReply} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Speichern</button>
-                <button onClick={() => setForumEditingReplyId(null)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Abbrechen</button>
-              </div>
-            </div>
+            <InlineEditBox
+              initialValue={reply.body}
+              onSave={(newBody) => saveEditForumReply(reply.id, newBody)}
+              onCancel={() => setForumEditingReplyId(null)}
+            />
           ) : (<>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
               {forumCanEdit(reply, reply.user_id) && (
@@ -2876,6 +2971,21 @@ export default function LenormandApp() {
                 {forumCategories.map(cat => {
                   const locked = !forumCanEnterCategory(cat);
                   const glow = cat.hasUnread && !locked;
+                  if (isAdmin && forumEditingCategoryId === cat.id) {
+                    return (
+                      <CategoryEditBox
+                        key={cat.id}
+                        initialName={cat.name}
+                        initialDescription={cat.description || ""}
+                        initialIcon={cat.icon || "💬"}
+                        initialVisibility={cat.visibility}
+                        initialGuestPost={!!cat.guest_can_post}
+                        onSave={(fields) => saveEditForumCategory(cat.id, fields)}
+                        onCancel={() => setForumEditingCategoryId(null)}
+                        gold={gold}
+                      />
+                    );
+                  }
                   return (
                   <div key={cat.id} onClick={() => openForumCategory(cat)}
                     style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background: glow ? "rgba(200,169,110,0.1)" : cat.pinned ? "rgba(200,169,110,0.06)" : "rgba(200,169,110,0.03)", border:`1px solid ${glow ? gold : cat.pinned ? "rgba(200,169,110,0.35)" : "rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer", opacity: locked ? 0.7 : 1, boxShadow: glow ? "0 0 14px rgba(200,169,110,0.18)" : "none" }}>
@@ -2896,6 +3006,11 @@ export default function LenormandApp() {
                       </div>
                     </div>
                     <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      {isAdmin && (
+                        <button onClick={e => { e.stopPropagation(); setForumEditingCategoryId(cat.id); }}
+                          title="Kategorie bearbeiten"
+                          style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                      )}
                       {isAdmin && (
                         <button onClick={e => { e.stopPropagation(); toggleForumCategoryPin(cat); }}
                           title={cat.pinned ? "Anpinnen lösen" : "Kategorie anpinnen"}
@@ -2995,16 +3110,12 @@ export default function LenormandApp() {
                 <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zur Liste</button>
                 <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
                   {forumEditingPostId === forumActivePost.id ? (
-                    <div>
-                      <input type="text" value={forumEditPostTitle} onChange={e => setForumEditPostTitle(e.target.value)}
-                        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:gold, fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
-                      <textarea value={forumEditPostBody} onChange={e => setForumEditPostBody(e.target.value)} rows={4}
-                        style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                      <div style={{ display:"flex", gap:8 }}>
-                        <button onClick={saveEditForumPost} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
-                        <button onClick={() => setForumEditingPostId(null)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
-                      </div>
-                    </div>
+                    <InlinePostEditBox
+                      initialTitle={forumActivePost.title}
+                      initialBody={forumActivePost.body}
+                      onSave={(newTitle, newBody) => saveEditForumPost(forumActivePost.id, newTitle, newBody)}
+                      onCancel={() => setForumEditingPostId(null)}
+                    />
                   ) : (<>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                       <div style={{ fontSize:15, color:gold, marginBottom:6 }}>{forumActivePost.title}</div>
