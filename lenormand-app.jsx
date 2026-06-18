@@ -2128,7 +2128,7 @@ export default function LenormandApp() {
           {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["matrix","⬛ Matrix"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
-                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
+                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
               }}
@@ -2141,7 +2141,7 @@ export default function LenormandApp() {
           {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","💬 Forum"],["quiz","🎓 Quiz"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
-                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
+                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else if(v==="tagebuch") { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
                 else if(v==="forum") { setView(v); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
                 else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { if(v==="quiz" && view==="quiz") { startQuiz(); } else { setView(v); if(v!==view) { reset(); if(v==="quiz") { setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0); } } } } }
