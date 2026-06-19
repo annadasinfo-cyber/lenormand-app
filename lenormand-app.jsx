@@ -1408,6 +1408,8 @@ export default function LenormandApp() {
         notes: curNotes,
         matrix_cards: matrixCards,
         signifikator: signifikator,
+        intro_card: introCard,
+        outro_card: outroCard,
         folder_id: selectedFolder || null,
         template_id: selectedTemplate?.id || null,
         writing_mode: writingMode,
@@ -1462,6 +1464,10 @@ export default function LenormandApp() {
     setSelectedFolder(proj.folder_id || null);
     if (proj.matrix_cards) setMatrixCards(proj.matrix_cards);
     if (proj.signifikator) setSignifikator(proj.signifikator);
+    // Immer explizit setzen (auch auf null) — sonst bliebe beim Laden eines älteren Projekts
+    // ohne Intro-/Outro-Karte die Karte einer zuvor geöffneten Session fälschlich stehen.
+    setIntroCard(proj.intro_card || null);
+    setOutroCard(proj.outro_card || null);
     setWritingMode(proj.writing_mode || "situation");
     setMatrixFreeText(proj.matrix_free_text || {});
     // Falls die Session ursprünglich mit einer Vorlage erstellt wurde, diese wieder als "ausgewählt" markieren,
@@ -1951,9 +1957,31 @@ export default function LenormandApp() {
   const [signifikator, setSignifikator] = useState(null);
   const [writingMode, setWritingMode] = useState("situation"); // "situation" | "personen" — welche Matrix für die Textdeutung im Writing-Bereich genutzt wird
   const [matrixCards, setMatrixCards] = useState(Array(9).fill(null)); // 9 positions, pos 4 = signifikator
+  // Eigene, separate States für die optionale Intro-/Outro-Karte im Writing-Bereich —
+  // bewusst NICHT Teil von matrixCards, damit der echte Matrix-Bereich (der überall von
+  // einer festen 9er-Länge ausgeht) unangetastet bleibt.
+  const [introCard, setIntroCard] = React.useState(null);
+  const [outroCard, setOutroCard] = React.useState(null);
   const [activePos, setActivePos] = useState(null); // which position is being filled
   const [matrixFreeText, setMatrixFreeText] = useState({}); // { [pos]: "freier Text statt Karte" } — für die freie Matrix beim Karten-Wählen
   const [pickerMode, setPickerMode] = useState("karte"); // "karte" | "freitext" — was im Karten-Picker gerade angeboten wird
+
+  // Liest/schreibt die Karte für eine Picker-Position — das kann entweder eine echte
+  // Matrix-Position (0-8, in matrixCards) oder "intro"/"outro" (eigene States) sein.
+  // So kann der bestehende Picker-Code unverändert weiterlaufen und trotzdem Intro/Outro
+  // mit bedienen, ohne dass matrixCards selbst seine feste 9er-Länge verliert.
+  const getCardForPos = (pos) => {
+    if (pos === "intro") return introCard;
+    if (pos === "outro") return outroCard;
+    return matrixCards ? matrixCards[pos] : null;
+  };
+  const setCardForPos = (pos, num) => {
+    if (pos === "intro") { setIntroCard(num); return; }
+    if (pos === "outro") { setOutroCard(num); return; }
+    const newCards = [...(matrixCards || Array(9).fill(null))];
+    newCards[pos] = num;
+    setMatrixCards(newCards);
+  };
 
   // Beim Verlassen der Seite / Tab-Wechsel sofort speichern, statt auf den Debounce-Timer zu warten
   React.useEffect(() => {
@@ -2038,6 +2066,9 @@ export default function LenormandApp() {
     positions.forEach((pos, i) => { newCards[pos] = shuffled[i+1]; });
     setSignifikator(sig);
     setMatrixCards(newCards);
+    // Neue Session beginnt ohne Intro-/Outro-Karte — die werden bewusst separat gewählt
+    setIntroCard(null);
+    setOutroCard(null);
   };
 
   const startZeitQuiz = () => {
@@ -4066,6 +4097,8 @@ export default function LenormandApp() {
                   <button onClick={() => {
                     setMatrixCards(Array(9).fill(null));
                     setSignifikator(null);
+                    setIntroCard(null);
+                    setOutroCard(null);
                     setWritingMode("situation");
                     setMatrixFreeText({});
                     setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
@@ -4091,8 +4124,24 @@ export default function LenormandApp() {
                   </button>
                 </div>
 
+                {/* Intro — wie eine 10. Position, eigene Zeile vor der 3×3-Matrix */}
+                <div onClick={() => {
+                    const willActivate = activePos !== "intro";
+                    setActivePos(willActivate ? "intro" : null);
+                    if (willActivate) setPickerMode(matrixFreeText["intro"] ? "freitext" : "karte");
+                  }}
+                  style={{ border:`1.5px solid ${activePos==="intro"?gold:(introCard||matrixFreeText["intro"])?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 10px", marginBottom:8, cursor:"pointer", background:activePos==="intro"?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Intro</div>
+                  {introCard ? (<>
+                    <span style={{ fontSize:18 }}>{SYMBOLS[introCard]}</span>
+                    <span style={{ fontSize:10, color:gold }}>{CARDS[introCard].name}</span>
+                  </>) : matrixFreeText["intro"] ? (
+                    <span style={{ fontSize:10, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText["intro"].slice(0,30)}{matrixFreeText["intro"].length>30?"…":""}</span>
+                  ) : <span style={{ fontSize:10, color:"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
+                </div>
+
                 {/* 3×3 Grid */}
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8 }}>
                   {[0,1,2,3,4,5,6,7,8].map(pos => {
                     const card = matrixCards ? matrixCards[pos] : null;
                     const freeText = matrixFreeText[pos];
@@ -4118,6 +4167,22 @@ export default function LenormandApp() {
                   })}
                 </div>
 
+                {/* Outro — wie eine 11. Position, eigene Zeile nach der 3×3-Matrix */}
+                <div onClick={() => {
+                    const willActivate = activePos !== "outro";
+                    setActivePos(willActivate ? "outro" : null);
+                    if (willActivate) setPickerMode(matrixFreeText["outro"] ? "freitext" : "karte");
+                  }}
+                  style={{ border:`1.5px solid ${activePos==="outro"?gold:(outroCard||matrixFreeText["outro"])?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 10px", marginBottom:16, cursor:"pointer", background:activePos==="outro"?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Outro</div>
+                  {outroCard ? (<>
+                    <span style={{ fontSize:18 }}>{SYMBOLS[outroCard]}</span>
+                    <span style={{ fontSize:10, color:gold }}>{CARDS[outroCard].name}</span>
+                  </>) : matrixFreeText["outro"] ? (
+                    <span style={{ fontSize:10, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText["outro"].slice(0,30)}{matrixFreeText["outro"].length>30?"…":""}</span>
+                  ) : <span style={{ fontSize:10, color:"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
+                </div>
+
                 {/* Karten-Suche und Grid, oder freier Text */}
                 {activePos !== null && (
                   <div>
@@ -4126,11 +4191,9 @@ export default function LenormandApp() {
                         style={{ background: pickerMode==="freitext" ? "rgba(200,169,110,0.15)" : "transparent", border:`1px solid ${pickerMode==="freitext"?gold:"rgba(200,169,110,0.2)"}`, color: pickerMode==="freitext"?gold:"#7a6040", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
                         {pickerMode === "freitext" ? "🃏 stattdessen Karte wählen" : "✍️ stattdessen eigenen Text eintragen"}
                       </button>
-                      {(matrixCards?.[activePos] || matrixFreeText[activePos]) && (
+                      {(getCardForPos(activePos) || matrixFreeText[activePos]) && (
                         <button onClick={() => {
-                          const newCards = [...(matrixCards || Array(9).fill(null))];
-                          newCards[activePos] = null;
-                          setMatrixCards(newCards);
+                          setCardForPos(activePos, null);
                           const newFree = {...matrixFreeText};
                           delete newFree[activePos];
                           setMatrixFreeText(newFree);
@@ -4149,10 +4212,8 @@ export default function LenormandApp() {
                           onChange={e => {
                             setMatrixFreeText({...matrixFreeText, [activePos]: e.target.value});
                             // Freitext und Karte schließen sich an dieser Position gegenseitig aus
-                            if (matrixCards?.[activePos]) {
-                              const newCards = [...matrixCards];
-                              newCards[activePos] = null;
-                              setMatrixCards(newCards);
+                            if (getCardForPos(activePos)) {
+                              setCardForPos(activePos, null);
                               if (activePos === 4) setSignifikator(null);
                             }
                           }}
@@ -4170,13 +4231,14 @@ export default function LenormandApp() {
                         </div>
                         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:6, maxHeight:260, overflowY:"auto" }}>
                           {filteredCards().map(num => {
-                            const alreadyUsed = matrixCards && matrixCards.includes(num) && matrixCards[activePos] !== num;
+                            // "Schon verwendet"-Sperre gilt nur innerhalb der echten 3×3-Matrix —
+                            // Intro/Outro dürfen auch eine dort bereits liegende Karte nochmal zeigen,
+                            // schließlich sind das ja andere Erzähl-Ebenen (Rahmenhandlung vs. Matrix-Lektüre).
+                            const alreadyUsed = typeof activePos === "number" && matrixCards && matrixCards.includes(num) && matrixCards[activePos] !== num;
                             return (
                               <button key={num} onClick={() => {
                                 if (alreadyUsed) return;
-                                const newCards = [...(matrixCards || Array(9).fill(null))];
-                                newCards[activePos] = num;
-                                setMatrixCards(newCards);
+                                setCardForPos(activePos, num);
                                 if (activePos === 4) setSignifikator(num);
                                 // Karte und Freitext schließen sich an dieser Position gegenseitig aus
                                 if (matrixFreeText[activePos]) {
@@ -4328,6 +4390,10 @@ export default function LenormandApp() {
                       <div onClick={() => setCollapsedFields(c => ({...c, intro: !c.intro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>🎬</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Intro</div>
+                        <span onClick={e => { e.stopPropagation(); setWritingView("picking"); setActivePos("intro"); setPickerMode(matrixFreeText["intro"] ? "freitext" : "karte"); }}
+                          style={{ fontSize:10, color:gold, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
+                          {introCard ? <>{SYMBOLS[introCard]} {CARDS[introCard].name}</> : "🃏 Karte zuordnen"}
+                        </span>
                         {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                         <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.intro ? "▸" : "▾"}</span>
                       </div>
@@ -4548,6 +4614,10 @@ export default function LenormandApp() {
                       <div onClick={() => setCollapsedFields(c => ({...c, outro: !c.outro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>🎬</span>
                         <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Outro</div>
+                        <span onClick={e => { e.stopPropagation(); setWritingView("picking"); setActivePos("outro"); setPickerMode(matrixFreeText["outro"] ? "freitext" : "karte"); }}
+                          style={{ fontSize:10, color:gold, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
+                          {outroCard ? <>{SYMBOLS[outroCard]} {CARDS[outroCard].name}</> : "🃏 Karte zuordnen"}
+                        </span>
                         {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
                         <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.outro ? "▸" : "▾"}</span>
                       </div>
@@ -4646,7 +4716,7 @@ export default function LenormandApp() {
                           + "Signifikator: " + sigLine
                           + "<br>" + heute + "</div>"
                           + matrixGridHtml
-                          + (introText ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
+                          + (introText ? "<div class='block'><div class='lbl'>🎬 Intro" + (introCard ? " · " + SYMBOLS[introCard] + " " + CARDS[introCard].name : "") + "</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
                           + (nachIntroText ? "<div class='block'><div class='lbl'>💥 Teaser</div><div class='txt'>" + nachIntroText + "</div><div class='cnt'>" + nachIntroWc + " Wörter</div></div>" : "")
                           + posLabelsBeforeEngel.map(({pos, label}) => {
                               const cn = matrixCards[pos];
@@ -4683,7 +4753,7 @@ export default function LenormandApp() {
                               return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
                           + (vorOutroText ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + vorOutroText + "</div><div class='cnt'>" + vorOutroWc + " Wörter</div></div>" : "")
-                          + (outroText ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + outroText + "</div><div class='cnt'>" + outroWc + " Wörter</div></div>" : "")
+                          + (outroText ? "<div class='block'><div class='lbl'>🎬 Outro" + (outroCard ? " · " + SYMBOLS[outroCard] + " " + CARDS[outroCard].name : "") + "</div><div class='txt'>" + outroText + "</div><div class='cnt'>" + outroWc + " Wörter</div></div>" : "")
                           + "<div class='total'>✦ Gesamt: " + totalWc + " Wörter</div>"
                           + "</body></html>";
                         const w = window.open("","_blank");
