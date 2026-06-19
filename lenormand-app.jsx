@@ -627,6 +627,7 @@ export default function LenormandApp() {
   const [forumNewCatVisibility, setForumNewCatVisibility] = React.useState("member");
   const [forumNewCatGuestPost, setForumNewCatGuestPost] = React.useState(false);
   const [forumShowNewCat, setForumShowNewCat] = React.useState(false);
+  const [kurseShowNewCat, setKurseShowNewCat] = React.useState(false);
   // Welche Kategorie wird gerade bearbeitet (id) — die Feldwerte selbst leben lokal in
   // der CategoryEditBox-Komponente, aus dem gleichen Grund wie bei InlineEditBox: stabiler
   // Fokus beim Tippen, unabhängig von Re-Renders der großen Hauptkomponente.
@@ -1071,6 +1072,7 @@ export default function LenormandApp() {
         else setForumCategories(prev => [...prev, data[0]]);
         setForumNewCatName(""); setForumNewCatDescription(""); setForumNewCatIcon("💬"); setForumNewCatVisibility("member"); setForumNewCatGuestPost(false);
         setForumShowNewCat(false);
+        setKurseShowNewCat(false);
       }
     } catch {}
   };
@@ -3379,17 +3381,17 @@ export default function LenormandApp() {
                   <div>
                     {isAdmin && (
                       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-                        <button onClick={() => setForumShowNewCat(v => !v)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-                          {forumShowNewCat ? "✕ Abbrechen" : "+ Neuer Kurs"}
+                        <button onClick={() => setKurseShowNewCat(v => !v)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                          {kurseShowNewCat ? "✕ Abbrechen" : "+ Neuer Kurs"}
                         </button>
                       </div>
                     )}
-                    {isAdmin && forumShowNewCat && (
+                    {isAdmin && kurseShowNewCat && (
                       <CategoryEditBox
                         initialName="" initialDescription="" initialIcon="🎓"
                         initialVisibility="pro" initialGuestPost={false}
-                        onSave={(fields) => createForumCategory("kurse", fields)}
-                        onCancel={() => setForumShowNewCat(false)}
+                        onSave={(fields) => { createForumCategory("kurse", fields); setKurseShowNewCat(false); }}
+                        onCancel={() => setKurseShowNewCat(false)}
                         gold={gold}
                       />
                     )}
