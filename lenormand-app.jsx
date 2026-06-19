@@ -2149,15 +2149,19 @@ export default function LenormandApp() {
   const allFilled = matrixCards.every(c => c !== null);
   const usedCards = matrixCards.filter(Boolean);
 
+  // Liefert den festen Positions-Text für die Karte, die auf "pos" liegt — NICHT für
+  // den Signifikator! Beispiel: liegt bei "Gedanken" die Karte "Mäuse", kommt der
+  // gendanken-Text von Mäuse, unabhängig davon welcher Signifikator gewählt wurde.
   const getMatrixText = (pos) => {
-    if (!signifikator) return null;
+    const cardOnPos = matrixCards[pos];
+    if (!cardOnPos) return null;
     if (writingMode === "personen") {
-      const pm = PERSON_MATRIX[String(signifikator)];
+      const pm = PERSON_MATRIX[String(cardOnPos)];
       if (!pm) return null;
       const perKeys = ["sternzeichen", "haarfarbe", "charakter", "figur", null, "beruf", "groesse", "alter", "woher"];
       return perKeys[pos] ? pm[perKeys[pos]] : null;
     }
-    const m = MATRIX[String(signifikator)];
+    const m = MATRIX[String(cardOnPos)];
     if (!m) return null;
     const keys = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
     return keys[pos] ? m[keys[pos]] : null;
@@ -4391,7 +4395,7 @@ export default function LenormandApp() {
                           </div>
                           {!collapsedFields[key] && (<>
                             {(() => {
-                              const inspiration = getInspirationText(pos, comboWith, comboCardNum);
+                              const inspiration = getInspirationText(pos, comboWith, cardNum);
                               return inspiration ? (
                                 <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
                                   💡 {inspiration}
@@ -4447,7 +4451,7 @@ export default function LenormandApp() {
                           </div>
                           {!collapsedFields[key] && (<>
                             {(() => {
-                              const inspiration = getInspirationText(pos, comboWith, comboCardNum);
+                              const inspiration = getInspirationText(pos, comboWith, cardNum);
                               return inspiration ? (
                                 <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
                                   💡 {inspiration}
@@ -4528,7 +4532,7 @@ export default function LenormandApp() {
                           </div>
                           {!collapsedFields[key] && (<>
                             {(() => {
-                              const inspiration = getInspirationText(pos, comboWith, comboCardNum);
+                              const inspiration = getInspirationText(pos, comboWith, cardNum);
                               return inspiration ? (
                                 <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
                                   💡 {inspiration}
