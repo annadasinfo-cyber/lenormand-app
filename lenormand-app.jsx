@@ -1041,15 +1041,23 @@ export default function LenormandApp() {
     } catch {}
   };
 
-  const createForumCategory = async (section = "forum") => {
-    if (!forumNewCatName.trim()) return;
+  const createForumCategory = async (section = "forum", directFields = null) => {
+    // directFields: wenn übergeben (z.B. aus CategoryEditBox), direkt nutzen statt States lesen.
+    // Das umgeht das React-Async-State-Problem, bei dem frisch gesetzte States noch nicht
+    // verfügbar sind, wenn die Funktion sofort danach aufgerufen wird.
+    const name = directFields ? directFields.name : forumNewCatName;
+    const description = directFields ? directFields.description : forumNewCatDescription;
+    const icon = directFields ? directFields.icon : forumNewCatIcon;
+    const visibility = directFields ? directFields.visibility : forumNewCatVisibility;
+    const guestPost = directFields ? directFields.guestPost : forumNewCatGuestPost;
+    if (!name.trim()) return;
     try {
       const payload = {
-        name: forumNewCatName.trim(),
-        description: forumNewCatDescription.trim(),
-        icon: (forumNewCatIcon || "💬").trim().slice(0, 4),
-        visibility: forumNewCatVisibility,
-        guest_can_post: forumNewCatGuestPost,
+        name: name.trim(),
+        description: description.trim(),
+        icon: (icon || "💬").trim().slice(0, 4),
+        visibility,
+        guest_can_post: guestPost,
         section,
         sort_order: section === "kurse" ? kurseCategories.length : forumCategories.length
       };
@@ -3380,7 +3388,7 @@ export default function LenormandApp() {
                       <CategoryEditBox
                         initialName="" initialDescription="" initialIcon="🎓"
                         initialVisibility="pro" initialGuestPost={false}
-                        onSave={(fields) => { setForumNewCatName(fields.name); setForumNewCatDescription(fields.description); setForumNewCatIcon(fields.icon); setForumNewCatVisibility(fields.visibility); setForumNewCatGuestPost(fields.guestPost); setTimeout(() => createForumCategory("kurse"), 0); }}
+                        onSave={(fields) => createForumCategory("kurse", fields)}
                         onCancel={() => setForumShowNewCat(false)}
                         gold={gold}
                       />
