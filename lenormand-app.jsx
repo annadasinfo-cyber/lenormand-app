@@ -113,6 +113,12 @@ const refreshAccountToken = async (refresh_token) => {
 // access_token über den refresh_token, damit es egal ist, wie lange der Account schon
 // nicht mehr aktiv war. Erst wenn das klappt, wird die Session wirklich gewechselt
 // und neu geladen.
+// Schlüssel für den "Heimat-Admin"-Marker: merkt sich lokal auf diesem Gerät, wer der
+// eigentliche Admin-Account ist, von dem aus zu einem Test-Account gewechselt wurde.
+// Notwendig, damit die Admin-Bar auch sichtbar bleibt, WÄHREND man im Test-Account ist
+// (der ja selbst kein Admin ist) — sonst gäbe es keinen Weg mehr zurück.
+const HOME_ADMIN_KEY = "lenni_home_admin_session";
+
 const switchToAccount = async (entry, ownerId, currentToken, onSwitching) => {
   if (onSwitching) onSwitching(entry.id);
   const fresh = await refreshAccountToken(entry.refresh_token);
@@ -121,11 +127,35 @@ const switchToAccount = async (entry, ownerId, currentToken, onSwitching) => {
     alert("Konnte nicht zu diesem Account wechseln — der gespeicherte Zugang ist nicht mehr gültig. Bitte einmal neu über \"Account hinzufügen\" einloggen.");
     return;
   }
+  // Bevor gewechselt wird: die AKTUELLE Session als Heimat-Marker sichern — aber NUR
+  // falls noch keiner existiert. Sonst würde ein Wechsel von Test-Account A zu B den
+  // echten Admin-Marker überschreiben, und man fände am Ende nicht mehr zum Admin
+  // zurück, sondern nur noch zu A.
+  if (!localStorage.getItem(HOME_ADMIN_KEY)) {
+    const currentSession = JSON.parse(localStorage.getItem("sb_session") || "null");
+    if (currentSession) localStorage.setItem(HOME_ADMIN_KEY, JSON.stringify(currentSession));
+  }
   localStorage.setItem("sb_session", JSON.stringify(fresh));
   // Account-Liste gleich mit dem frischen refresh_token aktualisieren (er kann sich
   // bei jeder Erneuerung ändern), damit der nächste Wechsel ebenfalls sofort klappt.
   await rememberAccount(fresh, ownerId, currentToken);
   window.location.reload();
+};
+
+// Wechselt direkt zurück zum Heimat-Admin-Account — mit demselben Refresh-Mechanismus
+// wie switchToAccount, damit es egal ist, wie lange man im Test-Account unterwegs war.
+const switchBackToHomeAdmin = async () => {
+  const home = JSON.parse(localStorage.getItem(HOME_ADMIN_KEY) || "null");
+  if (!home) return false;
+  const fresh = await refreshAccountToken(home.refresh_token);
+  if (!fresh) {
+    alert("Konnte nicht zum Admin-Account zurückwechseln — bitte einmal ganz normal neu einloggen.");
+    return false;
+  }
+  localStorage.setItem("sb_session", JSON.stringify(fresh));
+  localStorage.removeItem(HOME_ADMIN_KEY);
+  window.location.reload();
+  return true;
 };
 
 const forgetAccount = async (id, token) => {
@@ -392,16 +422,28 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, saveStatus,
 // gleich, auf dem man sich als Admin einloggt.
 function AdminBar({ gold, myEmail, accounts, accountsLoading, onOpen, open, onClose,
                      onSwitch, switching, onForget, addOpen, onAddOpen, onAddCancel,
-                     onAddSubmit, addMsg }) {
+                     onAddSubmit, addMsg, isRealAdmin, onBackToAdmin, switchingBack }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   return (
     <>
       <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:"#0a0612", borderBottom:"1px solid rgba(200,169,110,0.25)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
-        <div style={{ color:"#7a6040", letterSpacing:1 }}>👑 Admin · {myEmail}</div>
-        <button onClick={onOpen} style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"4px 12px", borderRadius:14, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-          🔀 Accounts{accounts.length > 0 ? ` (${accounts.length})` : ""}
-        </button>
+        <div style={{ color:"#7a6040", letterSpacing:1 }}>
+          {isRealAdmin ? "👑 Admin" : "🧪 Test-Account"} · {myEmail}
+        </div>
+        <div style={{ display:"flex", gap:8 }}>
+          {!isRealAdmin && (
+            <button onClick={onBackToAdmin} disabled={switchingBack}
+              style={{ background:"rgba(200,169,110,0.15)", border:`1px solid ${gold}`, color:gold, padding:"4px 12px", borderRadius:14, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", opacity:switchingBack?0.6:1 }}>
+              {switchingBack ? "Wechselt…" : "← Zurück zu Admin"}
+            </button>
+          )}
+          {isRealAdmin && (
+            <button onClick={onOpen} style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"4px 12px", borderRadius:14, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+              🔀 Accounts{accounts.length > 0 ? ` (${accounts.length})` : ""}
+            </button>
+          )}
+        </div>
       </div>
       {/* Platzhalter, damit die fest positionierte Leiste den Seiteninhalt nicht überdeckt */}
       <div style={{ height:30 }} />
@@ -520,6 +562,10 @@ export default function LenormandApp() {
   const [switcherAccounts, setSwitcherAccounts] = React.useState([]);
   const [switcherLoading, setSwitcherLoading] = React.useState(false);
   const [switcherSwitching, setSwitcherSwitching] = React.useState(null); // welcher Account wird gerade gewechselt
+  // Ob auf diesem Gerät ein "Heimat-Admin"-Marker liegt — also ob man gerade in einem
+  // Test-Account ist, von dem aus man zu einem Admin-Account zurückwechseln kann.
+  const [hasHomeAdmin, setHasHomeAdmin] = React.useState(() => !!localStorage.getItem("lenni_home_admin_session"));
+  const [switchingBackToAdmin, setSwitchingBackToAdmin] = React.useState(false);
   const [authEmail, setAuthEmail] = React.useState("");
   const [authPassword, setAuthPassword] = React.useState("");
   const [authName, setAuthName] = React.useState("");
@@ -559,6 +605,13 @@ export default function LenormandApp() {
     const list = await getKnownAccounts(getUserId(), getAccessToken());
     setSwitcherAccounts(list);
     setSwitcherLoading(false);
+  };
+
+  const handleBackToAdmin = async () => {
+    setSwitchingBackToAdmin(true);
+    const ok = await switchBackToHomeAdmin();
+    if (!ok) setSwitchingBackToAdmin(false);
+    // bei Erfolg lädt switchBackToHomeAdmin() die Seite ohnehin neu
   };
 
   const handleSwitcherAddAccount = async (email, password) => {
@@ -2678,7 +2731,7 @@ export default function LenormandApp() {
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
 
-      {isAdmin && (
+      {(isAdmin || hasHomeAdmin) && (
         <AdminBar
           gold={gold}
           myEmail={getUserEmail()}
@@ -2695,6 +2748,9 @@ export default function LenormandApp() {
           onAddCancel={() => { setSwitcherAddOpen(false); setSwitcherMsg(""); }}
           onAddSubmit={handleSwitcherAddAccount}
           addMsg={switcherMsg}
+          isRealAdmin={isAdmin}
+          onBackToAdmin={handleBackToAdmin}
+          switchingBack={switchingBackToAdmin}
         />
       )}
 
