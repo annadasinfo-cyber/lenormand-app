@@ -45,44 +45,93 @@ const supabase = (() => {
 // ============================================================
 // ACCOUNT-SWITCHER (nur für Admins sichtbar)
 // ============================================================
-// Merkt sich jeden Login, in den man sich jemals eingeloggt hat, lokal im Browser —
-// damit man später zwischen Test-Accounts wechseln kann, ohne sich jedes Mal neu
-// einzuloggen. Bewusst rein clientseitig (kein Server-Speicher nötig, betrifft ja nur
-// den eigenen Browser).
-const ACCOUNTS_KEY = "lenni_known_accounts";
+// Anders als zuvor NICHT mehr nur lokal im Browser gespeichert, sondern in der
+// admin_known_accounts-Tabelle — damit die gleiche Liste auf jedem Gerät erscheint,
+// auf dem man sich als Admin einloggt (Handy, anderer PC, usw.).
 
-const getKnownAccounts = () => {
-  try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || "[]"); }
-  catch { return []; }
+const dbHeadersFor = (token) => ({
+  "apikey": SUPABASE_KEY, "Authorization": `Bearer ${token || SUPABASE_KEY}`,
+  "Content-Type": "application/json"
+});
+
+// Lädt die gemerkten Accounts EINER bestimmten Person (ownerId = die eigene Admin-ID) —
+// jeder Admin sieht nur seine eigene Liste.
+const getKnownAccounts = async (ownerId, token) => {
+  if (!ownerId) return [];
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/admin_known_accounts?owner_id=eq.${ownerId}&order=last_used.desc`, {headers: dbHeadersFor(token)});
+    const data = await r.json();
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
 };
 
-// Speichert/aktualisiert einen Account in der Liste, anhand der E-Mail aus dem Token.
-const rememberAccount = (sessionData) => {
+// Speichert/aktualisiert einen Account in der Liste — anhand der E-Mail aus dem Token,
+// für die übergebene ownerId (die eigene Admin-ID).
+const rememberAccount = async (sessionData, ownerId, token) => {
   try {
-    if (!sessionData?.access_token) return;
+    if (!sessionData?.access_token || !ownerId) return;
     const payload = JSON.parse(atob(sessionData.access_token.split('.')[1]));
     const email = payload.email || "";
     if (!email) return;
-    const accounts = getKnownAccounts();
-    const existing = accounts.findIndex(a => a.email === email);
-    const entry = { email, session: sessionData, lastUsed: new Date().toISOString() };
-    if (existing >= 0) accounts[existing] = entry;
-    else accounts.push(entry);
-    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+    await fetch(`${SUPABASE_URL}/rest/v1/admin_known_accounts`, {
+      method: "POST", headers: {...dbHeadersFor(token), "Prefer": "resolution=merge-duplicates"},
+      body: JSON.stringify({ owner_id: ownerId, account_email: email, refresh_token: sessionData.refresh_token || null, last_used: new Date().toISOString() })
+    });
   } catch {}
 };
 
-// Wechselt direkt zu einem gemerkten Account — ersetzt die aktuelle Session und lädt
-// die Seite neu, damit garantiert aller App-State (Profile, Forum-Daten usw.) sauber
-// für den neuen Account neu geladen wird, statt fragmentarisch im alten State zu bleiben.
-const switchToAccount = (entry) => {
-  localStorage.setItem("sb_session", JSON.stringify(entry.session));
+// Eigene, ISOLIERTE Login-Funktion für den Account-Switcher — bewusst NICHT über
+// supabase.auth.signInWithPassword, weil die direkt localStorage["sb_session"]
+// überschreibt. Das hätte (auch wenn man es danach wieder zurücksetzt) ein Zeitfenster
+// geöffnet, in dem jeder andere Teil der App, der live aus localStorage liest (z.B.
+// getUserId()), versehentlich mit der ID des NEUEN Accounts arbeitet — z.B. ein parallel
+// laufender Auto-Save-Timer, der dann Daten unter der falschen User-ID wegschreibt.
+// Diese Funktion spricht den Login-Endpunkt direkt an und lässt den bestehenden
+// localStorage-Eintrag während der ganzen Zeit komplett unangetastet.
+const loginWithoutTouchingSession = async (email, password) => {
+  const headers = { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" };
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {method:"POST", headers, body: JSON.stringify({email, password})});
+  return r.json();
+};
+
+// Holt sich mit dem REFRESH-Token einen frischen access_token, ohne Passwort erneut
+// einzugeben — der access_token allein läuft normalerweise nach etwa einer Stunde ab,
+// der refresh_token bleibt deutlich länger gültig. Genau das macht den Account-Switcher
+// erst dauerhaft brauchbar: ohne das hier würde ein gemerkter Account nach einer Stunde
+// nicht mehr funktionieren, weil sein gespeicherter access_token verfallen ist.
+const refreshAccountToken = async (refresh_token) => {
+  if (!refresh_token) return null;
+  try {
+    const headers = { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" };
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {method:"POST", headers, body: JSON.stringify({refresh_token})});
+    const data = await r.json();
+    return data.access_token ? data : null;
+  } catch { return null; }
+};
+
+// Wechselt zu einem gemerkten Account — holt sich davor IMMER erst einen frischen
+// access_token über den refresh_token, damit es egal ist, wie lange der Account schon
+// nicht mehr aktiv war. Erst wenn das klappt, wird die Session wirklich gewechselt
+// und neu geladen.
+const switchToAccount = async (entry, ownerId, currentToken, onSwitching) => {
+  if (onSwitching) onSwitching(entry.id);
+  const fresh = await refreshAccountToken(entry.refresh_token);
+  if (!fresh) {
+    if (onSwitching) onSwitching(null);
+    alert("Konnte nicht zu diesem Account wechseln — der gespeicherte Zugang ist nicht mehr gültig. Bitte einmal neu über \"Account hinzufügen\" einloggen.");
+    return;
+  }
+  localStorage.setItem("sb_session", JSON.stringify(fresh));
+  // Account-Liste gleich mit dem frischen refresh_token aktualisieren (er kann sich
+  // bei jeder Erneuerung ändern), damit der nächste Wechsel ebenfalls sofort klappt.
+  await rememberAccount(fresh, ownerId, currentToken);
   window.location.reload();
 };
 
-const forgetAccount = (email) => {
-  const accounts = getKnownAccounts().filter(a => a.email !== email);
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+const forgetAccount = async (id, token) => {
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/admin_known_accounts?id=eq.${id}`, {method:"DELETE", headers: dbHeadersFor(token)});
+  } catch {}
 };
 
 const CARDS={"1":{"name":"Der Reiter","kw":"Nachrichten, Neuigkeiten, Projekte, Pläne, Transportmittel, eventuell ein junger Mann"},"2":{"name":"Der Klee","kw":"Kleines Glück, schnelles Eingreifen, Schutz vor negativen Energien"},"3":{"name":"Das Schiff","kw":"Reise, Geschäft, Erbschaft, Transport, Expansion, Verstehen, Toleranz"},"4":{"name":"Das Haus","kw":"Themen die dir momentan am wichtigsten sind, Heim, Familie, Immobilien"},"5":{"name":"Der Baum","kw":"Wachstum, Reife, Gesundheit, langer Zeitraum, Natur, Geduld"},"6":{"name":"Die Wolken","kw":"Helle oder dunkle Seite, Unklarheiten, Hindernisse, Rückschläge, älterer Herr"},"7":{"name":"Die Schlange","kw":"Mutter, Intelligenz, Versuchung, Konkurrenz, Umwege, Gift und Heilmittel"},"8":{"name":"Der Sarg","kw":"Ende, Abschluss, Blockade, Stille, was nicht mehr lebt"},"9":{"name":"Die Blumen","kw":"Glück, Freude, Schönheit, Einladung, Überraschung, Frau, Blumen"},"10":{"name":"Die Sense","kw":"Trennung, Schnitt, Entscheidung, Ernte, Gefahr, Absage"},"11":{"name":"Die Ruten","kw":"Diskussionen, Gespräche, Streit, Ideen, Kommunikation"},"12":{"name":"Die Vögel","kw":"Gespräche, Gerüchte, Nervosität, Stress, Anrufe, Lärm"},"13":{"name":"Das Kind","kw":"Neuanfang, Kind, Unschuld, Wunscherfüllung, Überraschung"},"14":{"name":"Der Fuchs","kw":"Hinterlist, Betrug, Intrigen, Schläue, Klugheit, Instinkt, Arbeit"},"15":{"name":"Der Bär","kw":"Durchsetzungskraft, Besitz, Schutz, Kraft, Aggression, Chef, Finanzen"},"16":{"name":"Die Sterne","kw":"Wünsche, Träume, Spiritualität, Hoffnung, Erfolg, große Projekte"},"17":{"name":"Die Störche","kw":"Veränderungen, Umzug, Bewegung, Transformation, Neubeginn"},"18":{"name":"Der Hund","kw":"Treue, Freundschaft, Unterstützung, Beständigkeit, Vertrauen"},"19":{"name":"Der Turm","kw":"Grenze, Einsamkeit, Isolation, Behörde, Institution, Distanz"},"20":{"name":"Der Park","kw":"Gesellschaft, Öffentlichkeit, Events, Netzwerk, wo Menschen sich begegnen"},"21":{"name":"Der Berg","kw":"Hindernisse, langer Aufstieg, Anstrengung, Feind, Blockade"},"22":{"name":"Die Wege","kw":"Entscheidungen, Alternativen, Kreuzweg, Richtungswechsel"},"23":{"name":"Die Mäuse","kw":"Verlust, Kummer, Krankheit, Diebstahl, Angst, Nagen, Parasiten"},"24":{"name":"Das Herz","kw":"Liebe, Herz, Gefühle, Leidenschaft, Glück, Zuneigung"},"25":{"name":"Der Ring","kw":"Beziehungen, Ehe, Bindung, Partnerschaft, Vertrag, Versprechen"},"26":{"name":"Das Buch","kw":"Geheimnis, Wissen, Studium, Ausbildung, Überraschung, im Verborgenen"},"27":{"name":"Der Brief","kw":"Persönliche Botschaften, Brief, SMS, E-Mail, Dokumente"},"28":{"name":"Der Herr","kw":"Männliche Person, sehr persönlich, aktiv, extrovertiert"},"29":{"name":"Die Dame","kw":"Weibliche Person, sehr persönlich, passiv, introvertiert"},"30":{"name":"Die Lilien","kw":"Familie, Moral, Alter, Sexualität, Winter, Lilien, Reinheit"},"31":{"name":"Die Sonne","kw":"Energie, Glücksfälle, Erfolg, wahre Liebe, Kraft, Licht, Sommer"},"32":{"name":"Der Mond","kw":"Ruhm, Ehre, Anerkennung, Innenleben, Seele, Intuition, Mond"},"33":{"name":"Der Schlüssel","kw":"Mit Sicherheit, Erfolg, gutes Gelingen, Neubeginn, Schlüssel zur Antwort"},"34":{"name":"Die Fische","kw":"Geld, Glück, Wohlstand, Zufriedenheit, Ressourcen, Fülle"},"35":{"name":"Der Anker","kw":"Beruf, Arbeit, Stabilität, Heimathafen, Beständigkeit, Anker"},"36":{"name":"Das Kreuz","kw":"Bedeutungsvolle Ereignisse, Schicksal, Bestimmung, Prüfung, Karma"}};
@@ -337,6 +386,91 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, saveStatus,
   );
 }
 
+// Schmale, immer sichtbare Leiste ganz oben — nur für Admins. Kernstück ist der
+// Account-Switcher: zwischen gemerkten Test-Accounts wechseln, ohne sich jedes Mal
+// neu einzuloggen. Die Liste liegt server-seitig, erscheint also auf jedem Gerät
+// gleich, auf dem man sich als Admin einloggt.
+function AdminBar({ gold, myEmail, accounts, accountsLoading, onOpen, open, onClose,
+                     onSwitch, switching, onForget, addOpen, onAddOpen, onAddCancel,
+                     onAddSubmit, addMsg }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  return (
+    <>
+      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:"#0a0612", borderBottom:"1px solid rgba(200,169,110,0.25)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
+        <div style={{ color:"#7a6040", letterSpacing:1 }}>👑 Admin · {myEmail}</div>
+        <button onClick={onOpen} style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"4px 12px", borderRadius:14, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+          🔀 Accounts{accounts.length > 0 ? ` (${accounts.length})` : ""}
+        </button>
+      </div>
+      {/* Platzhalter, damit die fest positionierte Leiste den Seiteninhalt nicht überdeckt */}
+      <div style={{ height:30 }} />
+
+      {open && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"flex-start", justifyContent:"center", zIndex:2100, padding:"60px 20px 20px" }}
+          onClick={onClose}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:"#0f0a1a", border:"1px solid rgba(200,169,110,0.3)", borderRadius:12, padding:"22px 20px", maxWidth:380, width:"100%", maxHeight:"80vh", overflowY:"auto" }}>
+            <div style={{ fontSize:14, color:gold, marginBottom:4 }}>🔀 Account-Switcher</div>
+            <div style={{ fontSize:11, color:"#7a6040", marginBottom:16 }}>Synchronisiert sich über alle Geräte — wechselt direkt ohne erneutes Einloggen.</div>
+
+            {accountsLoading ? (
+              <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:14 }}>Lädt…</div>
+            ) : accounts.length === 0 ? (
+              <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:14 }}>Noch keine weiteren Accounts gemerkt — logg dich einmal in einen Test-Account ein, dann erscheint er hier.</div>
+            ) : accounts.map(acc => {
+                const isMe = acc.account_email === myEmail;
+                const isSwitching = switching === acc.id;
+                return (
+                  <div key={acc.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", marginBottom:6, background: isMe ? "rgba(200,169,110,0.1)" : "rgba(200,169,110,0.03)", border:`1px solid ${isMe?gold:"rgba(200,169,110,0.15)"}`, borderRadius:7 }}>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:12, color: isMe ? gold : "#d4c4a0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{acc.account_email}</div>
+                      {isMe && <div style={{ fontSize:9, color:gold }}>● aktuell aktiv</div>}
+                    </div>
+                    {!isMe && (
+                      <button onClick={() => onSwitch(acc)} disabled={isSwitching}
+                        style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"5px 12px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", flexShrink:0, opacity:isSwitching?0.6:1 }}>
+                        {isSwitching ? "Wechselt…" : "Wechseln"}
+                      </button>
+                    )}
+                    <button onClick={() => onForget(acc.id)}
+                      title="Aus der Liste entfernen (loggt nicht aus)"
+                      style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13, flexShrink:0 }}>✕</button>
+                  </div>
+                );
+              })}
+
+            {addOpen ? (
+              <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid rgba(200,169,110,0.15)" }}>
+                <input type="email" placeholder="E-Mail" value={email} onChange={e => setEmail(e.target.value)} autoFocus
+                  style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)}
+                  style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                {addMsg && <div style={{ fontSize:11, color: addMsg.startsWith("✓") ? "#5a9a5a" : "#c87a6a", marginBottom:8 }}>{addMsg}</div>}
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={() => onAddSubmit(email, password)}
+                    style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                    Hinzufügen
+                  </button>
+                  <button onClick={() => { setEmail(""); setPassword(""); onAddCancel(); }}
+                    style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={onAddOpen}
+                style={{ width:"100%", marginTop:14, background:"transparent", border:"1px dashed rgba(200,169,110,0.3)", color:"#9a8060", padding:"9px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                + Account hinzufügen, ohne mich auszuloggen
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function LenormandApp() {
   const gold = "#c8a96e";
   const [view, setView] = useState(() => sessionStorage.getItem("lenni_view") || "liesmich");
@@ -378,11 +512,14 @@ export default function LenormandApp() {
   const [authView, setAuthView] = React.useState("login");
   // Account-Switcher (nur Admins): offen/zu, plus eigenes kleines Mini-Login-Formular
   // zum Hinzufügen eines weiteren Accounts, ohne die aktuelle Session zu verlieren.
+  // Die Liste selbst liegt jetzt server-seitig (admin_known_accounts), darum hier als
+  // State statt live bei jedem Render aus localStorage zu lesen.
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
   const [switcherAddOpen, setSwitcherAddOpen] = React.useState(false);
-  const [switcherEmail, setSwitcherEmail] = React.useState("");
-  const [switcherPassword, setSwitcherPassword] = React.useState("");
   const [switcherMsg, setSwitcherMsg] = React.useState("");
+  const [switcherAccounts, setSwitcherAccounts] = React.useState([]);
+  const [switcherLoading, setSwitcherLoading] = React.useState(false);
+  const [switcherSwitching, setSwitcherSwitching] = React.useState(null); // welcher Account wird gerade gewechselt
   const [authEmail, setAuthEmail] = React.useState("");
   const [authPassword, setAuthPassword] = React.useState("");
   const [authName, setAuthName] = React.useState("");
@@ -393,7 +530,13 @@ export default function LenormandApp() {
     const data = await supabase.auth.signInWithPassword({email: authEmail, password: authPassword});
     if (data.access_token) {
       setSession(data);
-      rememberAccount(data); // für den Account-Switcher merken
+      // Für den Account-Switcher merken — ownerId direkt aus dem frisch erhaltenen
+      // Token lesen (nicht über getUserId(), das wäre hier zwar auch korrekt, aber
+      // so ist es unabhängig von Timing/Reihenfolge garantiert richtig).
+      try {
+        const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+        rememberAccount(data, payload.sub, data.access_token);
+      } catch {}
       // Falls der Login ausgelöst wurde, weil jemand im Forum etwas schreiben oder eine
       // geschützte Kategorie betreten wollte, direkt wieder dort hin springen
       if (view === "forum-login-noetig") {
@@ -408,17 +551,31 @@ export default function LenormandApp() {
   // Loggt einen WEITEREN Account ein und merkt ihn sich, OHNE die gerade aktive Session
   // zu verändern — wichtig, damit man als Admin nicht erst sich selbst ausloggen muss,
   // nur um einen neuen Test-Account in die Switcher-Liste aufzunehmen.
-  const handleSwitcherAddAccount = async () => {
+  // Lädt die eigene Account-Switcher-Liste vom Server neu — wird beim Öffnen des
+  // Switchers aufgerufen, damit garantiert die aktuelle, geräteübergreifende Liste
+  // angezeigt wird (nicht ein evtl. veralteter lokaler Stand).
+  const loadSwitcherAccounts = async () => {
+    setSwitcherLoading(true);
+    const list = await getKnownAccounts(getUserId(), getAccessToken());
+    setSwitcherAccounts(list);
+    setSwitcherLoading(false);
+  };
+
+  const handleSwitcherAddAccount = async (email, password) => {
     setSwitcherMsg("");
-    const currentSession = JSON.parse(localStorage.getItem("sb_session") || "null");
-    const data = await supabase.auth.signInWithPassword({email: switcherEmail, password: switcherPassword});
+    if (!email || !password) { setSwitcherMsg("Bitte E-Mail und Passwort eingeben"); return; }
+    // Bewusst die isolierte Login-Funktion — die rührt localStorage["sb_session"] zu
+    // keinem Zeitpunkt an, damit garantiert kein anderer App-Teil zwischenzeitlich mit
+    // der ID des neu hinzugefügten Accounts arbeitet (siehe Kommentar an deren Definition).
+    const data = await loginWithoutTouchingSession(email, password);
     if (data.access_token) {
-      rememberAccount(data);
-      // signInWithPassword hat sb_session bereits überschrieben — eigene, aktuelle Session
-      // wiederherstellen, damit man nicht versehentlich in den neuen Account wechselt.
-      if (currentSession) localStorage.setItem("sb_session", JSON.stringify(currentSession));
-      setSwitcherEmail(""); setSwitcherPassword(""); setSwitcherAddOpen(false);
+      // Wichtig: ownerId ist die EIGENE ID (die gerade aktiv eingeloggte Admin-Person),
+      // nicht die des frisch hinzugefügten Accounts — sonst würde der Eintrag in der
+      // Liste des Test-Accounts landen statt in der eigenen.
+      await rememberAccount(data, getUserId(), getAccessToken());
+      setSwitcherAddOpen(false);
       setSwitcherMsg("✓ Account hinzugefügt");
+      loadSwitcherAccounts();
       setTimeout(() => setSwitcherMsg(""), 2000);
     } else {
       setSwitcherMsg(data.error_description || data.msg || "E-Mail oder Passwort falsch");
@@ -1637,6 +1794,11 @@ export default function LenormandApp() {
   // Beibehalten für eventuelle spätere Stellen, die nur die echten Lese-Rechte brauchen
   const forumCanSeeCategory = forumCanEnterCategory;
 
+  const getAccessToken = () => {
+    try { return JSON.parse(localStorage.getItem("sb_session")||"null")?.access_token || null; }
+    catch { return null; }
+  };
+
   const dbHeaders = () => {
     const s = JSON.parse(localStorage.getItem("sb_session")||"null");
     return {
@@ -2515,6 +2677,26 @@ export default function LenormandApp() {
 
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
+
+      {isAdmin && (
+        <AdminBar
+          gold={gold}
+          myEmail={getUserEmail()}
+          accounts={switcherAccounts}
+          accountsLoading={switcherLoading}
+          open={switcherOpen}
+          onOpen={() => { setSwitcherOpen(true); loadSwitcherAccounts(); }}
+          onClose={() => { setSwitcherOpen(false); setSwitcherAddOpen(false); setSwitcherMsg(""); }}
+          onSwitch={(acc) => switchToAccount(acc, getUserId(), getAccessToken(), setSwitcherSwitching)}
+          switching={switcherSwitching}
+          onForget={async (id) => { await forgetAccount(id, getAccessToken()); loadSwitcherAccounts(); }}
+          addOpen={switcherAddOpen}
+          onAddOpen={() => setSwitcherAddOpen(true)}
+          onAddCancel={() => { setSwitcherAddOpen(false); setSwitcherMsg(""); }}
+          onAddSubmit={handleSwitcherAddAccount}
+          addMsg={switcherMsg}
+        />
+      )}
 
       {/* Konfetti */}
       {showConfetti && (
@@ -5151,12 +5333,6 @@ export default function LenormandApp() {
             style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             🐞 Fehler melden
           </a>
-          {isAdmin && (
-            <button onClick={() => setSwitcherOpen(true)}
-              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-              🔀 Accounts
-            </button>
-          )}
           {isGuest ? (
             <button onClick={() => setView("forum-login-noetig")}
               style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
@@ -5170,66 +5346,6 @@ export default function LenormandApp() {
           )}
         </div>
 
-        {switcherOpen && (
-          <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:20 }}
-            onClick={() => { setSwitcherOpen(false); setSwitcherAddOpen(false); setSwitcherMsg(""); }}>
-            <div onClick={e => e.stopPropagation()}
-              style={{ background:"#0f0a1a", border:"1px solid rgba(200,169,110,0.3)", borderRadius:12, padding:"22px 20px", maxWidth:380, width:"100%", maxHeight:"80vh", overflowY:"auto" }}>
-              <div style={{ fontSize:14, color:gold, marginBottom:4 }}>🔀 Account-Switcher</div>
-              <div style={{ fontSize:11, color:"#7a6040", marginBottom:16 }}>Nur für dich als Admin sichtbar — wechselt direkt ohne erneutes Einloggen.</div>
-
-              {(() => {
-                const accounts = getKnownAccounts();
-                const myEmail = getUserEmail();
-                if (accounts.length === 0) {
-                  return <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:14 }}>Noch keine weiteren Accounts gemerkt — logg dich einmal in einen Test-Account ein, dann erscheint er hier.</div>;
-                }
-                return accounts.sort((a,b) => b.lastUsed.localeCompare(a.lastUsed)).map(acc => (
-                  <div key={acc.email} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", marginBottom:6, background: acc.email===myEmail ? "rgba(200,169,110,0.1)" : "rgba(200,169,110,0.03)", border:`1px solid ${acc.email===myEmail?gold:"rgba(200,169,110,0.15)"}`, borderRadius:7 }}>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12, color: acc.email===myEmail ? gold : "#d4c4a0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{acc.email}</div>
-                      {acc.email===myEmail && <div style={{ fontSize:9, color:gold }}>● aktuell aktiv</div>}
-                    </div>
-                    {acc.email!==myEmail && (
-                      <button onClick={() => switchToAccount(acc)}
-                        style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"5px 12px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", flexShrink:0 }}>
-                        Wechseln
-                      </button>
-                    )}
-                    <button onClick={() => { forgetAccount(acc.email); setSwitcherOpen(false); setTimeout(() => setSwitcherOpen(true), 0); }}
-                      title="Aus der Liste entfernen (loggt nicht aus)"
-                      style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13, flexShrink:0 }}>✕</button>
-                  </div>
-                ));
-              })()}
-
-              {switcherAddOpen ? (
-                <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid rgba(200,169,110,0.15)" }}>
-                  <input type="email" placeholder="E-Mail" value={switcherEmail} onChange={e => setSwitcherEmail(e.target.value)}
-                    style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
-                  <input type="password" placeholder="Passwort" value={switcherPassword} onChange={e => setSwitcherPassword(e.target.value)}
-                    style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
-                  {switcherMsg && <div style={{ fontSize:11, color: switcherMsg.startsWith("✓") ? "#5a9a5a" : "#c87a6a", marginBottom:8 }}>{switcherMsg}</div>}
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={handleSwitcherAddAccount}
-                      style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                      Hinzufügen
-                    </button>
-                    <button onClick={() => { setSwitcherAddOpen(false); setSwitcherMsg(""); }}
-                      style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                      Abbrechen
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button onClick={() => setSwitcherAddOpen(true)}
-                  style={{ width:"100%", marginTop:14, background:"transparent", border:"1px dashed rgba(200,169,110,0.3)", color:"#9a8060", padding:"9px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                  + Account hinzufügen, ohne mich auszuloggen
-                </button>
-              )}
-            </div>
-          </div>
-        )}
         <div style={{ fontSize:9, color:"#2a1a08", letterSpacing:3, marginBottom:4 }}>
           ANNA BENOIR · LENORMAND MATRIX · 2014 · ALLE RECHTE VORBEHALTEN
         </div>
