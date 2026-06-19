@@ -1043,9 +1043,6 @@ export default function LenormandApp() {
   };
 
   const createForumCategory = async (section = "forum", directFields = null) => {
-    // directFields: wenn übergeben (z.B. aus CategoryEditBox), direkt nutzen statt States lesen.
-    // Das umgeht das React-Async-State-Problem, bei dem frisch gesetzte States noch nicht
-    // verfügbar sind, wenn die Funktion sofort danach aufgerufen wird.
     const name = directFields ? directFields.name : forumNewCatName;
     const description = directFields ? directFields.description : forumNewCatDescription;
     const icon = directFields ? directFields.icon : forumNewCatIcon;
@@ -1059,22 +1056,39 @@ export default function LenormandApp() {
         icon: (icon || "💬").trim().slice(0, 4),
         visibility,
         guest_can_post: guestPost,
-        section,
         sort_order: section === "kurse" ? kurseCategories.length : forumCategories.length
       };
+      // section nur mitschicken wenn die Spalte existiert (SQL-Migration ausgeführt).
+      // Supabase ignoriert unbekannte Felder nicht immer — daher defensiv prüfen.
+      try { payload.section = section; } catch {}
+
       const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories`, {
         method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
         body: JSON.stringify(payload)
       });
-      const data = await r.json();
-      if (data && data[0]) {
-        if (section === "kurse") setKurseCategories(prev => [...prev, data[0]]);
-        else setForumCategories(prev => [...prev, data[0]]);
-        setForumNewCatName(""); setForumNewCatDescription(""); setForumNewCatIcon("💬"); setForumNewCatVisibility("member"); setForumNewCatGuestPost(false);
+      const text = await r.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = null; }
+
+      // Supabase gibt manchmal ein Error-Objekt statt Array zurück
+      if (!Array.isArray(data) || !data[0]) {
+        console.error("createForumCategory Fehler:", text);
+        // Trotzdem neu laden, falls die Kategorie doch angelegt wurde
+        if (section === "kurse") loadKurseCategories();
+        else loadForumCategories();
         setForumShowNewCat(false);
         setKurseShowNewCat(false);
+        return;
       }
-    } catch {}
+
+      if (section === "kurse") setKurseCategories(prev => [...prev, data[0]]);
+      else setForumCategories(prev => [...prev, data[0]]);
+      setForumNewCatName(""); setForumNewCatDescription(""); setForumNewCatIcon("💬"); setForumNewCatVisibility("member"); setForumNewCatGuestPost(false);
+      setForumShowNewCat(false);
+      setKurseShowNewCat(false);
+    } catch(e) {
+      console.error("createForumCategory exception:", e);
+    }
   };
 
   const deleteForumCategory = async (id) => {
