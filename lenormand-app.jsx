@@ -75,17 +75,25 @@ const POSITION_LABELS = [
   "Warnung", "Signifikator", "Nahe Zukunft",
   "Wo es herkommt", "Unbewusste Zukunft", "Ergebnis und wann"
 ];
+// Gleiche Positionen wie POSITION_LABELS, aber mit der Dramaturgie-Bezeichnung erweitert
+// (genau wie über den Schreibfeldern im Writing-Bereich) — nur für das 3x3-Raster dort,
+// damit der echte Matrix-Bereich weiterhin die schlichten Lenormand-Begriffe zeigt.
+const WRITING_POSITION_LABELS = [
+  "Gedanken | Anfang", "IST-Situation | 1. Katastrophe", "Rat der Engel | 2. Katastrophe",
+  "Warnung | Katharsis", "Signifikator | Thema", "Nahe Zukunft | Mittelteil",
+  "Ursache | 3. Katastrophe", "Unbewusste Zukunft | Rückzug", "Ergebnis | Pay Off"
+];
 const KOMBI_POSITIONS = [1, 5, 7]; // positions that show combinations
 const MATRIX_FIELDS = ["gendanken", "ist_situation", "rat_der_engel", "warnung", "signifikator", "nahe_zukunft", "wo_es_herkommt", "unbewusste_zukunft", "ergebnis_und_wann"];
 const MATRIX_KEYS = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
 
 // Sprechende Bezeichnungen für die Felder einer Writing-Vorlage (für die Vorschau)
 const TEMPLATE_FIELD_LABELS = {
-  intro: "Intro", nachIntro: "Teaser",
+  intro: "Intro",
   "4": "Signifikator", "0": "Gedanken", "1": "IST-Situation", "2": "Rat der Engel",
   "5": "Nahe Zukunft", nachRatDerEngel: "Subplot",
   "6": "Ursache", "7": "Unbewusste Zukunft", "3": "Warnung", "8": "Ergebnis",
-  vorOutro: "Teaser-Auflösung", outro: "Outro"
+  outro: "Outro"
 };
 
 // Personen-spezifische Bezeichnungen für die Writing-Positionen, wenn writingMode === "personen" —
@@ -4239,7 +4247,7 @@ export default function LenormandApp() {
                         const isKombi = KOMBI_POSITIONS.includes(pos);
                         const isActive = activeWritingPos === pos || (activeWritingPos !== null && isSignifikator && [1,5,7].includes(activeWritingPos));
                         const fixedText = getInspirationText(pos, isKombi ? 4 : null, isKombi ? card : null);
-                        const posLabel = writingMode === "personen" ? (PERSONEN_POSITION_LABELS[String(pos)] || POSITION_LABELS[pos]) : POSITION_LABELS[pos];
+                        const posLabel = writingMode === "personen" ? (PERSONEN_POSITION_LABELS[String(pos)] || WRITING_POSITION_LABELS[pos]) : WRITING_POSITION_LABELS[pos];
                         return (
                           <div key={pos} style={{
                             background: isActive ? "rgba(200,169,110,0.12)" : isSignifikator ? "rgba(200,169,110,0.08)" : isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
@@ -4339,27 +4347,6 @@ export default function LenormandApp() {
                       </>)}
                     </div>
 
-                    {/* Freitext nach dem Intro */}
-                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div onClick={() => setCollapsedFields(c => ({...c, nachIntro: !c.nachIntro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
-                        <span style={{ fontSize:11 }}>💥</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Teaser</div>
-                        {(writingNotes["nachIntro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.nachIntro ? "▸" : "▾"}</span>
-                      </div>
-                      {!collapsedFields.nachIntro && (<>
-                        <AutoTextarea
-                          placeholder="…"
-                          value={writingNotes["nachIntro"] || ""}
-                          onChange={e => { const n = {...writingNotes, nachIntro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                          minRows={1}
-                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                        />
-                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["nachIntro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["nachIntro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
-                        </div>
-                      </>)}
-                    </div>
                     {[
                       {pos:4, icon:"📖", label:"Signifikator | Thema", comboWith: null},
                       {pos:0, icon:"💭", label:"Gedanken | Anfang", comboWith: null},
@@ -4556,28 +4543,6 @@ export default function LenormandApp() {
                       );
                     })}
 
-                    {/* Freitext vor dem Outro */}
-                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div onClick={() => setCollapsedFields(c => ({...c, vorOutro: !c.vorOutro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
-                        <span style={{ fontSize:11 }}>💥</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Teaser-Auflösung</div>
-                        {(writingNotes["vorOutro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.vorOutro ? "▸" : "▾"}</span>
-                      </div>
-                      {!collapsedFields.vorOutro && (<>
-                        <AutoTextarea
-                          placeholder="…"
-                          value={writingNotes["vorOutro"] || ""}
-                          onChange={e => { const n = {...writingNotes, vorOutro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                          minRows={1}
-                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                        />
-                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["vorOutro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["vorOutro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
-                        </div>
-                      </>)}
-                    </div>
-
                     {/* OUTRO */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
                       <div onClick={() => setCollapsedFields(c => ({...c, outro: !c.outro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
@@ -4644,7 +4609,7 @@ export default function LenormandApp() {
                           const cn = matrixCards[pos];
                           const ft = matrixFreeText[pos];
                           const isKombi = KOMBI_POSITIONS.includes(pos);
-                          const lbl = labelFor(pos, POSITION_LABELS[pos]);
+                          const lbl = labelFor(pos, WRITING_POSITION_LABELS[pos]);
                           const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
                           const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
                           return "<div class='cell" + (pos===4?" sig":"") + "'><div class='cell-lbl'>" + lbl + "</div><div class='cell-card'>" + cardLine + "</div>"
