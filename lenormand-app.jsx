@@ -3124,7 +3124,7 @@ export default function LenormandApp() {
                       <input type="checkbox" checked={forumNewCatGuestPost} onChange={e => setForumNewCatGuestPost(e.target.checked)} />
                       Gäste dürfen hier auch ohne Login schreiben (z.B. für Mitmach-Mittwoch)
                     </label>
-                    <button onClick={createForumCategory} style={{ width:"100%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Kategorie anlegen</button>
+                    <button onClick={() => createForumCategory("forum")} style={{ width:"100%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Kategorie anlegen</button>
                   </div>
                 )}
 
