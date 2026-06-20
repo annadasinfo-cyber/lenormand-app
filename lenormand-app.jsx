@@ -531,6 +531,50 @@ function AdminBar({ gold, displayName, myEmail, accounts, accountsLoading, onOpe
   );
 }
 
+// Zeigt eine gespeicherte Frage-Deutung (Situations- oder Personen-Matrix) als echtes
+// visuelles 3×3-Raster im Forum an — genau wie auf dem Bildschirm beim Deuten selbst,
+// statt nur als Fließtext. data kommt aus forum_posts.matrix_data (siehe shareFrageToForum).
+function ForumMatrixGrid({ data, gold }) {
+  if (!data || !Array.isArray(data.cells)) return null;
+  const isPersonen = data.mode === "personen";
+  return (
+    <div style={{ marginTop:12, marginBottom:8 }}>
+      {data.question && (
+        <div style={{ fontSize:11, color:"#9a8060", fontStyle:"italic", marginBottom:10 }}>✦ {data.question}</div>
+      )}
+      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
+        <span style={{ fontSize:16 }}>{data.sigSymbol}</span>
+        <span style={{ fontSize:12, color:gold }}>{data.sigName}</span>
+        <span style={{ fontSize:9, color:"#5a4a34" }}>· {isPersonen ? "Personen-Matrix" : "Situations-Matrix"}</span>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
+        {data.cells.map((c, pos) => (
+          <div key={pos} style={{
+            background: c.isSig ? "rgba(200,169,110,0.08)" : c.isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
+            border: `1px solid ${c.isSig ? gold : c.isKombi ? "rgba(200,169,110,0.2)" : "rgba(200,169,110,0.1)"}`,
+            borderRadius:7, padding:"8px 7px"
+          }}>
+            <div style={{ fontSize:8, letterSpacing:1, color: c.isKombi ? "rgba(212,184,120,0.8)" : "#8a7050", textTransform:"uppercase", marginBottom:4 }}>
+              {c.label}{c.isKombi ? " ✦" : ""}
+            </div>
+            {c.card && (
+              <div style={{ marginBottom:5, display:"flex", alignItems:"center", gap:3 }}>
+                <span style={{fontSize:12}}>{c.cardSymbol}</span>
+                <span style={{fontSize:7, color:gold}}>{c.cardName}</span>
+              </div>
+            )}
+            {c.text ? (
+              <div style={{ fontSize:11, color: c.isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{c.text}</div>
+            ) : (
+              <div style={{ fontSize:8, color:"#3a2a18", fontStyle:"italic" }}>–</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function LenormandApp() {
   const gold = "#c8a96e";
   const [view, setView] = useState(() => sessionStorage.getItem("lenni_view") || "liesmich");
@@ -1298,6 +1342,7 @@ export default function LenormandApp() {
       const kombiPos = isPersonen ? [] : [1,5,7];
 
       const lines = [];
+      const cells = []; // strukturiert für das visuelle Raster im Forum (matrix_data)
       for (let pos = 0; pos < 9; pos++) {
         const card = matrixCards[pos];
         const isSig = pos === 4;
@@ -1312,18 +1357,26 @@ export default function LenormandApp() {
           const src = isPersonen ? PERSON_MATRIX[String(card)] : MATRIX[String(card)];
           text = src ? src[activeKeys[pos]] : "";
         }
+        cells.push({
+          label: posLabels[pos], isSig, isKombi, text: text || "",
+          card: !!card, cardSymbol: card ? SYMBOLS[card] : "", cardName: card ? CARDS[card].name : ""
+        });
         if (!text) continue;
         const cardDisplay = card ? `${SYMBOLS[card]} ${CARDS[card].name}` : "";
         lines.push(`**${posLabels[pos]}**${cardDisplay ? ` (${cardDisplay})` : ""}: ${text}`);
       }
 
       const title = `${sigSymbol} ${cardName} · ${isPersonen ? "Personen-Matrix" : "Situations-Matrix"}${question ? ` — ${question}` : ""}`;
+      // body bleibt als reiner Text-Fallback erhalten (z.B. für Benachrichtigungen,
+      // Suche, oder falls matrix_data aus irgendeinem Grund fehlt) — die eigentliche
+      // Anzeige im Forum nutzt aber bevorzugt das visuelle Raster aus matrix_data.
       let body = question ? `✦ ${question}\n\n` : "";
       body += lines.join("\n\n");
+      const matrixData = { mode, question, sigSymbol, sigName: cardName, cells };
 
       const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
         method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
-        body: JSON.stringify({ category_id: cat.id, user_id: uid, display_name: userDisplayName || "Mitglied", title, body })
+        body: JSON.stringify({ category_id: cat.id, user_id: uid, display_name: userDisplayName || "Mitglied", title, body, matrix_data: matrixData })
       });
       const data = await r.json();
       if (data && data[0]) {
@@ -3793,7 +3846,11 @@ export default function LenormandApp() {
                       <ForumProfileTag userId={forumActivePost.user_id} displayName={forumActivePost.display_name} />
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:9, color:"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
-                        <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
+                        {forumActivePost.matrix_data ? (
+                          <ForumMatrixGrid data={forumActivePost.matrix_data} gold={gold} />
+                        ) : (
+                          <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
+                        )}
                         {(() => {
                           const sig = forumActivePost.user_id === getUserId()
                             ? userSignature
