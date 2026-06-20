@@ -951,7 +951,7 @@ export default function LenormandApp() {
   // Echte Forum-Statistik (alle Mitglieder, alle Beiträge inkl. Antworten, heute aktiv) —
   // wird zusammen mit den Kategorien in loadForumCategories() berechnet, damit dafür
   // keine zusätzlichen Requests nötig sind.
-  const [forumStats, setForumStats] = React.useState({ totalMembers: 0, totalPosts: 0, activeToday: 0 });
+  const [forumStats, setForumStats] = React.useState({ totalMembers: 0, totalPosts: 0, activeToday: 0, newToday: 0 });
   const [forumActivePost, setForumActivePost] = React.useState(null);
   const [forumReplies, setForumReplies] = React.useState([]);
   // Sortierung der Top-Level-Antworten: "neueste" (Standard) oder "beliebteste" (nach Likes).
@@ -1065,7 +1065,7 @@ export default function LenormandApp() {
       const [pr, rr, mr, lr, sr] = await Promise.all([
         fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=id,category_id,created_at,user_id`, {headers: dbHeaders()}),
         fetch(`${SUPABASE_URL}/rest/v1/forum_replies?select=user_id,created_at`, {headers: dbHeaders()}),
-        fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id`, {headers: dbHeaders()}),
+        fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,created_at`, {headers: dbHeaders()}),
         fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes?select=user_id,created_at`, {headers: dbHeaders()}),
         fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,last_seen`, {headers: dbHeaders()}),
       ]);
@@ -1140,10 +1140,12 @@ export default function LenormandApp() {
       if (Array.isArray(seenProfiles)) seenProfiles.forEach(p => { if (p.id && isRecent(p.last_seen)) activeUserIds.add(p.id); });
 
       const totalPosts = (Array.isArray(posts) ? posts.length : 0) + (Array.isArray(replies) ? replies.length : 0);
+      const newToday = Array.isArray(allProfiles) ? allProfiles.filter(p => isRecent(p.created_at)).length : 0;
       setForumStats({
         totalMembers: Array.isArray(allProfiles) ? allProfiles.length : 0,
         totalPosts,
-        activeToday: activeUserIds.size
+        activeToday: activeUserIds.size,
+        newToday
       });
     } catch {}
   };
@@ -2903,6 +2905,10 @@ export default function LenormandApp() {
         <div style={{ fontSize:18, color:gold }}>✨ {forumStats.activeToday.toLocaleString('de-DE')}</div>
         <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heute aktiv</div>
       </div>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:18, color:gold }}>🌱 {forumStats.newToday.toLocaleString('de-DE')}</div>
+        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heutige Neuanmeldungen</div>
+      </div>
     </div>
   );
 
@@ -3188,7 +3194,7 @@ export default function LenormandApp() {
           ))}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
-          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","💬 Forum"],["quiz","🎓 Quiz"]].map(([v,l]) => (
+          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","📙 Forum"],["quiz","🎓 Quiz"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
@@ -3700,7 +3706,7 @@ export default function LenormandApp() {
 
             {/* Untermenü */}
             <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-              {[["profil","👤 Profil"],["forum","💬 Forum"],["kurse","🎓 Kurse"],["shop","🛍️ Shop"]].map(([m,l]) => (
+              {[["profil","👤 Profil"],["forum","📙 Forum"],["kurse","🎓 Kurse"],["shop","🛍️ Shop"]].map(([m,l]) => (
                 <button key={m} onClick={() => { setCommunityMode(m); if (m === "forum") { setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); } }}
                   style={{ background:communityMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${communityMode===m?gold:"rgba(200,169,110,0.2)"}`, color:communityMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
                   {l}
