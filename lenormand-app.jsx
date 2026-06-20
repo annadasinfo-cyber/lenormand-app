@@ -382,10 +382,12 @@ function CategoryEditBox({ initialName, initialDescription, initialIcon, initial
 
 // Gleiches Prinzip wie die anderen Edit-Boxen — eigener lokaler State damit Fokus beim
 // Tippen stabil bleibt, unabhängig von Re-Renders der Hauptkomponente.
-function ProfileEditBox({ initialName, initialBio, initialSignature, saveStatus, onSave, onCancel, gold }) {
+function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirthdate, initialGender, saveStatus, onSave, onCancel, gold }) {
   const [name, setName] = useState(initialName);
   const [bio, setBio] = useState(initialBio);
   const [signature, setSignature] = useState(initialSignature);
+  const [birthdate, setBirthdate] = useState(initialBirthdate || "");
+  const [gender, setGender] = useState(initialGender || "");
   return (
     <div>
       <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 18px" }}>
@@ -397,12 +399,28 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, saveStatus,
       <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Über mich</div>
       <textarea value={bio} onChange={e => setBio(e.target.value)} rows={4} placeholder="Erzähl ein bisschen über dich…"
         style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+      <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Geburtsdatum <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(optional)</span></div>
+          <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)}
+            style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }} />
+        </div>
+      </div>
+      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Geschlecht <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(optional)</span></div>
+      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
+        {[["weiblich","weiblich"],["männlich","männlich"],["sag ich nicht","sag ich nicht"]].map(([v,l]) => (
+          <button key={v} onClick={() => setGender(g => g === v ? "" : v)}
+            style={{ flex:1, background:gender===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${gender===v?gold:"rgba(200,169,110,0.2)"}`, color:gender===v?gold:"#7a6040", padding:"7px 6px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+            {l}
+          </button>
+        ))}
+      </div>
       <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Signatur <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(erscheint unter deinen Beiträgen &amp; Antworten)</span></div>
-      <input type="text" value={signature} onChange={e => setSignature(e.target.value)} maxLength={120} placeholder="z.B. ✨ Die Karten lügen nie — nur wir manchmal."
+      <input type="text" value={signature} onChange={e => setSignature(e.target.value)} maxLength={120} placeholder="z.B. wer Mut hat selbst zu denken, hat auch Freiheit, selbst zu handeln"
         style={{ width:"100%", padding:"9px 12px", marginBottom:4, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", fontStyle:"italic" }} />
       <div style={{ fontSize:9, color:"#5a4a34", marginBottom:18, textAlign:"right" }}>{signature.length}/120</div>
       <div style={{ display:"flex", gap:8 }}>
-        <button onClick={() => onSave({ name, bio, signature })} disabled={saveStatus==="saving"}
+        <button onClick={() => onSave({ name, bio, signature, birthdate, gender })} disabled={saveStatus==="saving"}
           style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"9px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", opacity: saveStatus==="saving" ? 0.6 : 1 }}>
           {saveStatus==="saving" ? "Speichert…" : "Speichern"}
         </button>
@@ -867,6 +885,8 @@ export default function LenormandApp() {
   const [userDisplayName, setUserDisplayName] = React.useState("");
   const [userBio, setUserBio] = React.useState("");
   const [userSignature, setUserSignature] = React.useState("");
+  const [userBirthdate, setUserBirthdate] = React.useState("");
+  const [userGender, setUserGender] = React.useState("");
   const [proTrialDaysLeft, setProTrialDaysLeft] = React.useState(null);
   const [profileEditing, setProfileEditing] = React.useState(false);
   const [profileSaveStatus, setProfileSaveStatus] = React.useState("");
@@ -937,15 +957,17 @@ export default function LenormandApp() {
   React.useEffect(() => {
     const loadRole = async () => {
       const uid = getUserId();
-      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setUserSignature(""); setProTrialDaysLeft(null); return; }
+      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setUserSignature(""); setUserBirthdate(""); setUserGender(""); setProTrialDaysLeft(null); return; }
       try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio,signature,pro_trial_until`, {headers: dbHeaders()});
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio,signature,birthdate,gender,pro_trial_until`, {headers: dbHeaders()});
         const data = await r.json();
         const profile = (data && data[0]) || {};
         let role = profile.role || "member";
         setUserDisplayName(profile.display_name || "");
         setUserBio(profile.bio || "");
         setUserSignature(profile.signature || "");
+        setUserBirthdate(profile.birthdate || "");
+        setUserGender(profile.gender || "");
 
         if (profile.pro_trial_until) {
           const msLeft = new Date(profile.pro_trial_until).getTime() - Date.now();
@@ -1482,11 +1504,16 @@ export default function LenormandApp() {
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`, {
         method: "PATCH", headers: dbHeaders(),
-        body: JSON.stringify({ display_name: fields.name.trim(), bio: fields.bio.trim(), signature: fields.signature.trim() })
+        body: JSON.stringify({
+          display_name: fields.name.trim(), bio: fields.bio.trim(), signature: fields.signature.trim(),
+          birthdate: fields.birthdate || null, gender: fields.gender || null
+        })
       });
       setUserDisplayName(fields.name.trim());
       setUserBio(fields.bio.trim());
       setUserSignature(fields.signature.trim());
+      setUserBirthdate(fields.birthdate || "");
+      setUserGender(fields.gender || "");
       setProfileEditing(false);
       setProfileSaveStatus("saved");
       setTimeout(() => setProfileSaveStatus(""), 2000);
@@ -3454,6 +3481,8 @@ export default function LenormandApp() {
                     initialName={userDisplayName}
                     initialBio={userBio}
                     initialSignature={userSignature}
+                    initialBirthdate={userBirthdate}
+                    initialGender={userGender}
                     saveStatus={profileSaveStatus}
                     onSave={saveProfile}
                     onCancel={() => setProfileEditing(false)}
