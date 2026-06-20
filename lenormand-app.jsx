@@ -948,6 +948,10 @@ export default function LenormandApp() {
   const [forumReadPostIds, setForumReadPostIds] = React.useState(new Set());
   // Pro user_id: { role, createdAt, postCount } — für die kleine Profilkarte vor jedem Beitrag
   const [forumProfiles, setForumProfiles] = React.useState({});
+  // Echte Forum-Statistik (alle Mitglieder, alle Beiträge inkl. Antworten, heute aktiv) —
+  // wird zusammen mit den Kategorien in loadForumCategories() berechnet, damit dafür
+  // keine zusätzlichen Requests nötig sind.
+  const [forumStats, setForumStats] = React.useState({ totalMembers: 0, totalPosts: 0, activeToday: 0 });
   const [forumActivePost, setForumActivePost] = React.useState(null);
   const [forumReplies, setForumReplies] = React.useState([]);
   // Sortierung der Top-Level-Antworten: "neueste" (Standard) oder "beliebteste" (nach Likes).
@@ -1013,6 +1017,14 @@ export default function LenormandApp() {
         setUserBirthdate(profile.birthdate || "");
         setUserGender(profile.gender || "");
 
+        // Eigenes last_seen aktualisieren — läuft im Hintergrund, blockiert nichts in der UI.
+        // Grundlage für die "Heute aktiv"-Statistik im Forum (zählt auch reines Einloggen,
+        // nicht nur Beiträge/Antworten/Likes).
+        fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`, {
+          method: "PATCH", headers: {...dbHeaders(), "Prefer": "return=minimal"},
+          body: JSON.stringify({ last_seen: new Date().toISOString() })
+        }).catch(() => {});
+
         if (profile.pro_trial_until) {
           const msLeft = new Date(profile.pro_trial_until).getTime() - Date.now();
           if (msLeft <= 0) {
@@ -1047,12 +1059,18 @@ export default function LenormandApp() {
       // Schlanke Liste aller Posts holen (id + category_id + created_at + Ersteller), um pro
       // Kategorie Anzahl, letzte Aktivität UND ob es ungelesene Beiträge gibt zu berechnen,
       // ohne für jede Kategorie einen eigenen Request zu brauchen.
-      const [pr, rr] = await Promise.all([
+      const [pr, rr, mr, lr, sr] = await Promise.all([
         fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=id,category_id,created_at,user_id`, {headers: dbHeaders()}),
-        fetch(`${SUPABASE_URL}/rest/v1/forum_replies?select=user_id`, {headers: dbHeaders()}),
+        fetch(`${SUPABASE_URL}/rest/v1/forum_replies?select=user_id,created_at`, {headers: dbHeaders()}),
+        fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id`, {headers: dbHeaders()}),
+        fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes?select=user_id,created_at`, {headers: dbHeaders()}),
+        fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,last_seen`, {headers: dbHeaders()}),
       ]);
       const posts = await pr.json();
       const replies = await rr.json();
+      const allProfiles = await mr.json();
+      const likes = await lr.json();
+      const seenProfiles = await sr.json();
       const statsByCategory = {};
       const myUid = getUserId();
       const postCountByUser = {};
@@ -1106,6 +1124,24 @@ export default function LenormandApp() {
         return b.lastActivity.localeCompare(a.lastActivity);
       });
       setForumCategories(enriched);
+
+      // Echte Statistik für die Zeile unter dem Forum: alle Mitglieder, alle Beiträge
+      // (inkl. Antworten), und wer heute aktiv war — Beitrag, Antwort, Like ODER einfach
+      // nur eingeloggt gewesen (last_seen), je nachdem was zuerst zutrifft.
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      const activeUserIds = new Set();
+      const isRecent = (iso) => iso && new Date(iso).getTime() >= cutoff;
+      if (Array.isArray(posts)) posts.forEach(p => { if (p.user_id && isRecent(p.created_at)) activeUserIds.add(p.user_id); });
+      if (Array.isArray(replies)) replies.forEach(r => { if (r.user_id && isRecent(r.created_at)) activeUserIds.add(r.user_id); });
+      if (Array.isArray(likes)) likes.forEach(l => { if (l.user_id && isRecent(l.created_at)) activeUserIds.add(l.user_id); });
+      if (Array.isArray(seenProfiles)) seenProfiles.forEach(p => { if (p.id && isRecent(p.last_seen)) activeUserIds.add(p.id); });
+
+      const totalPosts = (Array.isArray(posts) ? posts.length : 0) + (Array.isArray(replies) ? replies.length : 0);
+      setForumStats({
+        totalMembers: Array.isArray(allProfiles) ? allProfiles.length : 0,
+        totalPosts,
+        activeToday: activeUserIds.size
+      });
     } catch {}
   };
 
@@ -2783,6 +2819,27 @@ export default function LenormandApp() {
     return "Mitglied";
   };
 
+  // Wiederverwendbare Statistik-Zeile (alle Mitglieder, alle Beiträge inkl. Antworten,
+  // heute aktiv) — wird auf jeder Forum-Unterseite unten eingebunden, nicht nur in der
+  // Kategorien-Übersicht. Greift auf den forumStats-State zu, der in loadForumCategories()
+  // berechnet wird.
+  const ForumStatsBar = () => (
+    <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:24, paddingTop:16, borderTop:"1px solid rgba(200,169,110,0.12)", flexWrap:"wrap" }}>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:18, color:gold }}>🌙 {forumStats.totalMembers.toLocaleString('de-DE')}</div>
+        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Mitglieder</div>
+      </div>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:18, color:gold }}>💬 {forumStats.totalPosts.toLocaleString('de-DE')}</div>
+        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Beiträge</div>
+      </div>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:18, color:gold }}>✨ {forumStats.activeToday.toLocaleString('de-DE')}</div>
+        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heute aktiv</div>
+      </div>
+    </div>
+  );
+
   // Kleine Profilkarte vor jedem Beitrag/jeder Antwort: Name, Rolle, Rang, Mitglied seit.
   // Schmale linke Profil-Spalte (Avatar-Platzhalter mit Initiale, Name, Rolle, Rang,
   // Mitglied seit) — wird neben den Beitragstext gesetzt, wie in einem klassischen Forum.
@@ -3619,6 +3676,7 @@ export default function LenormandApp() {
                     gold={gold}
                   />
                 )}
+                {!profileEditing && <ForumStatsBar />}
               </div>
             )}
 
@@ -3729,21 +3787,8 @@ export default function LenormandApp() {
                   );
                 })}
 
-                {/* Statistik-Zeile — Fake-Zahlen als Platzhalter, echte Zählung folgt später */}
-                <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:24, paddingTop:16, borderTop:"1px solid rgba(200,169,110,0.12)", flexWrap:"wrap" }}>
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:18, color:gold }}>🌙 1.260</div>
-                    <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Mitglieder</div>
-                  </div>
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:18, color:gold }}>✨ 63</div>
-                    <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heute online</div>
-                  </div>
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ fontSize:18, color:gold }}>🏆 752</div>
-                    <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Highscore</div>
-                  </div>
-                </div>
+                {/* Echte Forum-Statistik (siehe loadForumCategories) statt Fake-Zahlen */}
+                <ForumStatsBar />
               </div>
             )}
 
@@ -3787,6 +3832,7 @@ export default function LenormandApp() {
                   </div>
                   );
                 })}
+                <ForumStatsBar />
               </div>
             )}
 
@@ -3923,6 +3969,7 @@ export default function LenormandApp() {
                     style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                   <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { createForumReply(); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
                 </div>
+                <ForumStatsBar />
               </div>
             )}
             </>)}
@@ -4113,10 +4160,17 @@ export default function LenormandApp() {
                   <div style={{ fontSize:16, color:gold, marginBottom:6 }}>Wo möchtest du ankommen?</div>
                   <div style={{ fontSize:12, color:"#7a6040" }}>Drei Wege durch Lenormandia — such dir aus, wie tief du eintauchen willst.</div>
                 </div>
-                <div style={{ display:"flex", flexDirection:"column", gap:14, maxWidth:420, margin:"0 auto" }}>
+                <style>{`
+                  .shop-tiers { display: flex; flex-direction: column; gap: 14px; max-width: 420px; margin: 0 auto; }
+                  @media (min-width: 880px) {
+                    .shop-tiers { flex-direction: row; align-items: stretch; max-width: 980px; gap: 18px; }
+                    .shop-tier { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+                  }
+                `}</style>
+                <div className="shop-tiers">
 
                   {/* GAST */}
-                  <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:12, padding:"20px 22px" }}>
+                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:12, padding:"20px 22px" }}>
                     <div style={{ fontSize:14, color:"#9a8060", marginBottom:2 }}>🌙 Gast</div>
                     <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14, fontStyle:"italic" }}>Steck einfach mal die Nase rein</div>
                     {["Willkommensseite & erster Einblick", "Eine Frage stellen, als kleiner Vorgeschmack", "Beim Mitmach-Mittwoch im Forum mitlesen"].map((f,i) => (
@@ -4125,28 +4179,32 @@ export default function LenormandApp() {
                   </div>
 
                   {/* MITGLIED */}
-                  <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:12, padding:"20px 22px" }}>
+                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:12, padding:"20px 22px" }}>
                     <div style={{ fontSize:14, color:gold, marginBottom:2 }}>🦉 Mitglied</div>
                     <div style={{ fontSize:11, color:"#7a6040", marginBottom:14, fontStyle:"italic" }}>Kostenlos dabei sein, mitfühlen, mitwachsen</div>
                     {["Alles aus Gast, und ein eigener Platz am Tisch", "Im Forum selbst schreiben & mitreden", "Tageskarten mit eigenem Tagebuch", "Spielerisch die Karten lernen im Quiz", "Eigenes Profil mit Rang & Signatur"].map((f,i) => (
                       <div key={i} style={{ fontSize:12, color:"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
                     ))}
                     <a href="https://www.annabenoir.de/_paylink/AZ7k4iP9" target="_blank" rel="noopener noreferrer"
-                      style={{ display:"block", textAlign:"center", marginTop:14, background:"transparent", border:"1px solid rgba(200,169,110,0.3)", color:"#9a8060", padding:"8px", borderRadius:7, textDecoration:"none", fontSize:11, letterSpacing:0.5 }}>
-                      ☕ Magst du Anna ein Käffchen spendieren?
+                      style={{ display:"block", textAlign:"center", marginTop:"auto", paddingTop:14 }}>
+                      <span style={{ display:"block", background:"transparent", border:"1px solid rgba(200,169,110,0.3)", color:"#9a8060", padding:"8px", borderRadius:7, fontSize:11, letterSpacing:0.5 }}>
+                        ☕ Magst du Anna ein Käffchen spendieren?
+                      </span>
                     </a>
                   </div>
 
                   {/* V.I.P. */}
-                  <div style={{ background:"rgba(200,169,110,0.09)", border:`1.5px solid ${gold}`, borderRadius:12, padding:"20px 22px", boxShadow:"0 0 20px rgba(200,169,110,0.12)" }}>
+                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.09)", border:`1.5px solid ${gold}`, borderRadius:12, padding:"20px 22px", boxShadow:"0 0 20px rgba(200,169,110,0.12)" }}>
                     <div style={{ fontSize:14, color:gold, marginBottom:2 }}>✨ V.I.P.</div>
                     <div style={{ fontSize:11, color:"#9a7a40", marginBottom:14, fontStyle:"italic" }}>Einmalig 85 € — und Lenormandia gehört für immer auch dir</div>
                     {["Alles aus Mitglied, und der ganze Schatz dazu", "Alle Kombinationen & alle 36 Karten im Detail", "Situations- & Personen-Matrix vollständig", "Zauberzettel & Writing-Werkzeug", "Kurse-Bereich mit allen Lektionen", "Vorrangige Beantwortung deiner Fragen durch Anna Benoir oder geprüfte Berater"].map((f,i) => (
                       <div key={i} style={{ fontSize:12, color:"#e0d0a8", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
                     ))}
                     <a href="https://www.annabenoir.de/_paylink/AZ7k5c0S" target="_blank" rel="noopener noreferrer"
-                      style={{ display:"block", textAlign:"center", marginTop:16, background:"rgba(200,169,110,0.18)", border:`1px solid ${gold}`, color:gold, padding:"10px", borderRadius:7, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
-                      Jetzt V.I.P. werden →
+                      style={{ display:"block", textAlign:"center", marginTop:"auto", paddingTop:16, textDecoration:"none" }}>
+                      <span style={{ display:"block", background:"rgba(200,169,110,0.18)", border:`1px solid ${gold}`, color:gold, padding:"10px", borderRadius:7, fontSize:13, letterSpacing:1 }}>
+                        Jetzt V.I.P. werden →
+                      </span>
                     </a>
                   </div>
 
