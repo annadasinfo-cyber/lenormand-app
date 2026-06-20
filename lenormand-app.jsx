@@ -2653,7 +2653,8 @@ export default function LenormandApp() {
   const forumRoleLabel = (role) => {
     if (role === "admin") return "Admin";
     if (role === "mod") return "Moderator";
-    if (role === "pro") return "Pro-Mitglied";
+    if (role === "pro_full") return "V.I.P.";
+    if (role === "pro") return "Pro";
     return "Mitglied";
   };
 
