@@ -2830,7 +2830,7 @@ export default function LenormandApp() {
         <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Mitglieder</div>
       </div>
       <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:18, color:gold }}>💬 {forumStats.totalPosts.toLocaleString('de-DE')}</div>
+        <div style={{ fontSize:18, color:gold }}>📔 {forumStats.totalPosts.toLocaleString('de-DE')}</div>
         <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Beiträge</div>
       </div>
       <div style={{ textAlign:"center" }}>
@@ -3629,9 +3629,6 @@ export default function LenormandApp() {
 
         {view === "forum" && !viewedProfileId && (
           <div style={{ maxWidth:700, margin:"0 auto" }}>
-            <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>💬 Forum</div>
-            </div>
 
             {/* Untermenü */}
             <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
