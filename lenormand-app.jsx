@@ -1268,6 +1268,74 @@ export default function LenormandApp() {
     } catch { setShareTageskarteStatus("error"); }
   };
 
+  // Teilt die aktuell angezeigte Frage-Deutung (Situations- oder Personen-Matrix) als
+  // Beitrag in der "Fragen & Deutungen"-Kategorie — fasst alle 9 Felder mit Text
+  // zusammen, genau wie es die Druckfunktion daneben auch tut.
+  const shareFrageToForum = async () => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    if (!signifikator) return;
+    setShareFrageStatus("sharing");
+    try {
+      let cat = forumCategories.find(c => c.name === "Fragen & Deutungen");
+      if (!cat) {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?name=eq.Fragen%20%26%20Deutungen&section=eq.forum`, {headers: dbHeaders()});
+        const data = await r.json();
+        cat = data && data[0];
+      }
+      if (!cat) { setShareFrageStatus("error"); return; }
+
+      const sig = signifikator;
+      const cardName = CARDS[sig].name;
+      const sigSymbol = SYMBOLS[sig];
+      const isPersonen = mode === "personen";
+      const posLabels = isPersonen
+        ? ["Sternzeichen","Haarfarbe","Charakter","Figur","Signifikator","Beruf/Berufung","Größe","Alter","Woher"]
+        : ["Gedanken","Ist-Situation","Rat der Engel","Warnung","Signifikator","Nahe Zukunft","Wo es herkommt","Unbewusste Zukunft","Ergebnis und wann"];
+      const sitKeys = ["gendanken",null,"rat_der_engel","warnung",null,null,"wo_es_herkommt",null,"ergebnis_und_wann"];
+      const perKeys = ["sternzeichen","haarfarbe","charakter","figur",null,"beruf","groesse","alter","woher"];
+      const activeKeys = isPersonen ? perKeys : sitKeys;
+      const kombiPos = isPersonen ? [] : [1,5,7];
+
+      const lines = [];
+      for (let pos = 0; pos < 9; pos++) {
+        const card = matrixCards[pos];
+        const isSig = pos === 4;
+        const isKombi = kombiPos.includes(pos);
+        let text = "";
+        if (isSig) {
+          text = isPersonen ? (PERSON_MATRIX[String(sig)]?.signifikator || CARDS[sig].kw) : CARDS[sig].kw;
+        } else if (isKombi && card) {
+          const lo = Math.min(sig, card), hi = Math.max(sig, card);
+          text = COMBOS[lo+"-"+hi] || "";
+        } else if (activeKeys[pos] && card) {
+          const src = isPersonen ? PERSON_MATRIX[String(card)] : MATRIX[String(card)];
+          text = src ? src[activeKeys[pos]] : "";
+        }
+        if (!text) continue;
+        const cardDisplay = card ? `${SYMBOLS[card]} ${CARDS[card].name}` : "";
+        lines.push(`**${posLabels[pos]}**${cardDisplay ? ` (${cardDisplay})` : ""}: ${text}`);
+      }
+
+      const title = `${sigSymbol} ${cardName} · ${isPersonen ? "Personen-Matrix" : "Situations-Matrix"}${question ? ` — ${question}` : ""}`;
+      let body = question ? `✦ ${question}\n\n` : "";
+      body += lines.join("\n\n");
+
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
+        body: JSON.stringify({ category_id: cat.id, user_id: uid, display_name: userDisplayName || "Mitglied", title, body })
+      });
+      const data = await r.json();
+      if (data && data[0]) {
+        setShareFrageStatus("done");
+        loadForumCategories();
+        setTimeout(() => setShareFrageStatus(""), 1500);
+      } else {
+        setShareFrageStatus("error");
+      }
+    } catch { setShareFrageStatus("error"); }
+  };
+
   const createForumPost = async () => {
     setForumError("");
     if (!forumNewTitle.trim() || !forumNewBody.trim()) { setForumError("Bitte Titel und Text ausfüllen."); return; }
@@ -2082,6 +2150,10 @@ export default function LenormandApp() {
   const [shareTageskarteOpen, setShareTageskarteOpen] = React.useState(false);
   const [shareTageskarteIncludeNotes, setShareTageskarteIncludeNotes] = React.useState(false);
   const [shareTageskarteStatus, setShareTageskarteStatus] = React.useState(""); // "" | "sharing" | "done" | "error"
+  // Teilen der Frage-Deutung (Situations-/Personen-Matrix) im Forum — kein extra Dialog
+  // nötig, da hier (anders als bei Tageskarten) keine separaten Notizfelder existieren,
+  // die man optional ein-/ausschließen könnte.
+  const [shareFrageStatus, setShareFrageStatus] = React.useState(""); // "" | "sharing" | "done" | "error"
   const todayKey = getTodayKey();
   // Navigation: welcher Tag wird gerade angezeigt? Standard: heute.
   const [selectedDateKey, setSelectedDateKey] = React.useState(todayKey);
@@ -3355,6 +3427,10 @@ export default function LenormandApp() {
                   w.document.write(html);
                   w.document.close();
                 }} style={{ background:"rgba(200,169,110,0.1)", border:`1px solid rgba(200,169,110,0.3)`, color:gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>🖨 Drucken</button>
+                <button onClick={shareFrageToForum} disabled={shareFrageStatus==="sharing"}
+                  style={{ background:"rgba(200,169,110,0.1)", border:`1px solid rgba(200,169,110,0.3)`, color: shareFrageStatus==="done" ? "#5a9a5a" : gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif", opacity: shareFrageStatus==="sharing"?0.6:1 }}>
+                  {shareFrageStatus==="sharing" ? "Teilt…" : shareFrageStatus==="done" ? "✓ Geteilt" : shareFrageStatus==="error" ? "✕ Fehler" : "💬 Im Forum teilen"}
+                </button>
                 <button onClick={reset} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Neu</button>
               </div>
             </div>
