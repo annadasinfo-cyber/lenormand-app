@@ -539,10 +539,15 @@ export default function LenormandApp() {
 
   // Direkter Link zur Community/Forum-Seite, z.B. für die YouTube-Videobeschreibung:
   // https://lenormand-app-tau.vercel.app/#community
+  // Direkter Link zu EINEM bestimmten Beitrag, z.B. für eine Mitmach-Mittwoch-Antwort:
+  // https://lenormand-app-tau.vercel.app/#post-<beitrags-id>
   React.useEffect(() => {
-    if (window.location.hash === "#community") {
+    const hash = window.location.hash;
+    if (hash === "#community") {
       setView("forum");
       setForumView("liste");
+    } else if (hash.startsWith("#post-")) {
+      loadAndOpenPostById(hash.slice("#post-".length));
     }
   }, []);
 
@@ -904,6 +909,9 @@ export default function LenormandApp() {
   // lebt lokal in InlineEditBox/InlinePostEditBox, nicht hier (siehe deren Definition oben
   // für die Begründung: stabiler Fokus beim Tippen).
   const [forumEditingPostId, setForumEditingPostId] = React.useState(null);
+  // Kurzes "✓ kopiert"-Feedback nach Klick auf den Link-Button — zeigt die ID des
+  // Beitrags, dessen Link gerade kopiert wurde, für ein paar Sekunden.
+  const [linkCopiedPostId, setLinkCopiedPostId] = React.useState(null);
   const [forumEditingReplyId, setForumEditingReplyId] = React.useState(null);
   // Wenn gesetzt: zeigt die öffentliche Profilkarte dieser Person (statt der normalen
   // Forum-Ansicht). Enthält absichtlich keine E-Mail — die bleibt privat.
@@ -1174,6 +1182,25 @@ export default function LenormandApp() {
     setForumView("post");
     loadForumReplies(post.id);
     markForumPostRead(post.id);
+  };
+
+  // Lädt einen Beitrag direkt anhand seiner ID und öffnet ihn — für Permalinks
+  // (z.B. #post-xyz aus einem geteilten Link), unabhängig davon ob die Kategorie
+  // schon geladen wurde. Falls der Beitrag nicht (mehr) existiert oder nicht
+  // zugänglich ist, landet man einfach in der normalen Forum-Übersicht.
+  const loadAndOpenPostById = async (postId) => {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${postId}`, {headers: dbHeaders()});
+      const data = await r.json();
+      const post = data && data[0];
+      if (!post) { setView("forum"); setForumView("liste"); return; }
+      const cat = forumCategories.find(c => c.id === post.category_id);
+      setView("forum");
+      setForumActiveCategory(cat || {id: post.category_id});
+      openForumPost(post);
+    } catch {
+      setView("forum"); setForumView("liste");
+    }
   };
 
   // Teilt die aktuell angezeigte Tageskarte als Beitrag in der "Tageskarten"-Kategorie.
@@ -3637,6 +3664,17 @@ export default function LenormandApp() {
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                       <div style={{ fontSize:15, color:gold, marginBottom:6 }}>{forumActivePost.title}</div>
                       <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                        <button onClick={() => {
+                            const url = `${window.location.origin}${window.location.pathname}#post-${forumActivePost.id}`;
+                            navigator.clipboard.writeText(url).then(() => {
+                              setLinkCopiedPostId(forumActivePost.id);
+                              setTimeout(() => setLinkCopiedPostId(null), 2000);
+                            });
+                          }}
+                          title="Link zu diesem Beitrag kopieren"
+                          style={{ background:"transparent", border:"none", color: linkCopiedPostId===forumActivePost.id ? "#5a9a5a" : "#9a8060", cursor:"pointer", fontSize:12 }}>
+                          {linkCopiedPostId===forumActivePost.id ? "✓ kopiert" : "🔗"}
+                        </button>
                         {forumCanEdit(forumActivePost, forumActivePost.user_id) && (
                           <button onClick={() => startEditForumPost(forumActivePost)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
                         )}
