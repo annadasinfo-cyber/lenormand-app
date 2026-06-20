@@ -4106,10 +4106,54 @@ export default function LenormandApp() {
               </>)}
             </>)}
 
-            {/* SHOP — folgt später */}
+            {/* SHOP — Preisübersicht */}
             {communityMode === "shop" && (
-              <div style={{ textAlign:"center", padding:"30px 0", color:"#7a6040", fontSize:13 }}>
-                Der Shop für eBooks und Downloads kommt hier bald hinzu.
+              <div>
+                <div style={{ textAlign:"center", marginBottom:24 }}>
+                  <div style={{ fontSize:16, color:gold, marginBottom:6 }}>Wo möchtest du ankommen?</div>
+                  <div style={{ fontSize:12, color:"#7a6040" }}>Drei Wege durch Lenormandia — such dir aus, wie tief du eintauchen willst.</div>
+                </div>
+                <div style={{ display:"flex", flexDirection:"column", gap:14, maxWidth:420, margin:"0 auto" }}>
+
+                  {/* GAST */}
+                  <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:12, padding:"20px 22px" }}>
+                    <div style={{ fontSize:14, color:"#9a8060", marginBottom:2 }}>🌙 Gast</div>
+                    <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14, fontStyle:"italic" }}>Steck einfach mal die Nase rein</div>
+                    {["Willkommensseite & erster Einblick", "Eine Frage stellen, als kleiner Vorgeschmack", "Beim Mitmach-Mittwoch im Forum mitlesen"].map((f,i) => (
+                      <div key={i} style={{ fontSize:12, color:"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
+                    ))}
+                  </div>
+
+                  {/* MITGLIED */}
+                  <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:12, padding:"20px 22px" }}>
+                    <div style={{ fontSize:14, color:gold, marginBottom:2 }}>🦉 Mitglied</div>
+                    <div style={{ fontSize:11, color:"#7a6040", marginBottom:14, fontStyle:"italic" }}>Kostenlos dabei sein, mitfühlen, mitwachsen</div>
+                    {["Alles aus Gast, und ein eigener Platz am Tisch", "Im Forum selbst schreiben & mitreden", "Tageskarten mit eigenem Tagebuch", "Spielerisch die Karten lernen im Quiz", "Eigenes Profil mit Rang & Signatur"].map((f,i) => (
+                      <div key={i} style={{ fontSize:12, color:"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
+                    ))}
+                    <a href="https://www.annabenoir.de/_paylink/AZ7k4iP9" target="_blank" rel="noopener noreferrer"
+                      style={{ display:"block", textAlign:"center", marginTop:14, background:"transparent", border:"1px solid rgba(200,169,110,0.3)", color:"#9a8060", padding:"8px", borderRadius:7, textDecoration:"none", fontSize:11, letterSpacing:0.5 }}>
+                      ☕ Magst du Anna ein Käffchen spendieren?
+                    </a>
+                  </div>
+
+                  {/* V.I.P. */}
+                  <div style={{ background:"rgba(200,169,110,0.09)", border:`1.5px solid ${gold}`, borderRadius:12, padding:"20px 22px", boxShadow:"0 0 20px rgba(200,169,110,0.12)" }}>
+                    <div style={{ fontSize:14, color:gold, marginBottom:2 }}>✨ V.I.P.</div>
+                    <div style={{ fontSize:11, color:"#9a7a40", marginBottom:14, fontStyle:"italic" }}>Einmalig 85 € — und Lenormandia gehört für immer auch dir</div>
+                    {["Alles aus Mitglied, und der ganze Schatz dazu", "Alle Kombinationen & alle 36 Karten im Detail", "Situations- & Personen-Matrix vollständig", "Zauberzettel & Writing-Werkzeug", "Kurse-Bereich mit allen Lektionen", "Vorrangige Beantwortung deiner Fragen durch Anna Benoir oder geprüfte Berater"].map((f,i) => (
+                      <div key={i} style={{ fontSize:12, color:"#e0d0a8", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
+                    ))}
+                    <a href="https://www.annabenoir.de/_paylink/AZ7k5c0S" target="_blank" rel="noopener noreferrer"
+                      style={{ display:"block", textAlign:"center", marginTop:16, background:"rgba(200,169,110,0.18)", border:`1px solid ${gold}`, color:gold, padding:"10px", borderRadius:7, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
+                      Jetzt V.I.P. werden →
+                    </a>
+                  </div>
+
+                </div>
+                <div style={{ textAlign:"center", fontSize:10, color:"#5a4a34", marginTop:18, fontStyle:"italic" }}>
+                  Zum Vergleich: der Preis einer einzelnen Beratung — dafür bist du für immer dabei.
+                </div>
               </div>
             )}
           </div>
