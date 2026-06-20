@@ -966,6 +966,9 @@ export default function LenormandApp() {
   const [forumMyLikes, setForumMyLikes] = React.useState({});
   // replyId -> Anzahl Likes
   const [forumLikeCounts, setForumLikeCounts] = React.useState({});
+  // Gleiches Prinzip wie bei Antworten, nur für den Beitrag selbst (forum_post_likes)
+  const [forumMyPostLike, setForumMyPostLike] = React.useState(false);
+  const [forumPostLikeCount, setForumPostLikeCount] = React.useState(0);
   const [forumNewTitle, setForumNewTitle] = React.useState("");
   const [forumNewBody, setForumNewBody] = React.useState("");
   const [forumNewName, setForumNewName] = React.useState(""); // Anzeigename für Gäste
@@ -1097,12 +1100,12 @@ export default function LenormandApp() {
       const userIds = Object.keys(postCountByUser);
       if (userIds.length > 0) {
         try {
-          const prf = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=in.(${userIds.join(",")})&select=id,role,created_at,bio,display_name,signature`, {headers: dbHeaders()});
+          const prf = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=in.(${userIds.join(",")})&select=id,role,created_at,bio,display_name,signature,birthdate`, {headers: dbHeaders()});
           const profilesData = await prf.json();
           if (Array.isArray(profilesData)) {
             const profMap = {};
             profilesData.forEach(p => {
-              profMap[p.id] = { role: p.role || "member", createdAt: p.created_at, postCount: postCountByUser[p.id] || 0, bio: p.bio || "", displayName: p.display_name || "", signature: p.signature || "" };
+              profMap[p.id] = { role: p.role || "member", createdAt: p.created_at, postCount: postCountByUser[p.id] || 0, bio: p.bio || "", displayName: p.display_name || "", signature: p.signature || "", birthdate: p.birthdate || "" };
             });
             setForumProfiles(profMap);
           }
@@ -1283,7 +1286,41 @@ export default function LenormandApp() {
     setForumActivePost(post);
     setForumView("post");
     loadForumReplies(post.id);
+    loadForumPostLikes(post.id);
     markForumPostRead(post.id);
+  };
+
+  // Lädt die Likes für EINEN Beitrag — eigene Funktion statt Teil von loadForumReplies,
+  // damit sie auch beim direkten Öffnen per Permalink unabhängig aufrufbar ist.
+  const loadForumPostLikes = async (postId) => {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_post_likes?post_id=eq.${postId}&select=user_id`, {headers: dbHeaders()});
+      const data = await r.json();
+      if (Array.isArray(data)) {
+        const uid = getUserId();
+        setForumPostLikeCount(data.length);
+        setForumMyPostLike(uid ? data.some(l => l.user_id === uid) : false);
+      }
+    } catch {}
+  };
+
+  // Gleiches Prinzip wie toggleForumReplyLike — optimistisches Update zuerst.
+  const toggleForumPostLike = async (postId) => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    const alreadyLiked = forumMyPostLike;
+    setForumMyPostLike(!alreadyLiked);
+    setForumPostLikeCount(prev => prev + (alreadyLiked ? -1 : 1));
+    try {
+      if (alreadyLiked) {
+        await fetch(`${SUPABASE_URL}/rest/v1/forum_post_likes?post_id=eq.${postId}&user_id=eq.${uid}`, {method:"DELETE", headers: dbHeaders()});
+      } else {
+        await fetch(`${SUPABASE_URL}/rest/v1/forum_post_likes`, {
+          method: "POST", headers: {...dbHeaders(), "Prefer": "resolution=merge-duplicates"},
+          body: JSON.stringify({ post_id: postId, user_id: uid })
+        });
+      }
+    } catch {}
   };
 
   // Lädt einen Beitrag direkt anhand seiner ID und öffnet ihn — für Permalinks
@@ -2826,6 +2863,20 @@ export default function LenormandApp() {
     return "🌱 Newbie";
   };
 
+  // Berechnet aus einem Geburtsdatum das aktuelle Alter als kurzes Label, z.B. "57j".
+  // Kein Geburtsdatum hinterlegt -> leerer String, dann erscheint im Profil/Beitrag
+  // einfach nichts dazu (kein Pflichtfeld).
+  const ageFromBirthdate = (birthdate) => {
+    if (!birthdate) return "";
+    const b = new Date(birthdate);
+    if (isNaN(b.getTime())) return "";
+    const today = new Date();
+    let age = today.getFullYear() - b.getFullYear();
+    const hasHadBirthdayThisYear = (today.getMonth() > b.getMonth()) || (today.getMonth() === b.getMonth() && today.getDate() >= b.getDate());
+    if (!hasHadBirthdayThisYear) age -= 1;
+    return age >= 0 ? `${age}j` : "";
+  };
+
   const forumRoleLabel = (role) => {
     if (role === "admin") return "Admin";
     if (role === "mod") return "Moderator";
@@ -2862,6 +2913,7 @@ export default function LenormandApp() {
     const p = userId ? forumProfiles[userId] : null;
     const rank = forumRankForPostCount(p?.postCount || 0);
     const initial = (displayName || "?").trim().charAt(0).toUpperCase() || "?";
+    const age = ageFromBirthdate(p?.birthdate);
     // Nur klickbar, wenn es eine echte userId gibt — Gast-/Anonym-Beiträge haben keine
     // und sollen nicht zu einem leeren Profil führen.
     const clickable = !!userId;
@@ -2871,7 +2923,7 @@ export default function LenormandApp() {
         <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, color:gold, fontFamily:"Georgia,serif" }}>
           {initial}
         </div>
-        <span style={{ fontSize:11, color:gold, lineHeight:1.2 }}>{displayName}</span>
+        <span style={{ fontSize:11, color:gold, lineHeight:1.2 }}>{displayName}{age && <span style={{ color:"#9a8060", fontSize:9 }}> · {age}</span>}</span>
         {p && (
           <>
             <span style={{ fontSize:8, color:"#7a6040", background:"rgba(200,169,110,0.08)", padding:"2px 6px", borderRadius:8 }}>{forumRoleLabel(p.role)}</span>
@@ -3625,6 +3677,7 @@ export default function LenormandApp() {
           const p = forumProfiles[viewedProfileId];
           const rank = forumRankForPostCount(p?.postCount || 0);
           const initial = (viewedProfileName || "?").trim().charAt(0).toUpperCase() || "?";
+          const age = ageFromBirthdate(p?.birthdate);
           return (
             <div style={{ maxWidth:420, margin:"0 auto", padding:"20px 0", textAlign:"center" }}>
               <button onClick={() => { setViewedProfileId(null); setViewedProfileName(""); }}
@@ -3632,7 +3685,7 @@ export default function LenormandApp() {
               <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
                 {initial}
               </div>
-              <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{viewedProfileName || "Mitglied"}</div>
+              <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{viewedProfileName || "Mitglied"}{age && <span style={{ color:"#9a8060", fontSize:13 }}> · {age}</span>}</div>
               <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:10 }}>{forumRoleLabel(p?.role)}</div>
               <div style={{ fontSize:12, color:gold, marginBottom:6 }}>{rank}</div>
               {p?.createdAt && <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14 }}>Mitglied seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"long", year:"numeric"})}</div>}
@@ -3663,7 +3716,7 @@ export default function LenormandApp() {
                     <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
                       {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
                     </div>
-                    <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}</div>
+                    <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}{ageFromBirthdate(userBirthdate) && <span style={{ color:"#9a8060", fontSize:13 }}> · {ageFromBirthdate(userBirthdate)}</span>}</div>
                     <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:14 }}>{forumRoleLabel(userRole)}</div>
                     {userBio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:14, whiteSpace:"pre-wrap" }}>{userBio}</div>}
                     {userSignature && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginBottom:14, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.1)" }}>{userSignature}</div>}
@@ -3917,6 +3970,10 @@ export default function LenormandApp() {
                             <div style={{ marginTop:10, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.1)", fontSize:11, color:"#7a6040", fontStyle:"italic" }}>{sig}</div>
                           ) : null;
                         })()}
+                        <button onClick={() => toggleForumPostLike(forumActivePost.id)}
+                          style={{ marginTop:10, background:"transparent", border:"none", color:forumMyPostLike?gold:"#9a8060", cursor:"pointer", fontSize:12, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:5 }}>
+                          {forumMyPostLike ? "★" : "☆"} {forumPostLikeCount}
+                        </button>
                       </div>
                     </div>
                   </>)}
