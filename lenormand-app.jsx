@@ -2754,6 +2754,11 @@ export default function LenormandApp() {
   // und rendert Letztere als großes eingebettetes Video (gleiche Optik wie auf der Willkommensseite).
   // Erkennt GIF-Links (auch mit Query-Parametern dahinter, wie bei Tenor/Giphy-Links üblich)
   const isGifUrl = (url) => /\.gif(\?.*)?$/i.test(url);
+  // Erkennt normale Bild-Links (jpg/jpeg/png/webp/svg), genau wie isGifUrl — als
+  // Übergangslösung, bis es einen echten Bild-Upload gibt. Funktioniert mit jedem Link
+  // zu einer Bilddatei, der im Text steht (z.B. von einem eigenen Hosting), nicht nur
+  // mit Links, die man selbst hochgeladen hat.
+  const isImageUrl = (url) => /\.(jpe?g|png|webp|svg)(\?.*)?$/i.test(url);
 
   const renderTextWithVideos = (text) => {
     if (!text) return null;
@@ -2781,6 +2786,16 @@ export default function LenormandApp() {
         return (
           <img key={i} src={part} alt="GIF" loading="lazy"
             style={{ maxWidth:"100%", borderRadius:10, margin:"10px 0", display:"block" }} />
+        );
+      }
+      // Normale Bild-Links genauso direkt einbetten — Übergangslösung bis es echten
+      // Bild-Upload gibt. Klick auf das Bild öffnet es in voller Größe in neuem Tab.
+      if (isUrl && isImageUrl(part)) {
+        return (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ display:"block", margin:"10px 0" }}>
+            <img src={part} alt="Bild" loading="lazy"
+              style={{ maxWidth:"100%", borderRadius:10, display:"block" }} />
+          </a>
         );
       }
       // Normale Links (z.B. zur Pro-Mitgliedschafts-Seite) werden klickbar dargestellt,
