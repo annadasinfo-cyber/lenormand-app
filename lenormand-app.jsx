@@ -2887,14 +2887,31 @@ export default function LenormandApp() {
     return "Mitglied";
   };
 
-  // Wiederverwendbares Daily-Untermenü (Tageskarten/Zauberzettel/Writing/Quiz) — wird
-  // sowohl im normalen Daily-Bereich (view==="tagebuch") als auch im Quiz selbst
-  // (view==="quiz", ein eigener View-Wert) eingebunden, damit man von beiden Seiten aus
-  // konsistent zwischen allen vier Daily-Unterbereichen wechseln kann.
+  // Wiederverwendbares Daily-Untermenü (Tageskarten/Zauberzettel/Writing/Quest).
   const DailySubNav = () => (
     <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-      {[["tagebuch","📓 Tageskarten"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"],["quiz","🎓 Quiz"]].map(([m,l]) => {
-        const isActive = m === "quiz" ? view === "quiz" : (dailyMode === m && view === "tagebuch");
+      {[["tagebuch","📓 Tageskarten"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"],["quest","🎯 Quest"]].map(([m,l]) => {
+        const isActive = dailyMode === m && view === "tagebuch";
+        return (
+          <button key={m} onClick={() => {
+              setView("tagebuch"); setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt");
+            }}
+            style={{ background:isActive?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${isActive?gold:"rgba(200,169,110,0.2)"}`, color:isActive?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
+            {l}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // Wiederverwendbares Forum-Untermenü (Profil/Forum/Kurse/Quiz) — wird sowohl im
+  // normalen Forum-Bereich (view==="forum") als auch im Quiz selbst (view==="quiz", ein
+  // eigener View-Wert) eingebunden, damit man von beiden Seiten aus konsistent wechseln
+  // kann, ohne dass das Untermenü beim Quiz-Klick verschwindet.
+  const ForumSubNav = () => (
+    <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
+      {[["profil","👤 Profil"],["forum","📙 Forum"],["kurse","🎓 Kurse"],["quiz","🎓 Quiz"]].map(([m,l]) => {
+        const isActive = m === "quiz" ? view === "quiz" : (view === "forum" && communityMode === m);
         return (
           <button key={m} onClick={() => {
               if (m === "quiz") {
@@ -2902,7 +2919,8 @@ export default function LenormandApp() {
                 setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0);
                 return;
               }
-              setView("tagebuch"); setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt");
+              setView("forum"); setCommunityMode(m);
+              if (m === "forum") { setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
             }}
             style={{ background:isActive?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${isActive?gold:"rgba(200,169,110,0.2)"}`, color:isActive?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
             {l}
@@ -3730,14 +3748,7 @@ export default function LenormandApp() {
           <div style={{ maxWidth:700, margin:"0 auto" }}>
 
             {/* Untermenü */}
-            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-              {[["profil","👤 Profil"],["forum","📙 Forum"],["kurse","🎓 Kurse"]].map(([m,l]) => (
-                <button key={m} onClick={() => { setCommunityMode(m); if (m === "forum") { setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); } }}
-                  style={{ background:communityMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${communityMode===m?gold:"rgba(200,169,110,0.2)"}`, color:communityMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
-                  {l}
-                </button>
-              ))}
-            </div>
+            <ForumSubNav />
 
             {/* PROFIL */}
             {communityMode === "profil" && (
@@ -4320,7 +4331,7 @@ export default function LenormandApp() {
         {/* ── QUIZ ── */}
         {view === "quiz" && (
           <div>
-            <DailySubNav />
+            <ForumSubNav />
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Lenormand Quiz</div>
 
@@ -5633,6 +5644,22 @@ export default function LenormandApp() {
                 style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                 🖨️ Zauberzettel drucken
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── QUEST (Platzhalter) ── */}
+        {view === "tagebuch" && dailyMode === "quest" && (
+          <div style={{ paddingBottom:30 }}>
+            <div style={{ textAlign:"center", marginBottom:20 }}>
+              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>🎯 Quest</div>
+            </div>
+            <div style={{ textAlign:"center", padding:"40px 20px", color:"#7a6040" }}>
+              <div style={{ fontSize:32, marginBottom:14 }}>🎯</div>
+              <div style={{ fontSize:14, color:gold, marginBottom:10 }}>Tägliche Aufgaben kommen bald hierher</div>
+              <div style={{ fontSize:12, lineHeight:1.7, maxWidth:340, margin:"0 auto" }}>
+                Kleine Quests für jeden Tag — Lenormand Schritt für Schritt im eigenen Tempo erleben.
+              </div>
             </div>
           </div>
         )}
