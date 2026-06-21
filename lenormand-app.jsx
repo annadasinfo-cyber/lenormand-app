@@ -2887,6 +2887,31 @@ export default function LenormandApp() {
     return "Mitglied";
   };
 
+  // Wiederverwendbares Daily-Untermenü (Tageskarten/Zauberzettel/Writing/Quiz) — wird
+  // sowohl im normalen Daily-Bereich (view==="tagebuch") als auch im Quiz selbst
+  // (view==="quiz", ein eigener View-Wert) eingebunden, damit man von beiden Seiten aus
+  // konsistent zwischen allen vier Daily-Unterbereichen wechseln kann.
+  const DailySubNav = () => (
+    <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
+      {[["tagebuch","📓 Tageskarten"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"],["quiz","🎓 Quiz"]].map(([m,l]) => {
+        const isActive = m === "quiz" ? view === "quiz" : (dailyMode === m && view === "tagebuch");
+        return (
+          <button key={m} onClick={() => {
+              if (m === "quiz") {
+                setView("quiz");
+                setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0);
+                return;
+              }
+              setView("tagebuch"); setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt");
+            }}
+            style={{ background:isActive?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${isActive?gold:"rgba(200,169,110,0.2)"}`, color:isActive?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
+            {l}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   // Wiederverwendbare Statistik-Zeile (alle Mitglieder, alle Beiträge inkl. Antworten,
   // heute aktiv) — wird auf jeder Forum-Unterseite unten eingebunden, nicht nur in der
   // Kategorien-Übersicht. Greift auf den forumStats-State zu, der in loadForumCategories()
@@ -3194,13 +3219,14 @@ export default function LenormandApp() {
           ))}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
-          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","📙 Forum"],["quiz","🎓 Quiz"]].map(([v,l]) => (
+          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","📙 Forum"],["shop","🛍️ Shop"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else if(v==="tagebuch") { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
                 else if(v==="forum") { setView(v); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
-                else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { if(v==="quiz" && view==="quiz") { startQuiz(); } else { setView(v); if(v!==view) { reset(); if(v==="quiz") { setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0); } } } } }
+                else if(v==="shop") { setView("forum"); setCommunityMode("shop"); }
+                else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { setView(v); if(v!==view) reset(); } }
               }}
               style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
               {l}
@@ -4295,6 +4321,7 @@ export default function LenormandApp() {
         {/* ── QUIZ ── */}
         {view === "quiz" && (
           <div>
+            <DailySubNav />
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Lenormand Quiz</div>
 
@@ -4495,14 +4522,7 @@ export default function LenormandApp() {
           <div style={{ paddingBottom:30 }}>
 
             {/* Untermenü */}
-            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-              {[["tagebuch","📓 Tageskarten"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
-                <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt"); }}
-                  style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
-                  {l}
-                </button>
-              ))}
-            </div>
+            <DailySubNav />
 
             {/* TAGEBUCH */}
             {dailyMode === "tagebuch" && (
