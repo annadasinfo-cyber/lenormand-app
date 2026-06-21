@@ -830,11 +830,31 @@ export default function LenormandApp() {
     }
     return parseInt(id);
   };
-  const loadTagebuch = () => {
-    try { return JSON.parse(localStorage.getItem("lenni_tagebuch") || "{}"); } catch { return {}; }
+  // Lädt alle Tagebuch-Einträge der eingeloggten Person aus Supabase — als Objekt
+  // {dateKey: {gedanken, reflexionen, resumee}}, genau in der Form, die der Rest der App
+  // erwartet, damit möglichst wenig anderswo geändert werden musste.
+  const loadTagebuch = async (uid) => {
+    if (!uid) return {};
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/tagebuch_entries?user_id=eq.${uid}&select=date_key,gedanken,reflexionen,resumee`, {headers: dbHeaders()});
+      const data = await r.json();
+      if (!Array.isArray(data)) return {};
+      const out = {};
+      data.forEach(e => { out[e.date_key] = { gedanken: e.gedanken || "", reflexionen: e.reflexionen || "", resumee: e.resumee || "" }; });
+      return out;
+    } catch { return {}; }
   };
-  const saveTagebuch = (data) => {
-    try { localStorage.setItem("lenni_tagebuch", JSON.stringify(data)); } catch {}
+  // Speichert/aktualisiert genau EINEN Tag — per Upsert (merge-duplicates auf die
+  // UNIQUE(user_id, date_key)-Kombination), damit sowohl Neuanlage als auch Update mit
+  // demselben Aufruf funktionieren.
+  const saveTagebuchEntry = async (uid, dateKey, entry) => {
+    if (!uid) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/tagebuch_entries`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "resolution=merge-duplicates"},
+        body: JSON.stringify({ user_id: uid, date_key: dateKey, gedanken: entry.gedanken || "", reflexionen: entry.reflexionen || "", resumee: entry.resumee || "", updated_at: new Date().toISOString() })
+      });
+    } catch {}
   };
   const getDailyCard = (klientSeed, dateKey) => {
     const d = dateKey ? new Date(dateKey + "T12:00:00") : new Date();
@@ -894,6 +914,9 @@ export default function LenormandApp() {
   const writingIsSaving = React.useRef(false);
   const writingPendingResave = React.useRef(false);
   const [writingSaveStatus, setWritingSaveStatus] = React.useState("idle"); // idle | saving | saved | error
+  // Debounce-Timer fürs Tagebuch (Tageskarten-Notizen) — gleiche Idee wie bei Writing:
+  // nicht bei jedem Tastendruck sofort speichern, sondern erst wenn 1,5s Ruhe ist.
+  const tagebuchTimer = React.useRef(null);
   const [writingSaveError, setWritingSaveError] = React.useState("");
 
   // Ordner, Projekte und Textvorlagen laden — eigenständige Funktion, damit sie auch
@@ -1008,7 +1031,7 @@ export default function LenormandApp() {
   React.useEffect(() => {
     const loadRole = async () => {
       const uid = getUserId();
-      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setUserSignature(""); setUserBirthdate(""); setUserGender(""); setProTrialDaysLeft(null); return; }
+      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setUserSignature(""); setUserBirthdate(""); setUserGender(""); setProTrialDaysLeft(null); setTagebuchData({}); return; }
       try {
         const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio,signature,birthdate,gender,pro_trial_until`, {headers: dbHeaders()});
         const data = await r.json();
@@ -1019,6 +1042,10 @@ export default function LenormandApp() {
         setUserSignature(profile.signature || "");
         setUserBirthdate(profile.birthdate || "");
         setUserGender(profile.gender || "");
+
+        // Tagebuch-Einträge (Tageskarten-Notizen) laden — vorher nur lokal im Browser,
+        // jetzt geräteübergreifend aus der Datenbank.
+        loadTagebuch(uid).then(setTagebuchData);
 
         // Eigenes last_seen aktualisieren — läuft im Hintergrund, blockiert nichts in der UI.
         // Grundlage für die "Heute aktiv"-Statistik im Forum (zählt auch reines Einloggen,
@@ -2271,7 +2298,10 @@ export default function LenormandApp() {
     return nums.split("").reduce((a,b) => a + parseInt(b), 0) * 137;
   };
 
-  const [tagebuchData, setTagebuchData] = React.useState(() => loadTagebuch());
+  // Wird beim Login asynchron aus Supabase geladen (siehe loadRole-Effekt oben) — start
+  // mit leerem Objekt, kein synchrones localStorage-Lesen mehr nötig.
+  const [tagebuchData, setTagebuchData] = React.useState({});
+  const [tagebuchSaveStatus, setTagebuchSaveStatus] = React.useState(""); // "" | "saving" | "saved"
   const [tippVisible, setTippVisible] = React.useState(false);
   // Teilen-Dialog: zeigt eine kleine Auswahl (Notizen mitschicken ja/nein) bevor
   // die Tageskarte als Beitrag im Forum landet.
@@ -2300,9 +2330,17 @@ export default function LenormandApp() {
   };
 
   const updateTagebuch = (field, value) => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; } // Login nötig zum Speichern
     const updated = {...tagebuchData, [selectedDateKey]: {...selectedEntry, [field]: value}};
     setTagebuchData(updated);
-    saveTagebuch(updated);
+    setTagebuchSaveStatus("saving");
+    if (tagebuchTimer.current) clearTimeout(tagebuchTimer.current);
+    tagebuchTimer.current = setTimeout(async () => {
+      await saveTagebuchEntry(uid, selectedDateKey, updated[selectedDateKey]);
+      setTagebuchSaveStatus("saved");
+      setTimeout(() => setTagebuchSaveStatus(""), 1500);
+    }, 1500);
   };
 
   const druckeTagebuch = () => {
@@ -4583,8 +4621,12 @@ export default function LenormandApp() {
                   </div>
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
-                  <textarea placeholder="Was siehst du in dieser Kombination?" value={selectedEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
+                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:8 }}>
+                    💭 Gedanken
+                    {tagebuchSaveStatus === "saving" && <span style={{ fontSize:9, color:"#9a8060", letterSpacing:0, textTransform:"none" }}>speichert…</span>}
+                    {tagebuchSaveStatus === "saved" && <span style={{ fontSize:9, color:"#5a9a5a", letterSpacing:0, textTransform:"none" }}>✓ gespeichert</span>}
+                  </div>
+                  <textarea placeholder={getUserId() ? "Was siehst du in dieser Kombination?" : "Zum Schreiben bitte einloggen — kein Eintrag geht dabei verloren."} value={selectedEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:14 }}>
