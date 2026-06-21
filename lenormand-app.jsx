@@ -3732,7 +3732,7 @@ export default function LenormandApp() {
 
             {/* Untermenü */}
             <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-              {[["profil","👤 Profil"],["forum","📙 Forum"],["kurse","🎓 Kurse"],["shop","🛍️ Shop"]].map(([m,l]) => (
+              {[["profil","👤 Profil"],["forum","📙 Forum"],["kurse","🎓 Kurse"]].map(([m,l]) => (
                 <button key={m} onClick={() => { setCommunityMode(m); if (m === "forum") { setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); } }}
                   style={{ background:communityMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${communityMode===m?gold:"rgba(200,169,110,0.2)"}`, color:communityMode===m?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
                   {l}
