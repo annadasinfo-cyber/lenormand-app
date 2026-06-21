@@ -3046,7 +3046,7 @@ export default function LenormandApp() {
   // Diese Bereiche sind auch ohne Login erreichbar — alles andere bleibt hinter der Anmeldung.
   // "random" (Frage) ist als kleiner kostenloser Vorgeschmack gedacht; Forum-LESEN ist frei,
   // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
-  const freieViews = ["liesmich", "fragmich", "forum", "shop"];
+  const freieViews = ["liesmich", "fragmich", "forum", "shop", "impressum", "agb"];
   if (!session && !freieViews.includes(view)) return loginScreen;
 
   // PRO-geschützte Bereiche: das sind die Inhalte, die früher exklusiv im gedruckten Buch
@@ -4325,6 +4325,30 @@ export default function LenormandApp() {
                 <div style={{ textAlign:"center", fontSize:10, color:"#5a4a34", marginTop:18, fontStyle:"italic" }}>
                   Zum Vergleich: der Preis einer einzelnen Beratung — dafür bist du für immer dabei.
                 </div>
+          </div>
+        )}
+
+        {/* ── IMPRESSUM (Platzhalter) ── */}
+        {view === "impressum" && (
+          <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
+            <button onClick={() => setView("liesmich")}
+              style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
+            <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Impressum</div>
+            <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.8 }}>
+              Hier kommt bald das vollständige Impressum hin.
+            </div>
+          </div>
+        )}
+
+        {/* ── AGB (Platzhalter) ── */}
+        {view === "agb" && (
+          <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
+            <button onClick={() => setView("liesmich")}
+              style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
+            <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Allgemeine Geschäftsbedingungen</div>
+            <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.8 }}>
+              Hier kommen bald die vollständigen AGB hin.
+            </div>
           </div>
         )}
 
@@ -5825,6 +5849,14 @@ export default function LenormandApp() {
               ↩ Logout
             </button>
           )}
+          <button onClick={() => setView("impressum")}
+            style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+            Impressum
+          </button>
+          <button onClick={() => setView("agb")}
+            style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+            AGB
+          </button>
         </div>
 
         <div style={{ fontSize:9, color:"#2a1a08", letterSpacing:3, marginBottom:4 }}>
