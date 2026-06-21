@@ -3028,7 +3028,7 @@ export default function LenormandApp() {
   // Diese Bereiche sind auch ohne Login erreichbar — alles andere bleibt hinter der Anmeldung.
   // "random" (Frage) ist als kleiner kostenloser Vorgeschmack gedacht; Forum-LESEN ist frei,
   // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
-  const freieViews = ["liesmich", "fragmich", "forum"];
+  const freieViews = ["liesmich", "fragmich", "forum", "shop"];
   if (!session && !freieViews.includes(view)) return loginScreen;
 
   // PRO-geschützte Bereiche: das sind die Inhalte, die früher exklusiv im gedruckten Buch
@@ -3224,8 +3224,7 @@ export default function LenormandApp() {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else if(v==="tagebuch") { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
-                else if(v==="forum") { setView(v); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
-                else if(v==="shop") { setView("forum"); setCommunityMode("shop"); }
+                else if(v==="forum") { setView(v); setCommunityMode("forum"); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
                 else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { setView(v); if(v!==view) reset(); } }
               }}
               style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
@@ -4253,11 +4252,13 @@ export default function LenormandApp() {
 
               </>)}
             </>)}
+          </div>
+        )}
 
-            {/* SHOP — Preisübersicht */}
-            {communityMode === "shop" && (
-              <div>
-                <div style={{ textAlign:"center", marginBottom:24 }}>
+        {/* ── SHOP — eigenständiger Bereich, unabhängig vom Forum ── */}
+        {view === "shop" && (
+          <div>
+              <div style={{ textAlign:"center", marginBottom:24 }}>
                   <div style={{ fontSize:16, color:gold, marginBottom:6 }}>Wo möchtest du ankommen?</div>
                   <div style={{ fontSize:12, color:"#7a6040" }}>Drei Wege durch Lenormandia — such dir aus, wie tief du eintauchen willst.</div>
                 </div>
@@ -4313,8 +4314,6 @@ export default function LenormandApp() {
                 <div style={{ textAlign:"center", fontSize:10, color:"#5a4a34", marginTop:18, fontStyle:"italic" }}>
                   Zum Vergleich: der Preis einer einzelnen Beratung — dafür bist du für immer dabei.
                 </div>
-              </div>
-            )}
           </div>
         )}
 
