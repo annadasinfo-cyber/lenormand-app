@@ -2706,13 +2706,22 @@ export default function LenormandApp() {
     setTrainRevealed(false);
   };
 
+  // "Kombinationen" fasst 2er/3er/4er zu einem gemeinsamen Quiz-Punkt zusammen — bei
+  // jeder neuen Frage wird zufällig nach festen Anteilen entschieden (70% 2er, 20% 3er,
+  // 10% 4er), damit 2er weiterhin am häufigsten vorkommt, aber 3er/4er spürbar und nicht
+  // nur homöopathisch selten mit dabei sind.
+  const startKombinationenQuiz = () => {
+    const r = Math.random();
+    if (r < 0.70) startQuiz();
+    else if (r < 0.90) start3erQuiz();
+    else start4erQuiz();
+  };
+
   const startCurrentQuiz = () => {
     setTrainRevealed(false);
-    if (quizMode === "kombis") startQuiz();
+    if (quizMode === "kombis") startKombinationenQuiz();
     else if (quizMode === "zeit") startZeitQuiz();
     else if (quizMode === "person") startPersonQuiz();
-    else if (quizMode === "3er") start3erQuiz();
-    else if (quizMode === "4er") start4erQuiz();
     else startKarteQuiz();
   };
 
@@ -4422,8 +4431,13 @@ export default function LenormandApp() {
               </div>
               {/* Separate Highscores */}
               <div style={{ display:"flex", justifyContent:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
-                {[["karte","🔮","Karten"], ["person","👤","Personen"], ["zeit","⏰","Zeiten"], ["kombis","🃏","2er"], ["3er","🔺","3er"], ["4er","🔷","4er"]].map(([m, icon, label]) => {
-                  const best = typeof stats.bestScore === "object" ? (stats.bestScore[m] || 0) : (stats.bestScore || 0);
+                {[["karte","🔮","Karten"], ["person","👤","Personen"], ["zeit","⏰","Zeiten"], ["kombis","🃏","Kombinationen"]].map(([m, icon, label]) => {
+                  // Highscore für "Kombinationen" fasst die früher getrennten 2er/3er/4er-
+                  // Bestwerte zusammen (Summe), damit beim Umstieg kein bereits erspielter
+                  // Highscore einfach verschwindet.
+                  const best = typeof stats.bestScore === "object"
+                    ? (m === "kombis" ? (stats.bestScore["kombis"] || 0) + (stats.bestScore["3er"] || 0) + (stats.bestScore["4er"] || 0) : (stats.bestScore[m] || 0))
+                    : (stats.bestScore || 0);
                   const isActive = quizMode === m;
                   return (
                     <div key={m}
@@ -4532,7 +4546,15 @@ export default function LenormandApp() {
                             setCurrentStreak(0);
                             setQuizAnswer("wrong");
                             let wrongCombo = null;
-                            if (quizMode === "kombis") {
+                            // Im "Kombinationen"-Modus kann die aktuelle Frage je nach Zufall
+                            // eine 2er-, 3er- oder 4er-Kombination sein — quizCards.mode sagt,
+                            // welche es tatsächlich war (von startQuiz/start3erQuiz/start4erQuiz
+                            // gesetzt), quizMode allein würde hier nicht reichen.
+                            const effectiveMode = quizCards?.mode || quizMode;
+                            if (effectiveMode === "3er" || effectiveMode === "4er") {
+                              const wrongCluster = CLUSTERS[effectiveMode].find(c => c.text === opt);
+                              wrongCombo = wrongCluster ? wrongCluster.label : null;
+                            } else if (quizMode === "kombis") {
                               const wrongKey = Object.keys(COMBOS).find(k => trimCombo(COMBOS[k]) === opt || COMBOS[k] === opt);
                               wrongCombo = wrongKey ? `${CARDS[wrongKey.split("-")[0]].name} + ${CARDS[wrongKey.split("-")[1]].name}` : null;
                             } else if (quizMode === "zeit") {
@@ -4544,9 +4566,6 @@ export default function LenormandApp() {
                             } else if (quizMode === "karte") {
                               const wrongKey = Object.keys(CARDS).find(k => CARDS[k].kw === opt);
                               wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
-                            } else if (quizMode === "3er" || quizMode === "4er") {
-                              const wrongCluster = CLUSTERS[quizMode].find(c => c.text === opt);
-                              wrongCombo = wrongCluster ? wrongCluster.label : null;
                             }
                             setQuizCards(prev => ({...prev, selectedWrong: opt, selectedWrongCombo: wrongCombo}));
                             setQuizScore(s => {
