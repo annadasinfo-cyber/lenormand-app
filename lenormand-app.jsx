@@ -175,20 +175,20 @@ export default function LenormandApp() {
     inputText: "#d4c4a0",
     cardBg: "rgba(200,169,110,0.03)",
   } : {
-    bg: "linear-gradient(160deg,#fdf6ee,#f5eefd,#fdf0f8)",
-    bgSolid: "#fdf6ee",
-    surface: "rgba(120,60,160,0.04)",
-    border: "rgba(120,60,160,0.15)",
-    borderStrong: "rgba(120,60,160,0.3)",
-    text: "#2a1a3a",
-    textMid: "#5a3a6a",
-    textDim: "#8a6a9a",
-    textFaint: "#c0a0d0",
-    header: "rgba(120,60,160,0.08)",
-    gold: "#9a6020",
-    inputBg: "rgba(120,60,160,0.04)",
-    inputText: "#3a1a5a",
-    cardBg: "rgba(120,60,160,0.03)",
+    bg: "linear-gradient(160deg,#fdf5e6,#f0e6f8,#fdf0f5)",
+    bgSolid: "#fdf5e6",
+    surface: "rgba(100,50,140,0.06)",
+    border: "rgba(100,50,140,0.18)",
+    borderStrong: "rgba(100,50,140,0.35)",
+    text: "#2a1040",
+    textMid: "#6a3a8a",
+    textDim: "#9a6ab0",
+    textFaint: "#c8a8d8",
+    header: "rgba(100,50,140,0.06)",
+    gold: "#a07010",
+    inputBg: "rgba(100,50,140,0.05)",
+    inputText: "#2a1040",
+    cardBg: "rgba(100,50,140,0.04)",
   };
   const [view, setView] = useState("liesmich");
 
@@ -1148,21 +1148,22 @@ export default function LenormandApp() {
 
       <style>{`
         :root {
-          --bg: ${darkMode ? "#080512" : "#fdf6ee"};
-          --text: ${darkMode ? "#f0e8d8" : "#2a1a3a"};
-          --text-mid: ${darkMode ? "#c0b090" : "#5a3a6a"};
-          --text-dim: ${darkMode ? "#7a6040" : "#8a6a9a"};
-          --gold: ${darkMode ? "#c8a96e" : "#9a6020"};
-          --surface: ${darkMode ? "rgba(200,169,110,0.04)" : "rgba(120,60,160,0.04)"};
-          --border: ${darkMode ? "rgba(200,169,110,0.15)" : "rgba(120,60,160,0.15)"};
-          --input-bg: ${darkMode ? "rgba(200,169,110,0.04)" : "rgba(120,60,160,0.04)"};
-          --input-text: ${darkMode ? "#d4c4a0" : "#3a1a5a"};
-          --card-bg: ${darkMode ? "rgba(200,169,110,0.03)" : "rgba(120,60,160,0.03)"};
+          --bg: ${darkMode ? "#080512" : "#fdf5e6"};
+          --text: ${darkMode ? "#f0e8d8" : "#2a1040"};
+          --text-mid: ${darkMode ? "#c0b090" : "#6a3a8a"};
+          --text-dim: ${darkMode ? "#7a6040" : "#9a6ab0"};
+          --gold: ${darkMode ? "#c8a96e" : "#a07010"};
+          --surface: ${darkMode ? "rgba(200,169,110,0.04)" : "rgba(100,50,140,0.06)"};
+          --border: ${darkMode ? "rgba(200,169,110,0.15)" : "rgba(100,50,140,0.18)"};
+          --input-bg: ${darkMode ? "rgba(200,169,110,0.04)" : "rgba(100,50,140,0.05)"};
+          --input-text: ${darkMode ? "#d4c4a0" : "#2a1040"};
+          --card-bg: ${darkMode ? "rgba(200,169,110,0.03)" : "rgba(100,50,140,0.04)"};
         }
         textarea, input {
           color: var(--input-text) !important;
           background: var(--input-bg) !important;
         }
+        body { background: var(--bg); transition: background 0.3s; }
       `}</style>
 
       {/* Header */}
