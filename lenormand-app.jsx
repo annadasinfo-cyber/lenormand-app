@@ -23,6 +23,22 @@ const supabase = (() => {
       signOut: async () => {
         localStorage.removeItem("sb_session");
       },
+      refreshSession: async () => {
+        try {
+          const s = JSON.parse(localStorage.getItem("sb_session")||"null");
+          if (!s?.refresh_token) return null;
+          const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+            method:"POST", headers: {"apikey": SUPABASE_KEY, "Content-Type":"application/json"},
+            body: JSON.stringify({refresh_token: s.refresh_token})
+          });
+          const data = await r.json();
+          if (data.access_token) {
+            localStorage.setItem("sb_session", JSON.stringify(data));
+            return data;
+          }
+        } catch {}
+        return null;
+      },
       getSession: () => {
         try {
           const s = JSON.parse(localStorage.getItem("sb_session")||"null");
@@ -41,128 +57,6 @@ const supabase = (() => {
     }
   };
 })();
-
-// ============================================================
-// ACCOUNT-SWITCHER (nur für Admins sichtbar)
-// ============================================================
-// Anders als zuvor NICHT mehr nur lokal im Browser gespeichert, sondern in der
-// admin_known_accounts-Tabelle — damit die gleiche Liste auf jedem Gerät erscheint,
-// auf dem man sich als Admin einloggt (Handy, anderer PC, usw.).
-
-const dbHeadersFor = (token) => ({
-  "apikey": SUPABASE_KEY, "Authorization": `Bearer ${token || SUPABASE_KEY}`,
-  "Content-Type": "application/json"
-});
-
-// Lädt die gemerkten Accounts EINER bestimmten Person (ownerId = die eigene Admin-ID) —
-// jeder Admin sieht nur seine eigene Liste.
-const getKnownAccounts = async (ownerId, token) => {
-  if (!ownerId) return [];
-  try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/admin_known_accounts?owner_id=eq.${ownerId}&order=last_used.desc`, {headers: dbHeadersFor(token)});
-    const data = await r.json();
-    return Array.isArray(data) ? data : [];
-  } catch { return []; }
-};
-
-// Speichert/aktualisiert einen Account in der Liste — anhand der E-Mail aus dem Token,
-// für die übergebene ownerId (die eigene Admin-ID).
-const rememberAccount = async (sessionData, ownerId, token) => {
-  try {
-    if (!sessionData?.access_token || !ownerId) return;
-    const payload = JSON.parse(atob(sessionData.access_token.split('.')[1]));
-    const email = payload.email || "";
-    if (!email) return;
-    await fetch(`${SUPABASE_URL}/rest/v1/admin_known_accounts`, {
-      method: "POST", headers: {...dbHeadersFor(token), "Prefer": "resolution=merge-duplicates"},
-      body: JSON.stringify({ owner_id: ownerId, account_email: email, refresh_token: sessionData.refresh_token || null, last_used: new Date().toISOString() })
-    });
-  } catch {}
-};
-
-// Eigene, ISOLIERTE Login-Funktion für den Account-Switcher — bewusst NICHT über
-// supabase.auth.signInWithPassword, weil die direkt localStorage["sb_session"]
-// überschreibt. Das hätte (auch wenn man es danach wieder zurücksetzt) ein Zeitfenster
-// geöffnet, in dem jeder andere Teil der App, der live aus localStorage liest (z.B.
-// getUserId()), versehentlich mit der ID des NEUEN Accounts arbeitet — z.B. ein parallel
-// laufender Auto-Save-Timer, der dann Daten unter der falschen User-ID wegschreibt.
-// Diese Funktion spricht den Login-Endpunkt direkt an und lässt den bestehenden
-// localStorage-Eintrag während der ganzen Zeit komplett unangetastet.
-const loginWithoutTouchingSession = async (email, password) => {
-  const headers = { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" };
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {method:"POST", headers, body: JSON.stringify({email, password})});
-  return r.json();
-};
-
-// Holt sich mit dem REFRESH-Token einen frischen access_token, ohne Passwort erneut
-// einzugeben — der access_token allein läuft normalerweise nach etwa einer Stunde ab,
-// der refresh_token bleibt deutlich länger gültig. Genau das macht den Account-Switcher
-// erst dauerhaft brauchbar: ohne das hier würde ein gemerkter Account nach einer Stunde
-// nicht mehr funktionieren, weil sein gespeicherter access_token verfallen ist.
-const refreshAccountToken = async (refresh_token) => {
-  if (!refresh_token) return null;
-  try {
-    const headers = { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" };
-    const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {method:"POST", headers, body: JSON.stringify({refresh_token})});
-    const data = await r.json();
-    return data.access_token ? data : null;
-  } catch { return null; }
-};
-
-// Wechselt zu einem gemerkten Account — holt sich davor IMMER erst einen frischen
-// access_token über den refresh_token, damit es egal ist, wie lange der Account schon
-// nicht mehr aktiv war. Erst wenn das klappt, wird die Session wirklich gewechselt
-// und neu geladen.
-// Schlüssel für den "Heimat-Admin"-Marker: merkt sich lokal auf diesem Gerät, wer der
-// eigentliche Admin-Account ist, von dem aus zu einem Test-Account gewechselt wurde.
-// Notwendig, damit die Admin-Bar auch sichtbar bleibt, WÄHREND man im Test-Account ist
-// (der ja selbst kein Admin ist) — sonst gäbe es keinen Weg mehr zurück.
-const HOME_ADMIN_KEY = "lenni_home_admin_session";
-
-const switchToAccount = async (entry, ownerId, currentToken, onSwitching) => {
-  if (onSwitching) onSwitching(entry.id);
-  const fresh = await refreshAccountToken(entry.refresh_token);
-  if (!fresh) {
-    if (onSwitching) onSwitching(null);
-    alert("Konnte nicht zu diesem Account wechseln — der gespeicherte Zugang ist nicht mehr gültig. Bitte einmal neu über \"Account hinzufügen\" einloggen.");
-    return;
-  }
-  // Bevor gewechselt wird: die AKTUELLE Session als Heimat-Marker sichern — aber NUR
-  // falls noch keiner existiert. Sonst würde ein Wechsel von Test-Account A zu B den
-  // echten Admin-Marker überschreiben, und man fände am Ende nicht mehr zum Admin
-  // zurück, sondern nur noch zu A.
-  if (!localStorage.getItem(HOME_ADMIN_KEY)) {
-    const currentSession = JSON.parse(localStorage.getItem("sb_session") || "null");
-    if (currentSession) localStorage.setItem(HOME_ADMIN_KEY, JSON.stringify(currentSession));
-  }
-  localStorage.setItem("sb_session", JSON.stringify(fresh));
-  // Account-Liste gleich mit dem frischen refresh_token aktualisieren (er kann sich
-  // bei jeder Erneuerung ändern), damit der nächste Wechsel ebenfalls sofort klappt.
-  await rememberAccount(fresh, ownerId, currentToken);
-  window.location.reload();
-};
-
-// Wechselt direkt zurück zum Heimat-Admin-Account — mit demselben Refresh-Mechanismus
-// wie switchToAccount, damit es egal ist, wie lange man im Test-Account unterwegs war.
-const switchBackToHomeAdmin = async () => {
-  const home = JSON.parse(localStorage.getItem(HOME_ADMIN_KEY) || "null");
-  if (!home) return false;
-  const fresh = await refreshAccountToken(home.refresh_token);
-  if (!fresh) {
-    alert("Konnte nicht zum Admin-Account zurückwechseln — bitte einmal ganz normal neu einloggen.");
-    return false;
-  }
-  localStorage.setItem("sb_session", JSON.stringify(fresh));
-  localStorage.removeItem(HOME_ADMIN_KEY);
-  window.location.reload();
-  return true;
-};
-
-const forgetAccount = async (id, token) => {
-  try {
-    await fetch(`${SUPABASE_URL}/rest/v1/admin_known_accounts?id=eq.${id}`, {method:"DELETE", headers: dbHeadersFor(token)});
-  } catch {}
-};
 
 const CARDS={"1":{"name":"Der Reiter","kw":"Nachrichten, Neuigkeiten, Projekte, Pläne, Transportmittel, eventuell ein junger Mann"},"2":{"name":"Der Klee","kw":"Kleines Glück, schnelles Eingreifen, Schutz vor negativen Energien"},"3":{"name":"Das Schiff","kw":"Reise, Geschäft, Erbschaft, Transport, Expansion, Verstehen, Toleranz"},"4":{"name":"Das Haus","kw":"Themen die dir momentan am wichtigsten sind, Heim, Familie, Immobilien"},"5":{"name":"Der Baum","kw":"Wachstum, Reife, Gesundheit, langer Zeitraum, Natur, Geduld"},"6":{"name":"Die Wolken","kw":"Helle oder dunkle Seite, Unklarheiten, Hindernisse, Rückschläge, älterer Herr"},"7":{"name":"Die Schlange","kw":"Mutter, Intelligenz, Versuchung, Konkurrenz, Umwege, Gift und Heilmittel"},"8":{"name":"Der Sarg","kw":"Ende, Abschluss, Blockade, Stille, was nicht mehr lebt"},"9":{"name":"Die Blumen","kw":"Glück, Freude, Schönheit, Einladung, Überraschung, Frau, Blumen"},"10":{"name":"Die Sense","kw":"Trennung, Schnitt, Entscheidung, Ernte, Gefahr, Absage"},"11":{"name":"Die Ruten","kw":"Diskussionen, Gespräche, Streit, Ideen, Kommunikation"},"12":{"name":"Die Vögel","kw":"Gespräche, Gerüchte, Nervosität, Stress, Anrufe, Lärm"},"13":{"name":"Das Kind","kw":"Neuanfang, Kind, Unschuld, Wunscherfüllung, Überraschung"},"14":{"name":"Der Fuchs","kw":"Hinterlist, Betrug, Intrigen, Schläue, Klugheit, Instinkt, Arbeit"},"15":{"name":"Der Bär","kw":"Durchsetzungskraft, Besitz, Schutz, Kraft, Aggression, Chef, Finanzen"},"16":{"name":"Die Sterne","kw":"Wünsche, Träume, Spiritualität, Hoffnung, Erfolg, große Projekte"},"17":{"name":"Die Störche","kw":"Veränderungen, Umzug, Bewegung, Transformation, Neubeginn"},"18":{"name":"Der Hund","kw":"Treue, Freundschaft, Unterstützung, Beständigkeit, Vertrauen"},"19":{"name":"Der Turm","kw":"Grenze, Einsamkeit, Isolation, Behörde, Institution, Distanz"},"20":{"name":"Der Park","kw":"Gesellschaft, Öffentlichkeit, Events, Netzwerk, wo Menschen sich begegnen"},"21":{"name":"Der Berg","kw":"Hindernisse, langer Aufstieg, Anstrengung, Feind, Blockade"},"22":{"name":"Die Wege","kw":"Entscheidungen, Alternativen, Kreuzweg, Richtungswechsel"},"23":{"name":"Die Mäuse","kw":"Verlust, Kummer, Krankheit, Diebstahl, Angst, Nagen, Parasiten"},"24":{"name":"Das Herz","kw":"Liebe, Herz, Gefühle, Leidenschaft, Glück, Zuneigung"},"25":{"name":"Der Ring","kw":"Beziehungen, Ehe, Bindung, Partnerschaft, Vertrag, Versprechen"},"26":{"name":"Das Buch","kw":"Geheimnis, Wissen, Studium, Ausbildung, Überraschung, im Verborgenen"},"27":{"name":"Der Brief","kw":"Persönliche Botschaften, Brief, SMS, E-Mail, Dokumente"},"28":{"name":"Der Herr","kw":"Männliche Person, sehr persönlich, aktiv, extrovertiert"},"29":{"name":"Die Dame","kw":"Weibliche Person, sehr persönlich, passiv, introvertiert"},"30":{"name":"Die Lilien","kw":"Familie, Moral, Alter, Sexualität, Winter, Lilien, Reinheit"},"31":{"name":"Die Sonne","kw":"Energie, Glücksfälle, Erfolg, wahre Liebe, Kraft, Licht, Sommer"},"32":{"name":"Der Mond","kw":"Ruhm, Ehre, Anerkennung, Innenleben, Seele, Intuition, Mond"},"33":{"name":"Der Schlüssel","kw":"Mit Sicherheit, Erfolg, gutes Gelingen, Neubeginn, Schlüssel zur Antwort"},"34":{"name":"Die Fische","kw":"Geld, Glück, Wohlstand, Zufriedenheit, Ressourcen, Fülle"},"35":{"name":"Der Anker","kw":"Beruf, Arbeit, Stabilität, Heimathafen, Beständigkeit, Anker"},"36":{"name":"Das Kreuz","kw":"Bedeutungsvolle Ereignisse, Schicksal, Bestimmung, Prüfung, Karma"}};
 const SYMBOLS={"1":"🐎","2":"🍀","3":"⛵","4":"🏠","5":"🌳","6":"☁️","7":"🐍","8":"⚰️","9":"💐","10":"⚔️","11":"🪄","12":"🐦","13":"👶","14":"🦊","15":"🐻","16":"⭐","17":"🦢","18":"🐕","19":"🗼","20":"🌳","21":"⛰️","22":"🛤️","23":"🐭","24":"❤️","25":"💍","26":"📖","27":"✉️","28":"🎩","29":"👒","30":"🌸","31":"☀️","32":"🌙","33":"🗝️","34":"🐟","35":"⚓","36":"✝️"};
@@ -197,56 +91,9 @@ const POSITION_LABELS = [
   "Warnung", "Signifikator", "Nahe Zukunft",
   "Wo es herkommt", "Unbewusste Zukunft", "Ergebnis und wann"
 ];
-// Gleiche Positionen wie POSITION_LABELS, aber mit der Dramaturgie-Bezeichnung erweitert
-// (genau wie über den Schreibfeldern im Writing-Bereich) — nur für das 3x3-Raster dort,
-// damit der echte Matrix-Bereich weiterhin die schlichten Lenormand-Begriffe zeigt.
-const WRITING_POSITION_LABELS = [
-  "Gedanken | Anfang", "IST-Situation | 1. Katastrophe", "Rat der Engel | 2. Katastrophe",
-  "Warnung | Katharsis", "Signifikator | Thema", "Nahe Zukunft | Mittelteil",
-  "Ursache | 3. Katastrophe", "Unbewusste Zukunft | Rückzug", "Ergebnis | Pay Off"
-];
 const KOMBI_POSITIONS = [1, 5, 7]; // positions that show combinations
 const MATRIX_FIELDS = ["gendanken", "ist_situation", "rat_der_engel", "warnung", "signifikator", "nahe_zukunft", "wo_es_herkommt", "unbewusste_zukunft", "ergebnis_und_wann"];
 const MATRIX_KEYS = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
-
-// Sprechende Bezeichnungen für die Felder einer Writing-Vorlage (für die Vorschau)
-const TEMPLATE_FIELD_LABELS = {
-  intro: "Intro",
-  "4": "Signifikator", "0": "Gedanken", "1": "IST-Situation", "2": "Rat der Engel",
-  "5": "Nahe Zukunft", nachRatDerEngel: "Subplot",
-  "6": "Ursache", "7": "Unbewusste Zukunft", "3": "Warnung", "8": "Ergebnis",
-  outro: "Outro"
-};
-
-// Personen-spezifische Bezeichnungen für die Writing-Positionen, wenn writingMode === "personen" —
-// die normalen Labels ("Rat der Engel", "Katharsis" etc.) passen nicht zu einer Personenbeschreibung.
-// Muss exakt zur perKeys-Reihenfolge in getMatrixText passen: [sternzeichen, haarfarbe, charakter, figur, -, beruf, groesse, alter, woher]
-const PERSONEN_POSITION_LABELS = {
-  "4": "Signifikator | Die Person", "0": "Sternzeichen", "1": "Haarfarbe",
-  "2": "Charakter", "3": "Figur", "5": "Beruf", "6": "Größe", "7": "Alter", "8": "Woher"
-};
-
-// Textarea, die mit ihrem Inhalt mitwächst statt zu scrollen
-function AutoTextarea({ value, onChange, placeholder, style, minRows = 2, ...rest }) {
-  const ref = React.useRef(null);
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = el.scrollHeight + "px";
-  }, [value]);
-  return (
-    <textarea
-      ref={ref}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      rows={minRows}
-      style={{ ...style, overflow:"hidden", resize:"none" }}
-      {...rest}
-    />
-  );
-}
 
 function ConfettiCanvas() {
   const canvasRef = React.useRef(null);
@@ -299,289 +146,68 @@ function ConfettiCanvas() {
 }
 
 
-// Eigenständige, stabile Komponente außerhalb von LenormandApp definiert — wichtig, damit
-// sie bei jedem Tastendruck NICHT neu erzeugt wird. Wäre sie (wie ursprünglich) innerhalb
-// von LenormandApp verschachtelt, würde jeder Tastendruck (der ja den State und damit ein
-// Re-Render der riesigen Hauptkomponente auslöst) die Funktion neu definieren — React kann
-// das DOM-<textarea>-Element dann nicht mehr zuverlässig wiederverwenden und der Cursor/Fokus
-// springt weg, noch bevor das erste Zeichen sichtbar wird. Mit eigenem lokalem State hier
-// bleibt die Texteingabe komplett unabhängig von allem, was in LenormandApp passiert, bis
-// "Speichern" gedrückt wird.
-function InlineEditBox({ initialValue, onSave, onCancel, rows, fontSize }) {
-  const [value, setValue] = useState(initialValue);
-  return (
-    <div>
-      <textarea value={value} onChange={e => setValue(e.target.value)} rows={rows || 3} autoFocus
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:fontSize || 12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-      <div style={{ display:"flex", gap:8 }}>
-        <button onClick={() => onSave(value)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Speichern</button>
-        <button onClick={onCancel} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Abbrechen</button>
-      </div>
-    </div>
-  );
-}
-
-// Gleiches Prinzip wie InlineEditBox, nur mit zwei Feldern (Titel + Text) für die
-// Bearbeitung eines ganzen Beitrags statt nur einer Antwort.
-function InlinePostEditBox({ initialTitle, initialBody, onSave, onCancel }) {
-  const [title, setTitle] = useState(initialTitle);
-  const [body, setBody] = useState(initialBody);
-  return (
-    <div>
-      <input type="text" value={title} onChange={e => setTitle(e.target.value)} autoFocus
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#c8a96e", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
-      <textarea value={body} onChange={e => setBody(e.target.value)} rows={4}
-        style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-      <div style={{ display:"flex", gap:8 }}>
-        <button onClick={() => onSave(title, body)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
-        <button onClick={onCancel} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
-      </div>
-    </div>
-  );
-}
-
-// Gleiches Prinzip wie InlineEditBox/InlinePostEditBox — eigener lokaler State, damit
-// das Tippen in den Feldern unabhängig von Re-Renders der Hauptkomponente bleibt.
-function CategoryEditBox({ initialName, initialDescription, initialIcon, initialVisibility, initialGuestPost, onSave, onCancel, gold }) {
-  const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription);
-  const [icon, setIcon] = useState(initialIcon);
-  const [visibility, setVisibility] = useState(initialVisibility);
-  const [guestPost, setGuestPost] = useState(initialGuestPost);
-  return (
-    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:16, marginBottom:10 }}>
-      <input placeholder="Name der Kategorie" value={name} onChange={e => setName(e.target.value)} autoFocus
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-      <input placeholder="Beschreibung (optional, ein kurzer Satz)" value={description} onChange={e => setDescription(e.target.value)}
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1 }}>Icon</div>
-        <input placeholder="z.B. 💬" value={icon} maxLength={4} onChange={e => setIcon(e.target.value)}
-          style={{ width:60, padding:"6px 8px", textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none" }} />
-        <div style={{ fontSize:9, color:"#5a4a34" }}>nur 1 Emoji, kein Text — Vorschau:</div>
-        <span style={{ fontSize:22 }}>{icon}</span>
-      </div>
-      <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-        {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"]].map(([v,l]) => (
-          <button key={v} onClick={() => setVisibility(v)} style={{ flex:1, background:visibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${visibility===v?gold:"rgba(200,169,110,0.2)"}`, color:visibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
-        ))}
-      </div>
-      <label style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:11, color:"#9a8060", cursor:"pointer" }}>
-        <input type="checkbox" checked={guestPost} onChange={e => setGuestPost(e.target.checked)} />
-        Gäste dürfen hier auch ohne Login schreiben (z.B. für Mitmach-Mittwoch)
-      </label>
-      <div style={{ display:"flex", gap:8 }}>
-        <button onClick={() => onSave({ name, description, icon, visibility, guestPost })}
-          style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
-        <button onClick={onCancel}
-          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
-      </div>
-    </div>
-  );
-}
-
-// Gleiches Prinzip wie die anderen Edit-Boxen — eigener lokaler State damit Fokus beim
-// Tippen stabil bleibt, unabhängig von Re-Renders der Hauptkomponente.
-function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirthdate, initialGender, saveStatus, onSave, onCancel, gold }) {
-  const [name, setName] = useState(initialName);
-  const [bio, setBio] = useState(initialBio);
-  const [signature, setSignature] = useState(initialSignature);
-  const [birthdate, setBirthdate] = useState(initialBirthdate || "");
-  const [gender, setGender] = useState(initialGender || "");
-  return (
-    <div>
-      <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 18px" }}>
-        {(name || "?").trim().charAt(0).toUpperCase() || "?"}
-      </div>
-      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Name</div>
-      <input type="text" value={name} onChange={e => setName(e.target.value)} autoFocus
-        style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Über mich</div>
-      <textarea value={bio} onChange={e => setBio(e.target.value)} rows={4} placeholder="Erzähl ein bisschen über dich…"
-        style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-      <div style={{ display:"flex", gap:10, marginBottom:14 }}>
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Geburtsdatum <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(optional)</span></div>
-          <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)}
-            style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }} />
-        </div>
-      </div>
-      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Geschlecht <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(optional)</span></div>
-      <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        {[["weiblich","weiblich"],["männlich","männlich"],["sag ich nicht","sag ich nicht"]].map(([v,l]) => (
-          <button key={v} onClick={() => setGender(g => g === v ? "" : v)}
-            style={{ flex:1, background:gender===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${gender===v?gold:"rgba(200,169,110,0.2)"}`, color:gender===v?gold:"#7a6040", padding:"7px 6px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-            {l}
-          </button>
-        ))}
-      </div>
-      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Signatur <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(erscheint unter deinen Beiträgen &amp; Antworten)</span></div>
-      <input type="text" value={signature} onChange={e => setSignature(e.target.value)} maxLength={120} placeholder="z.B. wer Mut hat selbst zu denken, hat auch Freiheit, selbst zu handeln"
-        style={{ width:"100%", padding:"9px 12px", marginBottom:4, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", fontStyle:"italic" }} />
-      <div style={{ fontSize:9, color:"#5a4a34", marginBottom:18, textAlign:"right" }}>{signature.length}/120</div>
-      <div style={{ display:"flex", gap:8 }}>
-        <button onClick={() => onSave({ name, bio, signature, birthdate, gender })} disabled={saveStatus==="saving"}
-          style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"9px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", opacity: saveStatus==="saving" ? 0.6 : 1 }}>
-          {saveStatus==="saving" ? "Speichert…" : "Speichern"}
-        </button>
-        <button onClick={onCancel}
-          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
-          Abbrechen
-        </button>
-      </div>
-      {saveStatus==="error" && <div style={{fontSize:11, color:"#c87a6a", marginTop:10, textAlign:"center"}}>Konnte nicht gespeichert werden, versuch's gleich noch mal.</div>}
-    </div>
-  );
-}
-
-// Schmale, immer sichtbare Leiste ganz oben — nur für Admins. Kernstück ist der
-// Account-Switcher: zwischen gemerkten Test-Accounts wechseln, ohne sich jedes Mal
-// neu einzuloggen. Die Liste liegt server-seitig, erscheint also auf jedem Gerät
-// gleich, auf dem man sich als Admin einloggt.
-function AdminBar({ gold, displayName, myEmail, accounts, accountsLoading, onOpen, open, onClose,
-                     onSwitch, switching, onForget, addOpen, onAddOpen, onAddCancel,
-                     onAddSubmit, addMsg, isRealAdmin, onBackToAdmin, switchingBack }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  return (
-    <>
-      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:"#0a0612", borderBottom:"1px solid rgba(200,169,110,0.25)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
-        <div style={{ color:"#7a6040", letterSpacing:1 }}>
-          {isRealAdmin ? "👑 Admin" : "🧪 Test-Account"} · {displayName}
-        </div>
-        <div style={{ display:"flex", gap:8 }}>
-          {!isRealAdmin && (
-            <button onClick={onBackToAdmin} disabled={switchingBack}
-              style={{ background:"rgba(200,169,110,0.15)", border:`1px solid ${gold}`, color:gold, padding:"4px 12px", borderRadius:14, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", opacity:switchingBack?0.6:1 }}>
-              {switchingBack ? "Wechselt…" : "← Zurück zu Admin"}
-            </button>
-          )}
-          {isRealAdmin && (
-            <button onClick={onOpen} style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"4px 12px", borderRadius:14, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-              🔀 Accounts{accounts.length > 0 ? ` (${accounts.length})` : ""}
-            </button>
-          )}
-        </div>
-      </div>
-      {/* Platzhalter, damit die fest positionierte Leiste den Seiteninhalt nicht überdeckt */}
-      <div style={{ height:30 }} />
-
-      {open && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"flex-start", justifyContent:"center", zIndex:2100, padding:"60px 20px 20px" }}
-          onClick={onClose}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background:"#0f0a1a", border:"1px solid rgba(200,169,110,0.3)", borderRadius:12, padding:"22px 20px", maxWidth:380, width:"100%", maxHeight:"80vh", overflowY:"auto" }}>
-            <div style={{ fontSize:14, color:gold, marginBottom:4 }}>🔀 Account-Switcher</div>
-            <div style={{ fontSize:11, color:"#7a6040", marginBottom:16 }}>Synchronisiert sich über alle Geräte — wechselt direkt ohne erneutes Einloggen.</div>
-
-            {accountsLoading ? (
-              <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:14 }}>Lädt…</div>
-            ) : accounts.length === 0 ? (
-              <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:14 }}>Noch keine weiteren Accounts gemerkt — logg dich einmal in einen Test-Account ein, dann erscheint er hier.</div>
-            ) : accounts.map(acc => {
-                const isMe = acc.account_email === myEmail;
-                const isSwitching = switching === acc.id;
-                return (
-                  <div key={acc.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"9px 10px", marginBottom:6, background: isMe ? "rgba(200,169,110,0.1)" : "rgba(200,169,110,0.03)", border:`1px solid ${isMe?gold:"rgba(200,169,110,0.15)"}`, borderRadius:7 }}>
-                    <div style={{ flex:1, minWidth:0 }}>
-                      <div style={{ fontSize:12, color: isMe ? gold : "#d4c4a0", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{acc.account_email}</div>
-                      {isMe && <div style={{ fontSize:9, color:gold }}>● aktuell aktiv</div>}
-                    </div>
-                    {!isMe && (
-                      <button onClick={() => onSwitch(acc)} disabled={isSwitching}
-                        style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"5px 12px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", flexShrink:0, opacity:isSwitching?0.6:1 }}>
-                        {isSwitching ? "Wechselt…" : "Wechseln"}
-                      </button>
-                    )}
-                    <button onClick={() => onForget(acc.id)}
-                      title="Aus der Liste entfernen (loggt nicht aus)"
-                      style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13, flexShrink:0 }}>✕</button>
-                  </div>
-                );
-              })}
-
-            {addOpen ? (
-              <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid rgba(200,169,110,0.15)" }}>
-                <input type="email" placeholder="E-Mail" value={email} onChange={e => setEmail(e.target.value)} autoFocus
-                  style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
-                <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)}
-                  style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
-                {addMsg && <div style={{ fontSize:11, color: addMsg.startsWith("✓") ? "#5a9a5a" : "#c87a6a", marginBottom:8 }}>{addMsg}</div>}
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={() => onAddSubmit(email, password)}
-                    style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                    Hinzufügen
-                  </button>
-                  <button onClick={() => { setEmail(""); setPassword(""); onAddCancel(); }}
-                    style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                    Abbrechen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={onAddOpen}
-                style={{ width:"100%", marginTop:14, background:"transparent", border:"1px dashed rgba(200,169,110,0.3)", color:"#9a8060", padding:"9px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                + Account hinzufügen, ohne mich auszuloggen
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-// Zeigt eine gespeicherte Frage-Deutung (Situations- oder Personen-Matrix) als echtes
-// visuelles 3×3-Raster im Forum an — genau wie auf dem Bildschirm beim Deuten selbst,
-// statt nur als Fließtext. data kommt aus forum_posts.matrix_data (siehe shareFrageToForum).
-function ForumMatrixGrid({ data, gold }) {
-  if (!data || !Array.isArray(data.cells)) return null;
-  const isPersonen = data.mode === "personen";
-  return (
-    <div style={{ marginTop:12, marginBottom:8 }}>
-      {data.question && (
-        <div style={{ fontSize:11, color:"#9a8060", fontStyle:"italic", marginBottom:10 }}>✦ {data.question}</div>
-      )}
-      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
-        <span style={{ fontSize:16 }}>{data.sigSymbol}</span>
-        <span style={{ fontSize:12, color:gold }}>{data.sigName}</span>
-        <span style={{ fontSize:9, color:"#5a4a34" }}>· {isPersonen ? "Personen-Matrix" : "Situations-Matrix"}</span>
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
-        {data.cells.map((c, pos) => (
-          <div key={pos} style={{
-            background: c.isSig ? "rgba(200,169,110,0.08)" : c.isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
-            border: `1px solid ${c.isSig ? gold : c.isKombi ? "rgba(200,169,110,0.2)" : "rgba(200,169,110,0.1)"}`,
-            borderRadius:7, padding:"8px 7px"
-          }}>
-            <div style={{ fontSize:8, letterSpacing:1, color: c.isKombi ? "rgba(212,184,120,0.8)" : "#8a7050", textTransform:"uppercase", marginBottom:4 }}>
-              {c.label}{c.isKombi ? " ✦" : ""}
-            </div>
-            {c.card && (
-              <div style={{ marginBottom:5, display:"flex", alignItems:"center", gap:3 }}>
-                <span style={{fontSize:12}}>{c.cardSymbol}</span>
-                <span style={{fontSize:7, color:gold}}>{c.cardName}</span>
-              </div>
-            )}
-            {c.text ? (
-              <div style={{ fontSize:11, color: c.isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{c.text}</div>
-            ) : (
-              <div style={{ fontSize:8, color:"#3a2a18", fontStyle:"italic" }}>–</div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function LenormandApp() {
   const gold = "#c8a96e";
-  const [view, setView] = useState(() => sessionStorage.getItem("lenni_view") || "liesmich");
+  const [darkMode, setDarkMode] = React.useState(() => {
+    return localStorage.getItem("lenni_theme") !== "light";
+  });
+  const toggleTheme = () => {
+    setDarkMode(d => {
+      localStorage.setItem("lenni_theme", d ? "light" : "dark");
+      return !d;
+    });
+  };
+
+  // Theme Farben
+  const T = darkMode ? {
+    bg: "linear-gradient(160deg,#080512,#0f0a1a,#0a0810)",
+    bgSolid: "#080512",
+    surface: "rgba(200,169,110,0.04)",
+    border: "rgba(200,169,110,0.15)",
+    borderStrong: "rgba(200,169,110,0.3)",
+    text: "#f0e8d8",
+    textMid: "#c0b090",
+    textDim: "#7a6040",
+    textFaint: "#3a2a18",
+    header: "rgba(200,169,110,0.15)",
+    gold: "#c8a96e",
+    inputBg: "rgba(200,169,110,0.04)",
+    inputText: "#d4c4a0",
+    cardBg: "rgba(200,169,110,0.03)",
+  } : {
+    bg: "linear-gradient(160deg,#fdf6ee,#f5eefd,#fdf0f8)",
+    bgSolid: "#fdf6ee",
+    surface: "rgba(120,60,160,0.04)",
+    border: "rgba(120,60,160,0.15)",
+    borderStrong: "rgba(120,60,160,0.3)",
+    text: "#2a1a3a",
+    textMid: "#5a3a6a",
+    textDim: "#8a6a9a",
+    textFaint: "#c0a0d0",
+    header: "rgba(120,60,160,0.08)",
+    gold: "#9a6020",
+    inputBg: "rgba(120,60,160,0.04)",
+    inputText: "#3a1a5a",
+    cardBg: "rgba(120,60,160,0.03)",
+  };
+  const [view, setView] = useState("liesmich");
 
   // Auth
   const [session, setSession] = React.useState(() => supabase.auth.getSession());
   const [authLoading, setAuthLoading] = React.useState(false);
+
+  // Auto-Refresh Token alle 45 Minuten
+  React.useEffect(() => {
+    if (!session) return;
+    const refresh = async () => {
+      const newSession = await supabase.auth.refreshSession();
+      if (newSession) setSession(newSession);
+    };
+    // Sofort einmal refreshen
+    refresh();
+    const interval = setInterval(refresh, 45 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [!!session]);
 
   // Simple instant check - no async verification
   React.useEffect(() => {
@@ -599,130 +225,22 @@ export default function LenormandApp() {
     }
   }, []);
 
-  // Direkter Link zur Community/Forum-Seite, z.B. für die YouTube-Videobeschreibung:
-  // https://lenormand-app-tau.vercel.app/#community
-  // Direkter Link zu EINEM bestimmten Beitrag, z.B. für eine Mitmach-Mittwoch-Antwort:
-  // https://lenormand-app-tau.vercel.app/#post-<beitrags-id>
-  React.useEffect(() => {
-    const hash = window.location.hash;
-    if (hash === "#community") {
-      setView("forum");
-      setForumView("liste");
-    } else if (hash.startsWith("#post-")) {
-      loadAndOpenPostById(hash.slice("#post-".length));
-    }
-  }, []);
-
-  // view bei jeder Änderung in sessionStorage sichern, damit ein Reload die Person
-  // auf derselben Seite lässt (dailyMode/communityMode werden weiter unten gesichert,
-  // direkt nachdem sie deklariert sind).
-  React.useEffect(() => { sessionStorage.setItem("lenni_view", view); }, [view]);
-
   const [authView, setAuthView] = React.useState("login");
-  // Account-Switcher (nur Admins): offen/zu, plus eigenes kleines Mini-Login-Formular
-  // zum Hinzufügen eines weiteren Accounts, ohne die aktuelle Session zu verlieren.
-  // Die Liste selbst liegt jetzt server-seitig (admin_known_accounts), darum hier als
-  // State statt live bei jedem Render aus localStorage zu lesen.
-  const [switcherOpen, setSwitcherOpen] = React.useState(false);
-  const [switcherAddOpen, setSwitcherAddOpen] = React.useState(false);
-  const [switcherMsg, setSwitcherMsg] = React.useState("");
-  const [switcherAccounts, setSwitcherAccounts] = React.useState([]);
-  const [switcherLoading, setSwitcherLoading] = React.useState(false);
-  const [switcherSwitching, setSwitcherSwitching] = React.useState(null); // welcher Account wird gerade gewechselt
-  // Ob auf diesem Gerät ein "Heimat-Admin"-Marker liegt — also ob man gerade in einem
-  // Test-Account ist, von dem aus man zu einem Admin-Account zurückwechseln kann.
-  const [hasHomeAdmin, setHasHomeAdmin] = React.useState(() => !!localStorage.getItem("lenni_home_admin_session"));
-  const [switchingBackToAdmin, setSwitchingBackToAdmin] = React.useState(false);
   const [authEmail, setAuthEmail] = React.useState("");
   const [authPassword, setAuthPassword] = React.useState("");
-  const [authName, setAuthName] = React.useState("");
   const [authMsg, setAuthMsg] = React.useState("");
 
   const handleLogin = async () => {
     setAuthMsg(""); 
     const data = await supabase.auth.signInWithPassword({email: authEmail, password: authPassword});
-    if (data.access_token) {
-      setSession(data);
-      // Für den Account-Switcher merken — ownerId direkt aus dem frisch erhaltenen
-      // Token lesen (nicht über getUserId(), das wäre hier zwar auch korrekt, aber
-      // so ist es unabhängig von Timing/Reihenfolge garantiert richtig).
-      try {
-        const payload = JSON.parse(atob(data.access_token.split('.')[1]));
-        rememberAccount(data, payload.sub, data.access_token);
-      } catch {}
-      // Falls der Login ausgelöst wurde, weil jemand im Forum etwas schreiben oder eine
-      // geschützte Kategorie betreten wollte, direkt wieder dort hin springen
-      if (view === "forum-login-noetig") {
-        setView("forum");
-        if (forumActiveCategory) { setForumView("kategorie"); loadForumPosts(forumActiveCategory.id); }
-        else { setForumView("liste"); }
-      }
-    }
+    if (data.access_token) { setSession(data); }
     else { setAuthMsg(data.error_description || data.msg || "E-Mail oder Passwort falsch"); }
-  };
-
-  // Loggt einen WEITEREN Account ein und merkt ihn sich, OHNE die gerade aktive Session
-  // zu verändern — wichtig, damit man als Admin nicht erst sich selbst ausloggen muss,
-  // nur um einen neuen Test-Account in die Switcher-Liste aufzunehmen.
-  // Lädt die eigene Account-Switcher-Liste vom Server neu — wird beim Öffnen des
-  // Switchers aufgerufen, damit garantiert die aktuelle, geräteübergreifende Liste
-  // angezeigt wird (nicht ein evtl. veralteter lokaler Stand).
-  const loadSwitcherAccounts = async () => {
-    setSwitcherLoading(true);
-    const list = await getKnownAccounts(getUserId(), getAccessToken());
-    setSwitcherAccounts(list);
-    setSwitcherLoading(false);
-  };
-
-  const handleBackToAdmin = async () => {
-    setSwitchingBackToAdmin(true);
-    const ok = await switchBackToHomeAdmin();
-    if (!ok) setSwitchingBackToAdmin(false);
-    // bei Erfolg lädt switchBackToHomeAdmin() die Seite ohnehin neu
-  };
-
-  const handleSwitcherAddAccount = async (email, password) => {
-    setSwitcherMsg("");
-    if (!email || !password) { setSwitcherMsg("Bitte E-Mail und Passwort eingeben"); return; }
-    // Bewusst die isolierte Login-Funktion — die rührt localStorage["sb_session"] zu
-    // keinem Zeitpunkt an, damit garantiert kein anderer App-Teil zwischenzeitlich mit
-    // der ID des neu hinzugefügten Accounts arbeitet (siehe Kommentar an deren Definition).
-    const data = await loginWithoutTouchingSession(email, password);
-    if (data.access_token) {
-      // Wichtig: ownerId ist die EIGENE ID (die gerade aktiv eingeloggte Admin-Person),
-      // nicht die des frisch hinzugefügten Accounts — sonst würde der Eintrag in der
-      // Liste des Test-Accounts landen statt in der eigenen.
-      await rememberAccount(data, getUserId(), getAccessToken());
-      setSwitcherAddOpen(false);
-      setSwitcherMsg("✓ Account hinzugefügt");
-      loadSwitcherAccounts();
-      setTimeout(() => setSwitcherMsg(""), 2000);
-    } else {
-      setSwitcherMsg(data.error_description || data.msg || "E-Mail oder Passwort falsch");
-    }
   };
 
   const handleRegister = async () => {
     setAuthMsg("");
-    if (!authName.trim()) { setAuthMsg("Bitte gib einen Namen ein."); return; }
     const data = await supabase.auth.signUp({email: authEmail, password: authPassword});
-    if (data.id || data.user) {
-      const newUid = data.id || data.user?.id;
-      // Namen direkt im Profil speichern, damit er z.B. im Forum als Anzeigename erscheinen kann.
-      // Neuanmeldungen starten automatisch mit 14 Tagen Pro-Testphase, danach Rückstufung
-      // auf "member" beim nächsten Login (siehe loadRole-Logik weiter unten).
-      if (newUid) {
-        const trialUntil = new Date(Date.now() + 14 * 86400000).toISOString();
-        try {
-          await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
-            method: "POST",
-            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates" },
-            body: JSON.stringify({ id: newUid, display_name: authName.trim(), role: "pro", pro_trial_until: trialUntil })
-          });
-        } catch {}
-      }
-      setAuthMsg("✉️ Fast geschafft! Bitte bestätige deine E-Mail — dann kannst du dich einloggen."); setAuthView("login");
-    }
+    if (data.id || data.user) { setAuthMsg("✉️ Fast geschafft! Bitte bestätige deine E-Mail — dann kannst du dich einloggen."); setAuthView("login"); }
     else { setAuthMsg(data.error_description || data.msg || "Fehler bei der Registrierung"); }
   };
 
@@ -733,11 +251,7 @@ export default function LenormandApp() {
   };
 
   // Login Screen
-  // Login-Screen als JSX-Variable statt frühem return — wird erst NACH allen Hooks
-  // ausgewertet, sonst springt React zwischen unterschiedlich vielen Hooks pro Render
-  // (das war die Ursache des leeren Bildschirms nach dem Einloggen, der erst durch
-  // Neuladen der Seite verschwand).
-  const loginScreen = (
+  if (!session) return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"stretch" }}>
 
       {/* Links: Dekorativ */}
@@ -745,18 +259,14 @@ export default function LenormandApp() {
         <div style={{ textAlign:"center", padding:40 }}>
           <div style={{ fontSize:60, marginBottom:20 }}>🐍</div>
           <div style={{ fontSize:10, letterSpacing:6, color:"rgba(200,169,110,0.6)", textTransform:"uppercase", marginBottom:10 }}>Anna Benoir</div>
-          <div style={{ fontSize:36, color:gold, fontWeight:"normal", letterSpacing:2, marginBottom:8 }}>Lenormandia</div>
-          <div style={{ fontSize:12, color:"rgba(200,169,110,0.4)", fontStyle:"italic" }}>wo Karten Geheimnisse offenbaren — und du nicht allein damit bist</div>
+          <div style={{ fontSize:36, color:gold, fontWeight:"normal", letterSpacing:2, marginBottom:8 }}>Lenormand Matrix</div>
+          <div style={{ fontSize:12, color:"rgba(200,169,110,0.4)", fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
         </div>
       </div>
 
       {/* Rechts: Login-Formular */}
       <div style={{ flex:"0 0 min(100%, 400px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 32px", background:"rgba(8,5,18,0.95)" }}>
         <div style={{ width:"100%", maxWidth:360 }}>
-          <button onClick={() => { if (view === "forum-login-noetig") { setView("forum"); } else { const freie = ["liesmich","fragmich","forum"]; if (!freie.includes(view)) setView("liesmich"); } }}
-            style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif" }}>
-            ← zurück zur App
-          </button>
           <div style={{ textAlign:"center", marginBottom:28 }}>
             <div style={{ fontSize:22, color:"#c8a96e", fontWeight:"normal", marginBottom:4 }}>Willkommen</div>
             <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Melde dich an um fortzufahren</div>
@@ -770,15 +280,6 @@ export default function LenormandApp() {
               </button>
             ))}
           </div>
-
-          {authView === "register" && (
-            <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Name</div>
-              <input type="text" value={authName} onChange={e => setAuthName(e.target.value)}
-                placeholder="Wie du im Forum heißen möchtest"
-                style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-            </div>
-          )}
 
           <div style={{ marginBottom:14 }}>
             <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>E-Mail</div>
@@ -805,10 +306,7 @@ export default function LenormandApp() {
           {authView==="register" && (
             <div style={{ textAlign:"center", marginTop:16, fontSize:10, color:"#3a2a18", lineHeight:1.7 }}>
               Du bekommst eine Bestätigungs-E-Mail.<br/>
-              Bitte klicke den Link darin — dann kannst du dich einloggen.<br/><br/>
-              <span style={{ color:"#5a4a34", fontStyle:"italic" }}>
-                Hinweis: Die Mail kommt von einer Supabase-Adresse — das ist unser technischer Versanddienst im Hintergrund und völlig okay. 💛
-              </span>
+              Bitte klicke den Link darin — dann kannst du dich einloggen.
             </div>
           )}
         </div>
@@ -830,34 +328,14 @@ export default function LenormandApp() {
     }
     return parseInt(id);
   };
-  // Lädt alle Tagebuch-Einträge der eingeloggten Person aus Supabase — als Objekt
-  // {dateKey: {gedanken, reflexionen, resumee}}, genau in der Form, die der Rest der App
-  // erwartet, damit möglichst wenig anderswo geändert werden musste.
-  const loadTagebuch = async (uid) => {
-    if (!uid) return {};
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/tagebuch_entries?user_id=eq.${uid}&select=date_key,gedanken,reflexionen,resumee`, {headers: dbHeaders()});
-      const data = await r.json();
-      if (!Array.isArray(data)) return {};
-      const out = {};
-      data.forEach(e => { out[e.date_key] = { gedanken: e.gedanken || "", reflexionen: e.reflexionen || "", resumee: e.resumee || "" }; });
-      return out;
-    } catch { return {}; }
+  const loadTagebuch = () => {
+    try { return JSON.parse(localStorage.getItem("lenni_tagebuch") || "{}"); } catch { return {}; }
   };
-  // Speichert/aktualisiert genau EINEN Tag — per Upsert (merge-duplicates auf die
-  // UNIQUE(user_id, date_key)-Kombination), damit sowohl Neuanlage als auch Update mit
-  // demselben Aufruf funktionieren.
-  const saveTagebuchEntry = async (uid, dateKey, entry) => {
-    if (!uid) return;
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/tagebuch_entries`, {
-        method: "POST", headers: {...dbHeaders(), "Prefer": "resolution=merge-duplicates"},
-        body: JSON.stringify({ user_id: uid, date_key: dateKey, gedanken: entry.gedanken || "", reflexionen: entry.reflexionen || "", resumee: entry.resumee || "", updated_at: new Date().toISOString() })
-      });
-    } catch {}
+  const saveTagebuch = (data) => {
+    try { localStorage.setItem("lenni_tagebuch", JSON.stringify(data)); } catch {}
   };
-  const getDailyCard = (klientSeed, dateKey) => {
-    const d = dateKey ? new Date(dateKey + "T12:00:00") : new Date();
+  const getDailyCard = (klientSeed) => {
+    const d = new Date();
     const dateSeed = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
     const baseSeed = klientSeed !== undefined ? klientSeed : getDeviceId();
     const seed = dateSeed + baseSeed;
@@ -871,879 +349,43 @@ export default function LenormandApp() {
 
   // Klient-State
   const [tagebuchView, setTagebuchView] = React.useState("tagebuch");
-  const [dailyMode, setDailyMode] = React.useState(() => sessionStorage.getItem("lenni_dailyMode") || "tagebuch");
-  const [communityMode, setCommunityMode] = React.useState(() => sessionStorage.getItem("lenni_communityMode") || "forum");
-  React.useEffect(() => { sessionStorage.setItem("lenni_dailyMode", dailyMode); }, [dailyMode]);
-  React.useEffect(() => { sessionStorage.setItem("lenni_communityMode", communityMode); }, [communityMode]);
+  const [dailyMode, setDailyMode] = React.useState("tagebuch");
   const [writingView, setWritingView] = React.useState("projekt");
   const [writingProjekt, setWritingProjekt] = React.useState("");
   const [writingBemerkung, setWritingBemerkung] = React.useState("");
-  const [writingHook, setWritingHook] = React.useState("");
   const [writingCards, setWritingCards] = React.useState(null);
   const [writingNotes, setWritingNotes] = React.useState({});
-  // Refs, die immer den allerneuesten Stand halten — wichtig, weil saveProject() über einen
-  // setTimeout-Callback aufgerufen wird und sonst einen veralteten (Closure-)Stand sehen könnte,
-  // z.B. wenn der Timer feuert, bevor der State-Update durch onChange "angekommen" ist.
-  const writingNotesRef = React.useRef(writingNotes);
-  const writingProjektRef = React.useRef(writingProjekt);
-  const writingBemerkungRef = React.useRef(writingBemerkung);
-  const writingHookRef = React.useRef(writingHook);
-  React.useEffect(() => { writingNotesRef.current = writingNotes; }, [writingNotes]);
-  React.useEffect(() => { writingProjektRef.current = writingProjekt; }, [writingProjekt]);
-  React.useEffect(() => { writingBemerkungRef.current = writingBemerkung; }, [writingBemerkung]);
-  React.useEffect(() => { writingHookRef.current = writingHook; }, [writingHook]);
   const [writingSessionId, setWritingSessionId] = React.useState(null);
   const [writingProjectId, setWritingProjectId] = React.useState(null);
   const [savedProjects, setSavedProjects] = React.useState([]);
   const [showProjects, setShowProjects] = React.useState(false);
   const [folders, setFolders] = React.useState([]);
   const [selectedFolder, setSelectedFolder] = React.useState(null);
-  const [showProjectList, setShowProjectList] = React.useState(false);
   const [newFolderName, setNewFolderName] = React.useState("");
   const [showNewFolder, setShowNewFolder] = React.useState(false);
   const [activeWritingPos, setActiveWritingPos] = React.useState(null);
   const [showWritingMatrix, setShowWritingMatrix] = React.useState(true);
-  const [textTemplates, setTextTemplates] = React.useState([]);
-  const [showSaveTemplate, setShowSaveTemplate] = React.useState(false);
-  const [newTemplateName, setNewTemplateName] = React.useState("");
-  const [showLoadTemplate, setShowLoadTemplate] = React.useState(false);
-  const [selectedTemplate, setSelectedTemplate] = React.useState(null);
-  const [collapsedFields, setCollapsedFields] = React.useState({});
 
   const writingTimer = React.useRef(null);
-  const writingIsSaving = React.useRef(false);
-  const writingPendingResave = React.useRef(false);
-  const [writingSaveStatus, setWritingSaveStatus] = React.useState("idle"); // idle | saving | saved | error
-  // Debounce-Timer fürs Tagebuch (Tageskarten-Notizen) — gleiche Idee wie bei Writing:
-  // nicht bei jedem Tastendruck sofort speichern, sondern erst wenn 1,5s Ruhe ist.
-  const tagebuchTimer = React.useRef(null);
-  const [writingSaveError, setWritingSaveError] = React.useState("");
 
-  // Ordner, Projekte und Textvorlagen laden — eigenständige Funktion, damit sie auch
-  // nach dem Anlegen/Ändern einer Vorlage erneut aufgerufen werden kann, um sicherzugehen,
-  // dass die Liste wirklich den aktuellen Datenbankstand zeigt.
-  const loadAllWritingData = async () => {
-    const uid = getUserId();
-    if (!uid) return;
-    try {
-      const [fR, pR, tR] = await Promise.all([
-        fetch(`${SUPABASE_URL}/rest/v1/writing_project_folders?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()}),
-        fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()}),
-        fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()})
-      ]);
-      const fData = await fR.json();
-      const pData = await pR.json();
-      const tData = await tR.json();
-      if (Array.isArray(fData)) setFolders(fData);
-      if (Array.isArray(pData)) setSavedProjects(pData);
-      if (Array.isArray(tData)) setTextTemplates(tData);
-      return tData;
-    } catch {
-      return null;
-    }
-  };
-
+  // Ordner und Projekte laden
   React.useEffect(() => {
-    loadAllWritingData();
-  }, [session]);
-
-  // ===== FORUM =====
-  const [userRole, setUserRole] = React.useState(null); // null solange nicht geladen / nicht eingeloggt
-  const [userDisplayName, setUserDisplayName] = React.useState("");
-  const [userBio, setUserBio] = React.useState("");
-  const [userSignature, setUserSignature] = React.useState("");
-  const [userBirthdate, setUserBirthdate] = React.useState("");
-  const [userGender, setUserGender] = React.useState("");
-  const [proTrialDaysLeft, setProTrialDaysLeft] = React.useState(null);
-  const [profileEditing, setProfileEditing] = React.useState(false);
-  const [profileSaveStatus, setProfileSaveStatus] = React.useState("");
-  const [forumCategories, setForumCategories] = React.useState([]);
-  const [forumView, setForumView] = React.useState("liste"); // "liste" | "kategorie" | "post" | "neu"
-  const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
-  const [forumPosts, setForumPosts] = React.useState([]);
-  // Kurse-Bereich: eigene States, gleiche Struktur wie Forum
-  // Kategorie = Kurs, Beitrag = Lektion, Antworten = Fragen/Diskussion
-  const [kurseCategories, setKurseCategories] = React.useState([]);
-  const [kurseView, setKurseView] = React.useState("liste");
-  const [kurseActiveCategory, setKurseActiveCategory] = React.useState(null);
-  const [kursePosts, setKursePosts] = React.useState([]);
-  const [kurseActivePost, setKurseActivePost] = React.useState(null);
-  const [forumReadPostIds, setForumReadPostIds] = React.useState(new Set());
-  // Pro user_id: { role, createdAt, postCount } — für die kleine Profilkarte vor jedem Beitrag
-  const [forumProfiles, setForumProfiles] = React.useState({});
-  // Echte Forum-Statistik (alle Mitglieder, alle Beiträge inkl. Antworten, heute aktiv) —
-  // wird zusammen mit den Kategorien in loadForumCategories() berechnet, damit dafür
-  // keine zusätzlichen Requests nötig sind.
-  const [forumStats, setForumStats] = React.useState({ totalMembers: 0, totalPosts: 0, activeToday: 0, newToday: 0 });
-  const [forumActivePost, setForumActivePost] = React.useState(null);
-  const [forumReplies, setForumReplies] = React.useState([]);
-  // Sortierung der Top-Level-Antworten: "neueste" (Standard) oder "beliebteste" (nach Likes).
-  // Unterantworten innerhalb eines Threads bleiben immer chronologisch (älteste zuerst),
-  // damit ein Gesprächsverlauf nachvollziehbar bleibt.
-  const [forumReplySort, setForumReplySort] = React.useState("neueste");
-  // Wie viele Top-Level-Antworten aktuell sichtbar sind — wächst beim Scrollen.
-  // Unterantworten zu bereits sichtbaren Top-Level-Antworten zählen nicht mit dazu,
-  // damit kein Thread mitten drin abgeschnitten wird.
-  const [forumRepliesVisibleCount, setForumRepliesVisibleCount] = React.useState(20);
-  // userId -> true, für Antworten, die die aktuell eingeloggte Person bereits geliked hat
-  const [forumMyLikes, setForumMyLikes] = React.useState({});
-  // replyId -> Anzahl Likes
-  const [forumLikeCounts, setForumLikeCounts] = React.useState({});
-  // Gleiches Prinzip wie bei Antworten, nur für den Beitrag selbst (forum_post_likes)
-  const [forumMyPostLike, setForumMyPostLike] = React.useState(false);
-  const [forumPostLikeCount, setForumPostLikeCount] = React.useState(0);
-  const [forumNewTitle, setForumNewTitle] = React.useState("");
-  const [forumNewBody, setForumNewBody] = React.useState("");
-  const [forumNewName, setForumNewName] = React.useState(""); // Anzeigename für Gäste
-  const [forumReplyText, setForumReplyText] = React.useState("");
-  // Wenn gesetzt: die nächste Antwort bezieht sich auf eine bestehende Antwort (verschachtelt),
-  // statt direkt auf den Beitrag selbst.
-  const [forumReplyToId, setForumReplyToId] = React.useState(null);
-  // Welcher Beitrag/welche Antwort wird gerade bearbeitet (id) — der bearbeitete Text selbst
-  // lebt lokal in InlineEditBox/InlinePostEditBox, nicht hier (siehe deren Definition oben
-  // für die Begründung: stabiler Fokus beim Tippen).
-  const [forumEditingPostId, setForumEditingPostId] = React.useState(null);
-  // Kurzes "✓ kopiert"-Feedback nach Klick auf den Link-Button — zeigt die ID des
-  // Beitrags, dessen Link gerade kopiert wurde, für ein paar Sekunden.
-  const [linkCopiedPostId, setLinkCopiedPostId] = React.useState(null);
-  const [forumEditingReplyId, setForumEditingReplyId] = React.useState(null);
-  // Wenn gesetzt: zeigt die öffentliche Profilkarte dieser Person (statt der normalen
-  // Forum-Ansicht). Enthält absichtlich keine E-Mail — die bleibt privat.
-  const [viewedProfileId, setViewedProfileId] = React.useState(null);
-  const [viewedProfileName, setViewedProfileName] = React.useState("");
-  const [forumReplyToName, setForumReplyToName] = React.useState("");
-  const [forumNewCatName, setForumNewCatName] = React.useState("");
-  const [forumNewCatDescription, setForumNewCatDescription] = React.useState("");
-  const [forumNewCatIcon, setForumNewCatIcon] = React.useState("💬");
-  const [forumNewCatVisibility, setForumNewCatVisibility] = React.useState("member");
-  const [forumNewCatGuestPost, setForumNewCatGuestPost] = React.useState(false);
-  const [forumShowNewCat, setForumShowNewCat] = React.useState(false);
-  const [kurseShowNewCat, setKurseShowNewCat] = React.useState(false);
-  // Welche Kategorie wird gerade bearbeitet (id) — die Feldwerte selbst leben lokal in
-  // der CategoryEditBox-Komponente, aus dem gleichen Grund wie bei InlineEditBox: stabiler
-  // Fokus beim Tippen, unabhängig von Re-Renders der großen Hauptkomponente.
-  const [forumEditingCategoryId, setForumEditingCategoryId] = React.useState(null);
-  const [forumError, setForumError] = React.useState("");
-
-  // Nutzerrolle + Anzeigename + Bio laden, sobald eingeloggt — ohne Login bleibt userRole bei null (= Gast)
-  // Zusätzlich: falls eine Pro-Testphase abgelaufen ist, wird hier automatisch auf
-  // "member" zurückgestuft (sowohl lokal als auch dauerhaft in der Datenbank).
-  React.useEffect(() => {
-    const loadRole = async () => {
+    const loadAll = async () => {
       const uid = getUserId();
-      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setUserSignature(""); setUserBirthdate(""); setUserGender(""); setProTrialDaysLeft(null); setTagebuchData({}); return; }
+      if (!uid) return;
       try {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio,signature,birthdate,gender,pro_trial_until`, {headers: dbHeaders()});
-        const data = await r.json();
-        const profile = (data && data[0]) || {};
-        let role = profile.role || "member";
-        setUserDisplayName(profile.display_name || "");
-        setUserBio(profile.bio || "");
-        setUserSignature(profile.signature || "");
-        setUserBirthdate(profile.birthdate || "");
-        setUserGender(profile.gender || "");
-
-        // Tagebuch-Einträge (Tageskarten-Notizen) laden — vorher nur lokal im Browser,
-        // jetzt geräteübergreifend aus der Datenbank.
-        loadTagebuch(uid).then(setTagebuchData);
-
-        // Eigenes last_seen aktualisieren — läuft im Hintergrund, blockiert nichts in der UI.
-        // Grundlage für die "Heute aktiv"-Statistik im Forum (zählt auch reines Einloggen,
-        // nicht nur Beiträge/Antworten/Likes).
-        fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`, {
-          method: "PATCH", headers: {...dbHeaders(), "Prefer": "return=minimal"},
-          body: JSON.stringify({ last_seen: new Date().toISOString() })
-        }).catch(() => {});
-
-        if (profile.pro_trial_until) {
-          const msLeft = new Date(profile.pro_trial_until).getTime() - Date.now();
-          if (msLeft <= 0) {
-            // Testphase abgelaufen — dauerhaft zurückstufen, außer jemand wurde inzwischen
-            // ohnehin schon zu Mod/Admin gemacht (das soll nicht überschrieben werden).
-            setProTrialDaysLeft(null);
-            if (role === "pro") {
-              role = "member";
-              try {
-                await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`, {
-                  method: "PATCH", headers: dbHeaders(), body: JSON.stringify({ role: "member", pro_trial_until: null })
-                });
-              } catch {}
-            }
-          } else {
-            setProTrialDaysLeft(Math.ceil(msLeft / 86400000));
-          }
-        } else {
-          setProTrialDaysLeft(null);
-        }
-        setUserRole(role);
-      } catch { setUserRole("member"); }
+        const [fR, pR] = await Promise.all([
+          fetch(`${SUPABASE_URL}/rest/v1/writing_project_folders?user_id=eq.${uid}&order=created_at.asc`, {headers: dbHeaders()}),
+          fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()})
+        ]);
+        const fData = await fR.json();
+        const pData = await pR.json();
+        if (Array.isArray(fData)) setFolders(fData);
+        if (Array.isArray(pData)) setSavedProjects(pData);
+      } catch {}
     };
-    loadRole();
+    loadAll();
   }, [session]);
-
-  const loadForumCategories = async () => {
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?section=eq.forum&order=sort_order.asc`, {headers: dbHeaders()});
-      const cats = await r.json();
-      if (!Array.isArray(cats)) return;
-      // Schlanke Liste aller Posts holen (id + category_id + created_at + Ersteller), um pro
-      // Kategorie Anzahl, letzte Aktivität UND ob es ungelesene Beiträge gibt zu berechnen,
-      // ohne für jede Kategorie einen eigenen Request zu brauchen.
-      const [pr, rr, mr, lr, sr] = await Promise.all([
-        fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=id,category_id,created_at,user_id`, {headers: dbHeaders()}),
-        fetch(`${SUPABASE_URL}/rest/v1/forum_replies?select=user_id,created_at`, {headers: dbHeaders()}),
-        fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,created_at`, {headers: dbHeaders()}),
-        fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes?select=user_id,created_at`, {headers: dbHeaders()}),
-        fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,last_seen`, {headers: dbHeaders()}),
-      ]);
-      const posts = await pr.json();
-      const replies = await rr.json();
-      const allProfiles = await mr.json();
-      const likes = await lr.json();
-      const seenProfiles = await sr.json();
-      const statsByCategory = {};
-      const myUid = getUserId();
-      const postCountByUser = {};
-      if (Array.isArray(posts)) {
-        posts.forEach(p => {
-          const s = statsByCategory[p.category_id] || { count: 0, lastActivity: null, hasUnread: false };
-          s.count += 1;
-          if (!s.lastActivity || p.created_at > s.lastActivity) s.lastActivity = p.created_at;
-          // Eigene Beiträge zählen nicht als "ungelesen" — man hat sie ja selbst geschrieben
-          if (myUid && p.user_id !== myUid && !forumReadPostIds.has(p.id)) s.hasUnread = true;
-          statsByCategory[p.category_id] = s;
-          if (p.user_id) postCountByUser[p.user_id] = (postCountByUser[p.user_id] || 0) + 1;
-        });
-      }
-      // Antworten (inkl. Unterantworten) gleichwertig mitzählen — aktive Diskussion
-      // ist genauso viel wert wie das Eröffnen eines Beitrags.
-      if (Array.isArray(replies)) {
-        replies.forEach(r => {
-          if (r.user_id) postCountByUser[r.user_id] = (postCountByUser[r.user_id] || 0) + 1;
-        });
-      }
-      // Rolle + Mitglied-seit-Datum für alle Personen holen, die hier schon mal geschrieben
-      // haben — für die kleine Profilkarte vor jedem Beitrag/jeder Antwort.
-      const userIds = Object.keys(postCountByUser);
-      if (userIds.length > 0) {
-        try {
-          const prf = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=in.(${userIds.join(",")})&select=id,role,created_at,bio,display_name,signature,birthdate`, {headers: dbHeaders()});
-          const profilesData = await prf.json();
-          if (Array.isArray(profilesData)) {
-            const profMap = {};
-            profilesData.forEach(p => {
-              profMap[p.id] = { role: p.role || "member", createdAt: p.created_at, postCount: postCountByUser[p.id] || 0, bio: p.bio || "", displayName: p.display_name || "", signature: p.signature || "", birthdate: p.birthdate || "" };
-            });
-            setForumProfiles(profMap);
-          }
-        } catch {}
-      }
-      const enriched = cats.map(c => ({
-        ...c,
-        postCount: statsByCategory[c.id]?.count || 0,
-        lastActivity: statsByCategory[c.id]?.lastActivity || null,
-        hasUnread: statsByCategory[c.id]?.hasUnread || false
-      }));
-      enriched.sort((a, b) => {
-        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-        if (a.pinned && b.pinned) return a.sort_order - b.sort_order;
-        if (a.hasUnread !== b.hasUnread) return a.hasUnread ? -1 : 1;
-        if (!a.lastActivity && !b.lastActivity) return a.sort_order - b.sort_order;
-        if (!a.lastActivity) return 1;
-        if (!b.lastActivity) return -1;
-        return b.lastActivity.localeCompare(a.lastActivity);
-      });
-      setForumCategories(enriched);
-
-      // Echte Statistik für die Zeile unter dem Forum: alle Mitglieder, alle Beiträge
-      // (inkl. Antworten), und wer heute aktiv war — Beitrag, Antwort, Like ODER einfach
-      // nur eingeloggt gewesen (last_seen), je nachdem was zuerst zutrifft.
-      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-      const activeUserIds = new Set();
-      const isRecent = (iso) => iso && new Date(iso).getTime() >= cutoff;
-      if (Array.isArray(posts)) posts.forEach(p => { if (p.user_id && isRecent(p.created_at)) activeUserIds.add(p.user_id); });
-      if (Array.isArray(replies)) replies.forEach(r => { if (r.user_id && isRecent(r.created_at)) activeUserIds.add(r.user_id); });
-      if (Array.isArray(likes)) likes.forEach(l => { if (l.user_id && isRecent(l.created_at)) activeUserIds.add(l.user_id); });
-      if (Array.isArray(seenProfiles)) seenProfiles.forEach(p => { if (p.id && isRecent(p.last_seen)) activeUserIds.add(p.id); });
-
-      const totalPosts = (Array.isArray(posts) ? posts.length : 0) + (Array.isArray(replies) ? replies.length : 0);
-      const newToday = Array.isArray(allProfiles) ? allProfiles.filter(p => isRecent(p.created_at)).length : 0;
-      setForumStats({
-        totalMembers: Array.isArray(allProfiles) ? allProfiles.length : 0,
-        totalPosts,
-        activeToday: activeUserIds.size,
-        newToday
-      });
-    } catch {}
-  };
-
-  // Kurse-Bereich: Kategorien laden (section=kurse), Sortierung nach sort_order —
-  // Kurse sollen in der Reihenfolge erscheinen, in der du sie anlegt, nicht nach Aktivität.
-  const loadKurseCategories = async () => {
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?section=eq.kurse&order=sort_order.asc`, {headers: dbHeaders()});
-      const cats = await r.json();
-      if (!Array.isArray(cats)) return;
-      // Lektionen-Anzahl pro Kurs berechnen
-      const pr = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?select=id,category_id`, {headers: dbHeaders()});
-      const posts = await pr.json();
-      const countByCat = {};
-      if (Array.isArray(posts)) posts.forEach(p => { countByCat[p.category_id] = (countByCat[p.category_id] || 0) + 1; });
-      setKurseCategories(cats.map(c => ({ ...c, postCount: countByCat[c.id] || 0 })));
-    } catch {}
-  };
-
-  const loadKursePosts = async (categoryId) => {
-    try {
-      // Lektionen in fester Reihenfolge — älteste zuerst, damit Lektion 1 oben steht
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?category_id=eq.${categoryId}&order=created_at.asc`, {headers: dbHeaders()});
-      const data = await r.json();
-      if (Array.isArray(data)) setKursePosts(data);
-    } catch {}
-  };
-
-  React.useEffect(() => {
-    loadForumCategories();
-    loadKurseCategories();
-  }, [forumReadPostIds, session]);
-
-  const loadForumPosts = async (categoryId) => {
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?category_id=eq.${categoryId}&order=pinned.desc,created_at.desc`, {headers: dbHeaders()});
-      const data = await r.json();
-      if (Array.isArray(data)) setForumPosts(data);
-    } catch {}
-  };
-
-  // Alle Beitrags-IDs laden, die diese Person schon geöffnet hat — einmal beim Login/Start,
-  // damit "ungelesen" in der ganzen Forum-Übersicht direkt korrekt angezeigt werden kann.
-  const loadForumReadPosts = async () => {
-    const uid = getUserId();
-    if (!uid) { setForumReadPostIds(new Set()); return; }
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_post_reads?user_id=eq.${uid}&select=post_id`, {headers: dbHeaders()});
-      const data = await r.json();
-      if (Array.isArray(data)) setForumReadPostIds(new Set(data.map(d => d.post_id)));
-    } catch {}
-  };
-
-  React.useEffect(() => {
-    loadForumReadPosts();
-  }, [session]);
-
-  // Markiert einen Beitrag als von dieser Person gelesen — wird beim Öffnen aufgerufen.
-  // Optimistisch sofort in der Oberfläche aktualisiert, damit es ohne Verzögerung wirkt.
-  const markForumPostRead = async (postId) => {
-    const uid = getUserId();
-    if (!uid) return; // Gäste haben kein Gelesen-Tracking
-    if (forumReadPostIds.has(postId)) return; // schon als gelesen markiert, nichts zu tun
-    setForumReadPostIds(prev => new Set(prev).add(postId));
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_post_reads`, {
-        method: "POST", headers: {...dbHeaders(), "Prefer": "resolution=merge-duplicates"},
-        body: JSON.stringify({ user_id: uid, post_id: postId })
-      });
-    } catch {}
-  };
-
-  const loadForumReplies = async (postId) => {
-    setForumRepliesVisibleCount(20); // bei jedem neuen Beitrag wieder von vorn beginnen
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?post_id=eq.${postId}&order=created_at.asc`, {headers: dbHeaders()});
-      const data = await r.json();
-      if (Array.isArray(data)) {
-        setForumReplies(data);
-        const replyIds = data.map(rep => rep.id);
-        if (replyIds.length > 0) {
-          try {
-            const lr = await fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes?reply_id=in.(${replyIds.join(",")})&select=reply_id,user_id`, {headers: dbHeaders()});
-            const likesData = await lr.json();
-            if (Array.isArray(likesData)) {
-              const counts = {};
-              const mine = {};
-              const uid = getUserId();
-              likesData.forEach(l => {
-                counts[l.reply_id] = (counts[l.reply_id] || 0) + 1;
-                if (uid && l.user_id === uid) mine[l.reply_id] = true;
-              });
-              setForumLikeCounts(counts);
-              setForumMyLikes(mine);
-            }
-          } catch {}
-        } else {
-          setForumLikeCounts({});
-          setForumMyLikes({});
-        }
-      }
-    } catch {}
-  };
-
-  // Schaltet einen Like für eine Antwort um — optimistisches Update zuerst (fühlt sich
-  // sofort an), dann der eigentliche Datenbank-Befehl im Hintergrund.
-  const toggleForumReplyLike = async (replyId) => {
-    const uid = getUserId();
-    if (!uid) { setView("forum-login-noetig"); return; }
-    const alreadyLiked = !!forumMyLikes[replyId];
-    setForumMyLikes(prev => ({ ...prev, [replyId]: !alreadyLiked }));
-    setForumLikeCounts(prev => ({ ...prev, [replyId]: (prev[replyId] || 0) + (alreadyLiked ? -1 : 1) }));
-    try {
-      if (alreadyLiked) {
-        await fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes?reply_id=eq.${replyId}&user_id=eq.${uid}`, {method:"DELETE", headers: dbHeaders()});
-      } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/forum_reply_likes`, {
-          method: "POST", headers: {...dbHeaders(), "Prefer": "resolution=merge-duplicates"},
-          body: JSON.stringify({ reply_id: replyId, user_id: uid })
-        });
-      }
-    } catch {}
-  };
-
-  const openForumCategory = (cat) => {
-    if (!forumCanEnterCategory(cat)) {
-      // Gast (oder fehlende Pro-Berechtigung) klickt auf eine geschützte Kategorie:
-      // als Appetit-Macher sieht man sie zwar in der Liste, zum Betreten braucht's aber Login/Pro.
-      setForumActiveCategory(cat); // merken, damit man nach dem Login direkt dort landet
-      setView("forum-login-noetig");
-      return;
-    }
-    setForumActiveCategory(cat);
-    setForumView("kategorie");
-    loadForumPosts(cat.id);
-  };
-
-  const openForumPost = (post) => {
-    setForumActivePost(post);
-    setForumView("post");
-    loadForumReplies(post.id);
-    loadForumPostLikes(post.id);
-    markForumPostRead(post.id);
-  };
-
-  // Lädt die Likes für EINEN Beitrag — eigene Funktion statt Teil von loadForumReplies,
-  // damit sie auch beim direkten Öffnen per Permalink unabhängig aufrufbar ist.
-  const loadForumPostLikes = async (postId) => {
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_post_likes?post_id=eq.${postId}&select=user_id`, {headers: dbHeaders()});
-      const data = await r.json();
-      if (Array.isArray(data)) {
-        const uid = getUserId();
-        setForumPostLikeCount(data.length);
-        setForumMyPostLike(uid ? data.some(l => l.user_id === uid) : false);
-      }
-    } catch {}
-  };
-
-  // Gleiches Prinzip wie toggleForumReplyLike — optimistisches Update zuerst.
-  const toggleForumPostLike = async (postId) => {
-    const uid = getUserId();
-    if (!uid) { setView("forum-login-noetig"); return; }
-    const alreadyLiked = forumMyPostLike;
-    setForumMyPostLike(!alreadyLiked);
-    setForumPostLikeCount(prev => prev + (alreadyLiked ? -1 : 1));
-    try {
-      if (alreadyLiked) {
-        await fetch(`${SUPABASE_URL}/rest/v1/forum_post_likes?post_id=eq.${postId}&user_id=eq.${uid}`, {method:"DELETE", headers: dbHeaders()});
-      } else {
-        await fetch(`${SUPABASE_URL}/rest/v1/forum_post_likes`, {
-          method: "POST", headers: {...dbHeaders(), "Prefer": "resolution=merge-duplicates"},
-          body: JSON.stringify({ post_id: postId, user_id: uid })
-        });
-      }
-    } catch {}
-  };
-
-  // Lädt einen Beitrag direkt anhand seiner ID und öffnet ihn — für Permalinks
-  // (z.B. #post-xyz aus einem geteilten Link), unabhängig davon ob die Kategorie
-  // schon geladen wurde. Falls der Beitrag nicht (mehr) existiert oder nicht
-  // zugänglich ist, landet man einfach in der normalen Forum-Übersicht.
-  const loadAndOpenPostById = async (postId) => {
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${postId}`, {headers: dbHeaders()});
-      const data = await r.json();
-      const post = data && data[0];
-      if (!post) { setView("forum"); setForumView("liste"); return; }
-      const cat = forumCategories.find(c => c.id === post.category_id);
-      setView("forum");
-      setForumActiveCategory(cat || {id: post.category_id});
-      openForumPost(post);
-    } catch {
-      setView("forum"); setForumView("liste");
-    }
-  };
-
-  // Teilt die aktuell angezeigte Tageskarte als Beitrag in der "Tageskarten"-Kategorie.
-  // Sucht die Kategorie anhand des Namens — falls sie fehlt (SQL noch nicht ausgeführt),
-  // gibt es eine klare Fehlermeldung statt eines stillen Fehlschlags.
-  const shareTageskarteToForum = async (includeNotes) => {
-    const uid = getUserId();
-    if (!uid) { setView("forum-login-noetig"); return; }
-    setShareTageskarteStatus("sharing");
-    try {
-      let cat = forumCategories.find(c => c.name === "Tageskarten");
-      if (!cat) {
-        // Kategorie evtl. noch nicht im lokalen State (z.B. gerade erst angelegt) — frisch nachladen
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?name=eq.Tageskarten&section=eq.forum`, {headers: dbHeaders()});
-        const data = await r.json();
-        cat = data && data[0];
-      }
-      if (!cat) { setShareTageskarteStatus("error"); return; }
-
-      const cardNames = `${CARDS[selectedCard.c1].name} & ${CARDS[selectedCard.c2].name}`;
-      const title = `${SYMBOLS[selectedCard.c1]}${SYMBOLS[selectedCard.c2]} ${cardNames} — ${formatDate(selectedDateKey)}`;
-      let body = `Meine Tageskombination am ${formatDate(selectedDateKey)}: ${cardNames}.`;
-      if (includeNotes) {
-        const parts = [];
-        if (selectedEntry.gedanken.trim()) parts.push(`💭 Gedanken: ${selectedEntry.gedanken.trim()}`);
-        if (selectedEntry.reflexionen.trim()) parts.push(`🌙 Reflexionen: ${selectedEntry.reflexionen.trim()}`);
-        if (selectedEntry.resumee.trim()) parts.push(`📝 Resümee: ${selectedEntry.resumee.trim()}`);
-        if (parts.length) body += `\n\n${parts.join("\n\n")}`;
-      }
-
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
-        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
-        body: JSON.stringify({ category_id: cat.id, user_id: uid, display_name: userDisplayName || "Mitglied", title, body })
-      });
-      const data = await r.json();
-      if (data && data[0]) {
-        setShareTageskarteStatus("done");
-        loadForumCategories();
-        setTimeout(() => { setShareTageskarteOpen(false); setShareTageskarteStatus(""); }, 1500);
-      } else {
-        setShareTageskarteStatus("error");
-      }
-    } catch { setShareTageskarteStatus("error"); }
-  };
-
-  // Teilt die aktuell angezeigte Frage-Deutung (Situations- oder Personen-Matrix) als
-  // Beitrag in der "Fragen & Deutungen"-Kategorie — fasst alle 9 Felder mit Text
-  // zusammen, genau wie es die Druckfunktion daneben auch tut.
-  const shareFrageToForum = async () => {
-    const uid = getUserId();
-    if (!uid) { setView("forum-login-noetig"); return; }
-    if (!signifikator) return;
-    setShareFrageStatus("sharing");
-    try {
-      let cat = forumCategories.find(c => c.name === "Fragen & Deutungen");
-      if (!cat) {
-        const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?name=eq.Fragen%20%26%20Deutungen&section=eq.forum`, {headers: dbHeaders()});
-        const data = await r.json();
-        cat = data && data[0];
-      }
-      if (!cat) { setShareFrageStatus("error"); return; }
-
-      const sig = signifikator;
-      const cardName = CARDS[sig].name;
-      const sigSymbol = SYMBOLS[sig];
-      const isPersonen = mode === "personen";
-      const posLabels = isPersonen
-        ? ["Sternzeichen","Haarfarbe","Charakter","Figur","Signifikator","Beruf/Berufung","Größe","Alter","Woher"]
-        : ["Gedanken","Ist-Situation","Rat der Engel","Warnung","Signifikator","Nahe Zukunft","Wo es herkommt","Unbewusste Zukunft","Ergebnis und wann"];
-      const sitKeys = ["gendanken",null,"rat_der_engel","warnung",null,null,"wo_es_herkommt",null,"ergebnis_und_wann"];
-      const perKeys = ["sternzeichen","haarfarbe","charakter","figur",null,"beruf","groesse","alter","woher"];
-      const activeKeys = isPersonen ? perKeys : sitKeys;
-      const kombiPos = isPersonen ? [] : [1,5,7];
-
-      const lines = [];
-      const cells = []; // strukturiert für das visuelle Raster im Forum (matrix_data)
-      for (let pos = 0; pos < 9; pos++) {
-        const card = matrixCards[pos];
-        const isSig = pos === 4;
-        const isKombi = kombiPos.includes(pos);
-        let text = "";
-        if (isSig) {
-          text = isPersonen ? (PERSON_MATRIX[String(sig)]?.signifikator || CARDS[sig].kw) : CARDS[sig].kw;
-        } else if (isKombi && card) {
-          const lo = Math.min(sig, card), hi = Math.max(sig, card);
-          text = COMBOS[lo+"-"+hi] || "";
-        } else if (activeKeys[pos] && card) {
-          const src = isPersonen ? PERSON_MATRIX[String(card)] : MATRIX[String(card)];
-          text = src ? src[activeKeys[pos]] : "";
-        }
-        cells.push({
-          label: posLabels[pos], isSig, isKombi, text: text || "",
-          card: !!card, cardSymbol: card ? SYMBOLS[card] : "", cardName: card ? CARDS[card].name : ""
-        });
-        if (!text) continue;
-        const cardDisplay = card ? `${SYMBOLS[card]} ${CARDS[card].name}` : "";
-        lines.push(`**${posLabels[pos]}**${cardDisplay ? ` (${cardDisplay})` : ""}: ${text}`);
-      }
-
-      const title = `${sigSymbol} ${cardName} · ${isPersonen ? "Personen-Matrix" : "Situations-Matrix"}${question ? ` — ${question}` : ""}`;
-      // body bleibt als reiner Text-Fallback erhalten (z.B. für Benachrichtigungen,
-      // Suche, oder falls matrix_data aus irgendeinem Grund fehlt) — die eigentliche
-      // Anzeige im Forum nutzt aber bevorzugt das visuelle Raster aus matrix_data.
-      let body = question ? `✦ ${question}\n\n` : "";
-      body += lines.join("\n\n");
-      const matrixData = { mode, question, sigSymbol, sigName: cardName, cells };
-
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
-        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
-        body: JSON.stringify({ category_id: cat.id, user_id: uid, display_name: userDisplayName || "Mitglied", title, body, matrix_data: matrixData })
-      });
-      const data = await r.json();
-      if (data && data[0]) {
-        setShareFrageStatus("done");
-        loadForumCategories();
-        setTimeout(() => setShareFrageStatus(""), 1500);
-      } else {
-        setShareFrageStatus("error");
-      }
-    } catch { setShareFrageStatus("error"); }
-  };
-
-  const createForumPost = async () => {
-    setForumError("");
-    if (!forumNewTitle.trim() || !forumNewBody.trim()) { setForumError("Bitte Titel und Text ausfüllen."); return; }
-    if (isGuest && !forumNewName.trim()) { setForumError("Bitte gib einen Namen an, unter dem deine Frage erscheinen soll."); return; }
-    const uid = getUserId();
-    try {
-      const payload = {
-        category_id: forumActiveCategory.id,
-        user_id: uid || null,
-        display_name: uid ? (userDisplayName || "Mitglied") : forumNewName.trim(),
-        title: forumNewTitle.trim(),
-        body: forumNewBody.trim()
-      };
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
-        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
-        body: JSON.stringify(payload)
-      });
-      const data = await r.json();
-      if (data && data[0]) {
-        setForumNewTitle(""); setForumNewBody(""); setForumNewName("");
-        loadForumPosts(forumActiveCategory.id);
-        loadForumCategories(); // Zähler + Sortierung nach Aktivität aktualisieren
-        setForumView("kategorie");
-      } else {
-        setForumError("Konnte nicht gespeichert werden. Versuch's gleich noch mal.");
-      }
-    } catch { setForumError("Konnte nicht gespeichert werden. Versuch's gleich noch mal."); }
-  };
-
-  const createForumReply = async () => {
-    if (!forumReplyText.trim()) return;
-    const uid = getUserId();
-    try {
-      const payload = {
-        post_id: forumActivePost.id,
-        user_id: uid || null,
-        display_name: uid ? (userDisplayName || "Mitglied") : (forumNewName.trim() || "Anonym"),
-        body: forumReplyText.trim(),
-        reply_to_id: forumReplyToId || null
-      };
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_replies`, {
-        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
-        body: JSON.stringify(payload)
-      });
-      const data = await r.json();
-      if (data && data[0]) {
-        setForumReplyText("");
-        setForumReplyToId(null);
-        setForumReplyToName("");
-        loadForumReplies(forumActivePost.id);
-      }
-    } catch {}
-  };
-
-  const deleteForumPost = async (id) => {
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
-      setForumPosts(prev => prev.filter(p => p.id !== id));
-      if (forumActivePost?.id === id) { setForumActivePost(null); setForumView("kategorie"); }
-    } catch {}
-  };
-
-  const deleteForumReply = async (id) => {
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
-      setForumReplies(prev => prev.filter(r => r.id !== id));
-    } catch {}
-  };
-
-  // Eigene Beiträge/Antworten dürfen nur innerhalb von 24 Stunden nach dem Erstellen
-  // bearbeitet werden — danach bleibt der Text fest, damit alte Diskussionen nicht
-  // nachträglich beliebig verändert werden können. Mods/Admins dürfen ohnehin löschen,
-  // aber auch für sie gilt dieses Zeitfenster fürs Bearbeiten (nur Inhalt, nicht Löschen).
-  const forumCanEdit = (item, authorId) => {
-    if (isMod) return true; // Mods und Admins dürfen immer, egal wann und von wem
-    if (authorId !== getUserId()) return false;
-    const ageMs = Date.now() - new Date(item.created_at).getTime();
-    return ageMs < 24 * 60 * 60 * 1000;
-  };
-
-  const startEditForumPost = (post) => {
-    setForumEditingPostId(post.id);
-  };
-
-  const saveEditForumPost = async (id, newTitle, newBody) => {
-    if (!newTitle.trim() || !newBody.trim()) return;
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${id}`, {
-        method: "PATCH", headers: dbHeaders(),
-        body: JSON.stringify({ title: newTitle.trim(), body: newBody.trim() })
-      });
-      setForumPosts(prev => prev.map(p => p.id === id ? {...p, title: newTitle.trim(), body: newBody.trim()} : p));
-      if (forumActivePost?.id === id) setForumActivePost(prev => ({...prev, title: newTitle.trim(), body: newBody.trim()}));
-      setForumEditingPostId(null);
-    } catch {}
-  };
-
-  const startEditForumReply = (reply) => {
-    setForumEditingReplyId(reply.id);
-  };
-
-  const saveEditForumReply = async (id, newBody) => {
-    if (!newBody.trim()) return;
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?id=eq.${id}`, {
-        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({ body: newBody.trim() })
-      });
-      setForumReplies(prev => prev.map(r => r.id === id ? {...r, body: newBody.trim()} : r));
-      setForumEditingReplyId(null);
-    } catch {}
-  };
-
-  const createForumCategory = async (section = "forum", directFields = null) => {
-    const name = directFields ? directFields.name : forumNewCatName;
-    const description = directFields ? directFields.description : forumNewCatDescription;
-    const icon = directFields ? directFields.icon : forumNewCatIcon;
-    const visibility = directFields ? directFields.visibility : forumNewCatVisibility;
-    const guestPost = directFields ? directFields.guestPost : forumNewCatGuestPost;
-    if (!name.trim()) return;
-    try {
-      const payload = {
-        name: name.trim(),
-        description: description.trim(),
-        icon: (icon || "💬").trim().slice(0, 4),
-        visibility,
-        guest_can_post: guestPost,
-        sort_order: section === "kurse" ? kurseCategories.length : forumCategories.length
-      };
-      // section nur mitschicken wenn die Spalte existiert (SQL-Migration ausgeführt).
-      // Supabase ignoriert unbekannte Felder nicht immer — daher defensiv prüfen.
-      try { payload.section = section; } catch {}
-
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_categories`, {
-        method: "POST", headers: {...dbHeaders(), "Prefer": "return=representation"},
-        body: JSON.stringify(payload)
-      });
-      const text = await r.text();
-      let data;
-      try { data = JSON.parse(text); } catch { data = null; }
-
-      // Supabase gibt manchmal ein Error-Objekt statt Array zurück
-      if (!Array.isArray(data) || !data[0]) {
-        console.error("createForumCategory Fehler:", text);
-        // Trotzdem neu laden, falls die Kategorie doch angelegt wurde
-        if (section === "kurse") loadKurseCategories();
-        else loadForumCategories();
-        setForumShowNewCat(false);
-        setKurseShowNewCat(false);
-        return;
-      }
-
-      if (section === "kurse") setKurseCategories(prev => [...prev, data[0]]);
-      else setForumCategories(prev => [...prev, data[0]]);
-      setForumNewCatName(""); setForumNewCatDescription(""); setForumNewCatIcon("💬"); setForumNewCatVisibility("member"); setForumNewCatGuestPost(false);
-      setForumShowNewCat(false);
-      setKurseShowNewCat(false);
-    } catch(e) {
-      console.error("createForumCategory exception:", e);
-    }
-  };
-
-  const deleteForumCategory = async (id) => {
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
-      setForumCategories(prev => prev.filter(c => c.id !== id));
-    } catch {}
-  };
-
-  // Bestehende Kategorie bearbeiten (Name, Beschreibung, Icon, Sichtbarkeit, Gäste-Schreibrecht).
-  // sort_order bleibt hier unangetastet — Umsortieren ist ein eigenes Feature für später.
-  const saveEditForumCategory = async (id, fields) => {
-    if (!fields.name.trim()) return;
-    const payload = {
-      name: fields.name.trim(),
-      description: fields.description.trim(),
-      icon: (fields.icon || "💬").trim().slice(0, 4),
-      visibility: fields.visibility,
-      guest_can_post: fields.guestPost,
-    };
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${id}`, {
-        method: "PATCH", headers: dbHeaders(), body: JSON.stringify(payload)
-      });
-      setForumCategories(prev => prev.map(c => c.id === id ? {...c, ...payload} : c));
-      setForumEditingCategoryId(null);
-    } catch {}
-  };
-
-  const toggleForumCategoryPin = async (cat) => {
-    const newPinned = !cat.pinned;
-    // Optimistisch sofort in der Oberfläche aktualisieren, dann erst speichern
-    setForumCategories(prev => {
-      const updated = prev.map(c => c.id === cat.id ? {...c, pinned: newPinned} : c);
-      updated.sort((a, b) => {
-        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-        if (a.pinned && b.pinned) return a.sort_order - b.sort_order;
-        if (!a.lastActivity && !b.lastActivity) return a.sort_order - b.sort_order;
-        if (!a.lastActivity) return 1;
-        if (!b.lastActivity) return -1;
-        return b.lastActivity.localeCompare(a.lastActivity);
-      });
-      return updated;
-    });
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${cat.id}`, {
-        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({pinned: newPinned})
-      });
-    } catch {}
-  };
-
-  // Beitrag innerhalb einer Kategorie anpinnen/lösen — gleiches Prinzip wie bei Kategorien
-  const toggleForumPostPin = async (post) => {
-    const newPinned = !post.pinned;
-    setForumPosts(prev => {
-      const updated = prev.map(p => p.id === post.id ? {...p, pinned: newPinned} : p);
-      updated.sort((a, b) => {
-        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-        return b.created_at.localeCompare(a.created_at);
-      });
-      return updated;
-    });
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${post.id}`, {
-        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({pinned: newPinned})
-      });
-    } catch {}
-  };
-
-  // Speichert Name + Bio im eigenen Profil
-  const saveProfile = async (fields) => {
-    const uid = getUserId();
-    if (!uid) return;
-    setProfileSaveStatus("saving");
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}`, {
-        method: "PATCH", headers: dbHeaders(),
-        body: JSON.stringify({
-          display_name: fields.name.trim(), bio: fields.bio.trim(), signature: fields.signature.trim(),
-          birthdate: fields.birthdate || null, gender: fields.gender || null
-        })
-      });
-      setUserDisplayName(fields.name.trim());
-      setUserBio(fields.bio.trim());
-      setUserSignature(fields.signature.trim());
-      setUserBirthdate(fields.birthdate || "");
-      setUserGender(fields.gender || "");
-      setProfileEditing(false);
-      setProfileSaveStatus("saved");
-      setTimeout(() => setProfileSaveStatus(""), 2000);
-    } catch {
-      setProfileSaveStatus("error");
-    }
-  };
 
   const createFolder = async () => {
     if (!newFolderName.trim()) return;
@@ -1773,108 +415,6 @@ export default function LenormandApp() {
     } catch {}
   };
 
-  const [templateSaveError, setTemplateSaveError] = React.useState("");
-  const saveTemplate = async () => {
-    if (!newTemplateName.trim()) return;
-    const uid = getUserId();
-    if (!uid) return;
-    setTemplateSaveError("");
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates`, {
-        method:"POST", headers: {...dbHeaders(), "Prefer":"return=representation"},
-        body: JSON.stringify({
-          user_id: uid,
-          name: newTemplateName.trim(),
-          notes: writingNotes
-        })
-      });
-      if (!r.ok) {
-        const errText = await r.text();
-        setTemplateSaveError(errText.slice(0, 200));
-        return;
-      }
-      const data = await r.json();
-      if (data && data[0]) {
-        // Liste komplett frisch aus der Datenbank holen, statt nur lokal zu ergänzen —
-        // verhindert, dass ein veralteter lokaler Stand später zu Verwechslungen führt.
-        const freshList = await loadAllWritingData();
-        const fresh = freshList?.find(t => t.id === data[0].id) || data[0];
-        setSelectedTemplate(fresh);
-        setNewTemplateName(""); setShowSaveTemplate(false);
-      } else {
-        setTemplateSaveError("Unbekannte Antwort von der Datenbank.");
-      }
-    } catch (e) {
-      setTemplateSaveError(String(e?.message || e).slice(0, 200));
-    }
-  };
-
-  // Aktualisiert eine bereits bestehende Vorlage mit dem kompletten aktuellen Notizen-Stand
-  const updateTemplate = async (tpl) => {
-    const uid = getUserId();
-    if (!uid) return;
-    setTemplateSaveError("");
-    try {
-      const updatedFields = { notes: writingNotes };
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?id=eq.${tpl.id}`, {
-        method:"PATCH", headers: {...dbHeaders(), "Prefer":"return=representation"},
-        body: JSON.stringify(updatedFields)
-      });
-      if (!r.ok) {
-        const errText = await r.text();
-        setTemplateSaveError(errText.slice(0, 200));
-        return;
-      }
-      const data = await r.json();
-      if (data && data[0]) {
-        const freshList = await loadAllWritingData();
-        const fresh = freshList?.find(t => t.id === tpl.id) || data[0];
-        setSelectedTemplate(fresh);
-        setShowSaveTemplate(false);
-      } else {
-        setTemplateSaveError("Aktualisierung kam ohne Bestätigung zurück — bitte erneut versuchen.");
-      }
-    } catch (e) {
-      setTemplateSaveError(String(e?.message || e).slice(0, 200));
-    }
-  };
-
-  // Vorlage umbenennen
-  const renameTemplate = async (tpl, newName) => {
-    if (!newName.trim()) return;
-    const uid = getUserId();
-    if (!uid) return;
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?id=eq.${tpl.id}`, {
-        method:"PATCH", headers: {...dbHeaders(), "Prefer":"return=representation"},
-        body: JSON.stringify({ name: newName.trim() })
-      });
-      const data = await r.json();
-      const updated = (data && data[0]) ? data[0] : {...tpl, name: newName.trim()};
-      setTextTemplates(prev => prev.map(t => t.id === tpl.id ? updated : t));
-      if (selectedTemplate?.id === tpl.id) setSelectedTemplate(updated);
-    } catch {}
-  };
-
-  const applyTemplate = (tpl) => {
-    // Komplettes Notizen-Objekt der Vorlage übernehmen (alle Felder: Intro, Teaser,
-    // alle Kartenpositionen, Subplot, Teaser-Auflösung, Outro), nicht nur Intro/Outro.
-    const n = {...(tpl.notes || {})};
-    setWritingNotes(n);
-    setSelectedTemplate(tpl);
-    saveWritingSession(n, writingProjekt, writingBemerkung);
-    setShowLoadTemplate(false);
-  };
-
-  const deleteTemplate = async (id) => {
-    const uid = getUserId();
-    if (!uid) return;
-    try {
-      await fetch(`${SUPABASE_URL}/rest/v1/writing_text_templates?id=eq.${id}`, {method:"DELETE", headers: dbHeaders()});
-      setTextTemplates(prev => prev.filter(t => t.id !== id));
-    } catch {}
-  };
-
   const printFolder = (folderId) => {
     const folderName = folders.find(f => f.id === folderId)?.name || "Projekt";
     const sessions = savedProjects.filter(p => p.folder_id === folderId);
@@ -1893,30 +433,15 @@ export default function LenormandApp() {
           const notes = s.notes || {};
           const cards = s.matrix_cards || [];
           return "<h2>" + s.name + "</h2>"
-            + "<div class='meta'>" + new Date(s.updated_at).toLocaleDateString('de-DE') + (s.bemerkung ? " · " + s.bemerkung : "") + (s.hook ? " · 🎯 " + s.hook : "") + "</div>"
-            + (notes["intro"] ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + notes["intro"] + "</div></div>" : "")
-            + (notes["nachIntro"] ? "<div class='block'><div class='lbl'>💥 Teaser</div><div class='txt'>" + notes["nachIntro"] + "</div></div>" : "")
-            + [4,0,1,2].map(pos => {
+            + "<div class='meta'>" + new Date(s.updated_at).toLocaleDateString('de-DE') + (s.bemerkung ? " · " + s.bemerkung : "") + "</div>"
+            + (notes["intro"] ? "<div class='block'><div class='lbl'>Intro</div><div class='txt'>" + notes["intro"] + "</div></div>" : "")
+            + [4,0,1,2,5,6,7,3,8].map(pos => {
                 const t = notes[String(pos)] || "";
                 if (!t) return "";
                 const cn = cards[pos];
                 return "<div class='block'><div class='lbl'>" + posLabels[pos] + (cn ? " · " + CARDS[cn]?.name : "") + "</div><div class='txt'>" + t + "</div></div>";
               }).join("")
-            + [5].map(pos => {
-                const t = notes[String(pos)] || "";
-                if (!t) return "";
-                const cn = cards[pos];
-                return "<div class='block'><div class='lbl'>" + posLabels[pos] + (cn ? " · " + CARDS[cn]?.name : "") + "</div><div class='txt'>" + t + "</div></div>";
-              }).join("")
-            + (notes["nachRatDerEngel"] ? "<div class='block'><div class='lbl'>💕 Subplot</div><div class='txt'>" + notes["nachRatDerEngel"] + "</div></div>" : "")
-            + [6,7,3,8].map(pos => {
-                const t = notes[String(pos)] || "";
-                if (!t) return "";
-                const cn = cards[pos];
-                return "<div class='block'><div class='lbl'>" + posLabels[pos] + (cn ? " · " + CARDS[cn]?.name : "") + "</div><div class='txt'>" + t + "</div></div>";
-              }).join("")
-            + (notes["vorOutro"] ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + notes["vorOutro"] + "</div></div>" : "")
-            + (notes["outro"] ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + notes["outro"] + "</div></div>" : "");
+            + (notes["outro"] ? "<div class='block'><div class='lbl'>Outro</div><div class='txt'>" + notes["outro"] + "</div></div>" : "");
         }).join("<hr style='margin:32px 0;border-color:#c8a96e'>")
       + "</body></html>";
     const w = window.open("","_blank");
@@ -1927,115 +452,44 @@ export default function LenormandApp() {
 
   const saveProject = async () => {
     const uid = getUserId();
-    if (!uid) return;
-    // Immer den allerneuesten Stand aus den Refs lesen, nicht aus dem Closure dieser Funktion —
-    // sonst könnte ein verzögerter Timer-Aufruf einen veralteten (z.B. noch leeren) Stand sehen.
-    const curNotes = writingNotesRef.current;
-    const curProjekt = writingProjektRef.current;
-    const curHook = writingHookRef.current;
-    const curBemerkung = writingBemerkungRef.current;
-    // Nichts speichern, wenn die Session komplett leer ist (nur gewürfelt/Karten gewählt, aber
-    // noch nirgends Text eingegeben) — das hat sonst bei jedem Tab-Wechsel direkt nach dem Würfeln
-    // ein neues, leeres "Unbenannt"-Projekt angelegt.
-    const hasAnyContent = Boolean(
-      (curProjekt && curProjekt.trim()) ||
-      (curHook && curHook.trim()) ||
-      (curBemerkung && curBemerkung.trim()) ||
-      Object.values(curNotes || {}).some(v => v && String(v).trim())
-    );
-    if (!hasAnyContent && !writingProjectId) {
-      return;
-    }
-    // Lock: läuft schon ein Speichervorgang, merken wir uns, dass danach nochmal gespeichert werden muss,
-    // statt einen zweiten parallelen Request zu starten (das hat zu doppelten/vielfachen Projekten geführt).
-    if (writingIsSaving.current) {
-      writingPendingResave.current = true;
-      return;
-    }
-    writingIsSaving.current = true;
-    // Auch ohne Namen speichern, damit nichts verloren geht — Fallback-Name verwenden
-    const nameToSave = curProjekt || ("Unbenannt · " + new Date().toLocaleDateString('de-DE') + " " + new Date().toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}));
-    setWritingSaveStatus("saving");
-    setWritingSaveError("");
+    if (!uid || !writingProjekt) return;
     try {
       const payload = {
         user_id: uid,
-        name: nameToSave,
-        bemerkung: curBemerkung,
-        hook: curHook,
-        notes: curNotes,
+        name: writingProjekt,
+        bemerkung: writingBemerkung,
+        notes: writingNotes,
         matrix_cards: matrixCards,
         signifikator: signifikator,
-        intro_card: introCard,
-        outro_card: outroCard,
         folder_id: selectedFolder || null,
-        template_id: selectedTemplate?.id || null,
-        writing_mode: writingMode,
-        matrix_free_text: matrixFreeText,
         updated_at: new Date().toISOString()
       };
-      let ok = true, errText = "";
       if (writingProjectId) {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${writingProjectId}`, {
+        await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${writingProjectId}`, {
           method:"PATCH", headers: dbHeaders(), body: JSON.stringify(payload)
         });
-        ok = res.ok;
-        if (!ok) errText = await res.text();
       } else {
         const r = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects`, {
           method:"POST", headers: {...dbHeaders(), "Prefer":"return=representation"},
           body: JSON.stringify(payload)
         });
-        ok = r.ok;
-        if (!ok) {
-          errText = await r.text();
-        } else {
-          const data = await r.json();
-          if (data && data[0]) setWritingProjectId(data[0].id);
-        }
+        const data = await r.json();
+        if (data && data[0]) setWritingProjectId(data[0].id);
       }
       // Refresh list
       const r2 = await fetch(`${SUPABASE_URL}/rest/v1/writing_projects?user_id=eq.${uid}&order=updated_at.desc`, {headers: dbHeaders()});
       const list = await r2.json();
       if (Array.isArray(list)) setSavedProjects(list);
-      setWritingSaveStatus(ok ? "saved" : "error");
-      if (!ok) setWritingSaveError(errText.slice(0, 200));
-    } catch (e) {
-      setWritingSaveStatus("error");
-      setWritingSaveError(String(e?.message || e).slice(0, 200));
-    } finally {
-      writingIsSaving.current = false;
-      // Während des Speicherns kam eine weitere Änderung dazu -> einmal nachspeichern
-      if (writingPendingResave.current) {
-        writingPendingResave.current = false;
-        saveProject();
-      }
-    }
+    } catch {}
   };
 
   const loadProject = (proj) => {
     setWritingProjekt(proj.name);
     setWritingBemerkung(proj.bemerkung||"");
-    setWritingHook(proj.hook||"");
     setWritingNotes(proj.notes||{});
     setWritingProjectId(proj.id);
-    setSelectedFolder(proj.folder_id || null);
     if (proj.matrix_cards) setMatrixCards(proj.matrix_cards);
     if (proj.signifikator) setSignifikator(proj.signifikator);
-    // Immer explizit setzen (auch auf null) — sonst bliebe beim Laden eines älteren Projekts
-    // ohne Intro-/Outro-Karte die Karte einer zuvor geöffneten Session fälschlich stehen.
-    setIntroCard(proj.intro_card || null);
-    setOutroCard(proj.outro_card || null);
-    setWritingMode(proj.writing_mode || "situation");
-    setMatrixFreeText(proj.matrix_free_text || {});
-    // Falls die Session ursprünglich mit einer Vorlage erstellt wurde, diese wieder als "ausgewählt" markieren,
-    // damit "Speichern unter" → "Vorlage aktualisieren" korrekt die richtige Vorlage anbietet
-    if (proj.template_id) {
-      const tpl = textTemplates.find(t => t.id === proj.template_id);
-      setSelectedTemplate(tpl || null);
-    } else {
-      setSelectedTemplate(null);
-    }
     setShowProjects(false);
     setWritingView("writing");
   };
@@ -2050,37 +504,9 @@ export default function LenormandApp() {
     } catch {}
   };
 
-  // Findet Sessions, die nirgends Inhalt haben (nur durch Würfeln/Tab-Wechsel entstanden, nie beschrieben)
-  const isEmptyProject = (p) => {
-    const nameIsAuto = !p.name || p.name.startsWith("Unbenannt");
-    const hasNotes = p.notes && Object.values(p.notes).some(v => v && String(v).trim());
-    return nameIsAuto && !p.bemerkung?.trim() && !p.hook?.trim() && !hasNotes;
-  };
-  const emptyProjectsCount = savedProjects.filter(isEmptyProject).length;
-  const cleanupEmptyProjects = async () => {
-    const uid = getUserId();
-    if (!uid) return;
-    const toDelete = savedProjects.filter(isEmptyProject);
-    if (toDelete.length === 0) return;
-    try {
-      await Promise.all(toDelete.map(p =>
-        fetch(`${SUPABASE_URL}/rest/v1/writing_projects?id=eq.${p.id}`, {method:"DELETE", headers: dbHeaders()})
-      ));
-      const deletedIds = new Set(toDelete.map(p => p.id));
-      setSavedProjects(prev => prev.filter(p => !deletedIds.has(p.id)));
-      if (deletedIds.has(writingProjectId)) setWritingProjectId(null);
-    } catch {}
-  };
-
   const saveWritingSession = (notes, projekt, bemerkung) => {
-    // Refs sofort synchron aktualisieren (zusätzlich zum useEffect), damit der Timer-Callback
-    // garantiert den aktuellsten Stand sieht, auch wenn er sehr knapp nach einer Änderung feuert.
-    writingNotesRef.current = notes;
-    writingProjektRef.current = projekt;
-    writingBemerkungRef.current = bemerkung;
     if (writingTimer.current) clearTimeout(writingTimer.current);
-    setWritingSaveStatus("saving");
-    writingTimer.current = setTimeout(() => saveProject(), 1500);
+    writingTimer.current = setTimeout(() => saveProject(), 2000);
   };
 
   const getUserId = () => {
@@ -2090,43 +516,6 @@ export default function LenormandApp() {
       const payload = JSON.parse(atob(s.access_token.split('.')[1]));
       return payload.sub;
     } catch { return null; }
-  };
-
-  // Liest die E-Mail-Adresse aus dem Login-Token aus — nur zur Anzeige im Profil,
-  // eine Änderung der E-Mail-Adresse selbst ist (noch) nicht möglich.
-  const getUserEmail = () => {
-    try {
-      const s = JSON.parse(localStorage.getItem("sb_session")||"null");
-      if (!s) return "";
-      const payload = JSON.parse(atob(s.access_token.split('.')[1]));
-      return payload.email || "";
-    } catch { return ""; }
-  };
-
-  // Praktische Helfer, um im Code lesbar zu prüfen, was jemand darf
-  const isGuest = !session || !getUserId();
-  const isAdmin = userRole === "admin";
-  const isMod = userRole === "mod" || isAdmin;
-  const isPro = userRole === "pro" || isMod;
-  // Nur echte Käufer — Test-PRO ("pro" via 14-Tage-Trial) kommt hier nicht rein.
-  // Du vergibst pro_full manuell im Supabase-Dashboard bei jedem echten Kauf.
-  const isProFull = userRole === "pro_full" || isMod;
-
-  // Kann diese Kategorie überhaupt gesehen werden, je nach Sichtbarkeits-Stufe + eigener Rolle?
-  // Alle Kategorien werden in der Übersicht angezeigt (auch für Gäste, als Appetit-Macher) —
-  // forumCanEnterCategory entscheidet, ob man tatsächlich hineinklicken kann, oder ob
-  // stattdessen der Login-Bildschirm kommt.
-  const forumCanEnterCategory = (cat) => {
-    if (cat.visibility === "guest") return true;
-    if (cat.visibility === "pro") return isPro;
-    return !isGuest; // "member"-Sichtbarkeit: alles außer Gast
-  };
-  // Beibehalten für eventuelle spätere Stellen, die nur die echten Lese-Rechte brauchen
-  const forumCanSeeCategory = forumCanEnterCategory;
-
-  const getAccessToken = () => {
-    try { return JSON.parse(localStorage.getItem("sb_session")||"null")?.access_token || null; }
-    catch { return null; }
   };
 
   const dbHeaders = () => {
@@ -2142,7 +531,6 @@ export default function LenormandApp() {
   // Zauberzettel
   const emptyManifest = {heute:"", wochen:"", monate:"", jahre:"", irgendwann:"", traum:""};
   const [manifestData, setManifestData] = React.useState(emptyManifest);
-  const [manifestSaveStatus, setManifestSaveStatus] = React.useState("idle"); // idle | saving | saved | error
 
   React.useEffect(() => {
     const loadManifest = async () => {
@@ -2152,12 +540,8 @@ export default function LenormandApp() {
         const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
         const data = await r.json();
         if (data && data[0]) {
-          const {heute,wochen,monate,jahre,irgendwann,traum,checked_items} = data[0];
-          setManifestData({
-            heute:heute||"", wochen:wochen||"", monate:monate||"", jahre:jahre||"",
-            irgendwann:irgendwann||"", traum:traum||"",
-            ...(checked_items || {})
-          });
+          const {heute,wochen,monate,jahre,irgendwann,traum} = data[0];
+          setManifestData({heute:heute||"", wochen:wochen||"", monate:monate||"", jahre:jahre||"", irgendwann:irgendwann||"", traum:traum||""});
         }
       } catch {}
     };
@@ -2165,97 +549,34 @@ export default function LenormandApp() {
   }, [session]);
 
   const saveManifestTimer = React.useRef(null);
-  const [manifestSaveError, setManifestSaveError] = React.useState("");
-  const saveManifestNow = async (data) => {
-    const uid = getUserId();
-    if (!uid) return;
-    setManifestSaveStatus("saving");
-    setManifestSaveError("");
-    try {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
-      const existing = await r.json();
-      let ok, errText = "";
-      // Nur die echten Tabellenspalten senden, nicht die UI-internen _checked_* Felder
-      const {heute, wochen, monate, jahre, irgendwann, traum} = data;
-      const checkedItems = Object.fromEntries(
-        Object.entries(data).filter(([k]) => k.startsWith("_checked_"))
-      );
-      const payload = {heute, wochen, monate, jahre, irgendwann, traum, checked_items: checkedItems};
-      if (existing && existing[0]) {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}`, {
-          method:"PATCH", headers: dbHeaders(),
-          body: JSON.stringify({...payload, updated_at: new Date().toISOString()})
-        });
-        ok = res.ok;
-        if (!ok) errText = await res.text();
-      } else {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel`, {
-          method:"POST", headers: dbHeaders(),
-          body: JSON.stringify({user_id: uid, ...payload})
-        });
-        ok = res.ok;
-        if (!ok) errText = await res.text();
-      }
-      setManifestSaveStatus(ok ? "saved" : "error");
-      if (!ok) setManifestSaveError(errText.slice(0, 200));
-    } catch (e) {
-      setManifestSaveStatus("error");
-      setManifestSaveError(String(e?.message || e).slice(0, 200));
-    }
-  };
   const saveManifest = (data) => {
     if (saveManifestTimer.current) clearTimeout(saveManifestTimer.current);
-    setManifestSaveStatus("saving");
-    saveManifestTimer.current = setTimeout(() => saveManifestNow(data), 400); // debounce 0.4 Sekunden
+    saveManifestTimer.current = setTimeout(async () => {
+      const uid = getUserId();
+      if (!uid) return;
+      try {
+        // Check if exists
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}&limit=1`, {headers: dbHeaders()});
+        const existing = await r.json();
+        if (existing && existing[0]) {
+          await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel?user_id=eq.${uid}`, {
+            method:"PATCH", headers: dbHeaders(),
+            body: JSON.stringify({...data, updated_at: new Date().toISOString()})
+          });
+        } else {
+          await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel`, {
+            method:"POST", headers: dbHeaders(),
+            body: JSON.stringify({user_id: uid, ...data})
+          });
+        }
+      } catch {}
+    }, 1000); // debounce 1 Sekunde
   };
-
-  // Beim Verlassen der Seite / Tab-Wechsel sofort speichern, statt auf den Debounce-Timer zu warten
-  React.useEffect(() => {
-    const flush = () => {
-      if (saveManifestTimer.current) {
-        clearTimeout(saveManifestTimer.current);
-        saveManifestNow(manifestData);
-      }
-    };
-    window.addEventListener("beforeunload", flush);
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
-    return () => {
-      window.removeEventListener("beforeunload", flush);
-    };
-  }, [manifestData]);
 
   const updateManifest = (field, value) => {
     const updated = {...manifestData, [field]: value};
     setManifestData(updated);
     saveManifest(updated);
-  };
-
-  // Entfernt Item an Index `i` aus der Liste `key` und gibt { newText, newChecked, removedWasChecked } zurück.
-  // Sorgt dafür, dass die Checked-Markierungen (die über Indizes laufen) beim Entfernen korrekt mitwandern,
-  // statt am alten Index "kleben" zu bleiben.
-  const removeManifestItem = (data, key, i) => {
-    const items = data[key].split('\n').map(s => s.trim()).filter(Boolean);
-    const removed = items.splice(i, 1)[0];
-    const checkedKey = `_checked_${key}`;
-    const oldChecked = data[checkedKey] || [];
-    const wasChecked = oldChecked.includes(i);
-    // Indizes nach dem entfernten Element um 1 nach unten verschieben, i selbst raus
-    const newChecked = oldChecked
-      .filter(idx => idx !== i)
-      .map(idx => idx > i ? idx - 1 : idx);
-    return { items, removed, wasChecked, newChecked };
-  };
-  // Fügt Item in die Liste `key` ein (an Position `pos`, default Ende) und passt Checked-Indizes an.
-  const insertManifestItem = (data, key, item, wasChecked, pos = null) => {
-    const items = data[key] ? data[key].split('\n').map(s => s.trim()).filter(Boolean) : [];
-    const insertAt = pos === null ? items.length : pos;
-    const checkedKey = `_checked_${key}`;
-    const oldChecked = data[checkedKey] || [];
-    // Indizes ab der Einfügeposition um 1 nach oben verschieben
-    const shiftedChecked = oldChecked.map(idx => idx >= insertAt ? idx + 1 : idx);
-    items.splice(insertAt, 0, item);
-    const newChecked = wasChecked ? [...shiftedChecked, insertAt] : shiftedChecked;
-    return { text: items.join('\n'), checked: newChecked };
   };
   const druckeManifest = () => {
     const heute = new Date();
@@ -2263,7 +584,7 @@ export default function LenormandApp() {
     const wochen = new Date(heute); wochen.setDate(heute.getDate()+21);
     const monate = new Date(heute); monate.setMonth(heute.getMonth()+3);
     const jahre = new Date(heute); jahre.setFullYear(heute.getFullYear()+3);
-    const toList = (text) => text.split('\n').map(s => s.trim()).filter(Boolean)
+    const toList = (text) => text.split(',').map(s => s.trim()).filter(Boolean)
       .map(s => "<div class='item'>☐ " + s + "</div>").join("");
     const html = "<html><head><title>Zauberzettel</title><style>"
       + "body{font-family:Georgia,serif;max-width:800px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
@@ -2283,7 +604,7 @@ export default function LenormandApp() {
       + "<div class='block'><div class='label'>🌙 3 Monate</div><div class='date'>bis " + monate.toLocaleDateString('de-DE') + "</div>" + toList(manifestData.monate) + "</div>"
       + "<div class='block'><div class='label'>🌟 3 Jahre</div><div class='date'>bis " + jahre.toLocaleDateString('de-DE') + "</div>" + toList(manifestData.jahre) + "</div>"
       + (manifestData.irgendwann ? "<div class='block'><div class='label'>🌙 Irgendwann</div>" + toList(manifestData.irgendwann) + "</div>" : "")
-      + (manifestData.traum ? "<div class='block'><div class='label'>💫 Beweise finden für:</div>" + toList(manifestData.traum) + "</div>" : "")
+      + (manifestData.traum ? "<div class='block'><div class='label'>💫 Mein größter Traum</div>" + toList(manifestData.traum) + "</div>" : "")
       + "</div></body></html>";
     const w = window.open("","_blank");
     w.document.write(html);
@@ -2298,54 +619,21 @@ export default function LenormandApp() {
     return nums.split("").reduce((a,b) => a + parseInt(b), 0) * 137;
   };
 
-  // Wird beim Login asynchron aus Supabase geladen (siehe loadRole-Effekt oben) — start
-  // mit leerem Objekt, kein synchrones localStorage-Lesen mehr nötig.
-  const [tagebuchData, setTagebuchData] = React.useState({});
-  const [tagebuchSaveStatus, setTagebuchSaveStatus] = React.useState(""); // "" | "saving" | "saved"
+  const [tagebuchData, setTagebuchData] = React.useState(() => loadTagebuch());
   const [tippVisible, setTippVisible] = React.useState(false);
-  // Teilen-Dialog: zeigt eine kleine Auswahl (Notizen mitschicken ja/nein) bevor
-  // die Tageskarte als Beitrag im Forum landet.
-  const [shareTageskarteOpen, setShareTageskarteOpen] = React.useState(false);
-  const [shareTageskarteIncludeNotes, setShareTageskarteIncludeNotes] = React.useState(false);
-  const [shareTageskarteStatus, setShareTageskarteStatus] = React.useState(""); // "" | "sharing" | "done" | "error"
-  // Teilen der Frage-Deutung (Situations-/Personen-Matrix) im Forum — kein extra Dialog
-  // nötig, da hier (anders als bei Tageskarten) keine separaten Notizfelder existieren,
-  // die man optional ein-/ausschließen könnte.
-  const [shareFrageStatus, setShareFrageStatus] = React.useState(""); // "" | "sharing" | "done" | "error"
   const todayKey = getTodayKey();
-  // Navigation: welcher Tag wird gerade angezeigt? Standard: heute.
-  const [selectedDateKey, setSelectedDateKey] = React.useState(todayKey);
-  const selectedCard = getDailyCard(getKlientSeed(), selectedDateKey);
-  const selectedEntry = tagebuchData[selectedDateKey] || {gedanken:"", reflexionen:"", resumee:""};
-  const isToday = selectedDateKey === todayKey;
-
-  const navigateDay = (direction) => {
-    const d = new Date(selectedDateKey + "T12:00:00");
-    d.setDate(d.getDate() + direction);
-    const newKey = d.toISOString().slice(0, 10);
-    // Nicht in die Zukunft navigieren
-    if (newKey > todayKey) return;
-    setSelectedDateKey(newKey);
-    setTippVisible(false);
-  };
+  const todayCard = getDailyCard(getKlientSeed());
+  const todayEntry = tagebuchData[todayKey] || {gedanken:"", reflexionen:"", resumee:""};
 
   const updateTagebuch = (field, value) => {
-    const uid = getUserId();
-    if (!uid) { setView("forum-login-noetig"); return; } // Login nötig zum Speichern
-    const updated = {...tagebuchData, [selectedDateKey]: {...selectedEntry, [field]: value}};
+    const updated = {...tagebuchData, [todayKey]: {...todayEntry, [field]: value}};
     setTagebuchData(updated);
-    setTagebuchSaveStatus("saving");
-    if (tagebuchTimer.current) clearTimeout(tagebuchTimer.current);
-    tagebuchTimer.current = setTimeout(async () => {
-      await saveTagebuchEntry(uid, selectedDateKey, updated[selectedDateKey]);
-      setTagebuchSaveStatus("saved");
-      setTimeout(() => setTagebuchSaveStatus(""), 1500);
-    }, 1500);
+    saveTagebuch(updated);
   };
 
   const druckeTagebuch = () => {
     const entries = Object.entries(tagebuchData).sort().reverse();
-    const html = `<html><head><title>Lenormand Tageskarten</title><style>
+    const html = `<html><head><title>Lenormand Tagebuch</title><style>
       body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}
       h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}
       .entry{margin-bottom:32px;border-left:3px solid #c8a96e;padding-left:16px}
@@ -2354,7 +642,7 @@ export default function LenormandApp() {
       .label{font-size:10px;color:#9a8060;letter-spacing:1px;text-transform:uppercase;margin-top:10px}
       .text{font-size:14px;color:#3a2a0a;margin-top:2px;white-space:pre-wrap}
     </style></head><body>
-    <h1>📓 Lenormand Tageskarten · Anna Benoir</h1>
+    <h1>📓 Lenormand Tagebuch · Anna Benoir</h1>
     ${entries.map(([key, entry]) => {
       const cardNum = (() => {
         const d = new Date(key);
@@ -2533,48 +821,8 @@ export default function LenormandApp() {
     saveStats(newS);
   };
   const [signifikator, setSignifikator] = useState(null);
-  const [writingMode, setWritingMode] = useState("situation"); // "situation" | "personen" — welche Matrix für die Textdeutung im Writing-Bereich genutzt wird
   const [matrixCards, setMatrixCards] = useState(Array(9).fill(null)); // 9 positions, pos 4 = signifikator
-  // Eigene, separate States für die optionale Intro-/Outro-Karte im Writing-Bereich —
-  // bewusst NICHT Teil von matrixCards, damit der echte Matrix-Bereich (der überall von
-  // einer festen 9er-Länge ausgeht) unangetastet bleibt.
-  const [introCard, setIntroCard] = React.useState(null);
-  const [outroCard, setOutroCard] = React.useState(null);
   const [activePos, setActivePos] = useState(null); // which position is being filled
-  const [matrixFreeText, setMatrixFreeText] = useState({}); // { [pos]: "freier Text statt Karte" } — für die freie Matrix beim Karten-Wählen
-  const [pickerMode, setPickerMode] = useState("karte"); // "karte" | "freitext" — was im Karten-Picker gerade angeboten wird
-
-  // Liest/schreibt die Karte für eine Picker-Position — das kann entweder eine echte
-  // Matrix-Position (0-8, in matrixCards) oder "intro"/"outro" (eigene States) sein.
-  // So kann der bestehende Picker-Code unverändert weiterlaufen und trotzdem Intro/Outro
-  // mit bedienen, ohne dass matrixCards selbst seine feste 9er-Länge verliert.
-  const getCardForPos = (pos) => {
-    if (pos === "intro") return introCard;
-    if (pos === "outro") return outroCard;
-    return matrixCards ? matrixCards[pos] : null;
-  };
-  const setCardForPos = (pos, num) => {
-    if (pos === "intro") { setIntroCard(num); return; }
-    if (pos === "outro") { setOutroCard(num); return; }
-    const newCards = [...(matrixCards || Array(9).fill(null))];
-    newCards[pos] = num;
-    setMatrixCards(newCards);
-  };
-
-  // Beim Verlassen der Seite / Tab-Wechsel sofort speichern, statt auf den Debounce-Timer zu warten
-  React.useEffect(() => {
-    const flush = () => {
-      if (writingTimer.current) {
-        clearTimeout(writingTimer.current);
-        saveProject();
-      }
-    };
-    window.addEventListener("beforeunload", flush);
-    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });
-    return () => {
-      window.removeEventListener("beforeunload", flush);
-    };
-  }, [writingNotes, writingProjekt, writingBemerkung, writingHook, matrixCards, signifikator]);
 
   const reset = () => {
     setSelected([]); setSearch(""); setCardDetail(null);
@@ -2644,9 +892,6 @@ export default function LenormandApp() {
     positions.forEach((pos, i) => { newCards[pos] = shuffled[i+1]; });
     setSignifikator(sig);
     setMatrixCards(newCards);
-    // Neue Session beginnt ohne Intro-/Outro-Karte — die werden bewusst separat gewählt
-    setIntroCard(null);
-    setOutroCard(null);
   };
 
   const startZeitQuiz = () => {
@@ -2706,22 +951,13 @@ export default function LenormandApp() {
     setTrainRevealed(false);
   };
 
-  // "Kombinationen" fasst 2er/3er/4er zu einem gemeinsamen Quiz-Punkt zusammen — bei
-  // jeder neuen Frage wird zufällig nach festen Anteilen entschieden (70% 2er, 20% 3er,
-  // 10% 4er), damit 2er weiterhin am häufigsten vorkommt, aber 3er/4er spürbar und nicht
-  // nur homöopathisch selten mit dabei sind.
-  const startKombinationenQuiz = () => {
-    const r = Math.random();
-    if (r < 0.70) startQuiz();
-    else if (r < 0.90) start3erQuiz();
-    else start4erQuiz();
-  };
-
   const startCurrentQuiz = () => {
     setTrainRevealed(false);
-    if (quizMode === "kombis") startKombinationenQuiz();
+    if (quizMode === "kombis") startQuiz();
     else if (quizMode === "zeit") startZeitQuiz();
     else if (quizMode === "person") startPersonQuiz();
+    else if (quizMode === "3er") start3erQuiz();
+    else if (quizMode === "4er") start4erQuiz();
     else startKarteQuiz();
   };
 
@@ -2775,33 +1011,12 @@ export default function LenormandApp() {
   const allFilled = matrixCards.every(c => c !== null);
   const usedCards = matrixCards.filter(Boolean);
 
-  // Liefert den festen Positions-Text für die Karte, die auf "pos" liegt — NICHT für
-  // den Signifikator! Beispiel: liegt bei "Gedanken" die Karte "Mäuse", kommt der
-  // gendanken-Text von Mäuse, unabhängig davon welcher Signifikator gewählt wurde.
   const getMatrixText = (pos) => {
-    const cardOnPos = matrixCards[pos];
-    if (!cardOnPos) return null;
-    if (writingMode === "personen") {
-      const pm = PERSON_MATRIX[String(cardOnPos)];
-      if (!pm) return null;
-      const perKeys = ["sternzeichen", "haarfarbe", "charakter", "figur", null, "beruf", "groesse", "alter", "woher"];
-      return perKeys[pos] ? pm[perKeys[pos]] : null;
-    }
-    const m = MATRIX[String(cardOnPos)];
+    if (!signifikator) return null;
+    const m = MATRIX[String(signifikator)];
     if (!m) return null;
     const keys = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
     return keys[pos] ? m[keys[pos]] : null;
-  };
-
-  // Liefert den Inspirationstext für eine Writing-Position: bei Positionen mit comboWith
-  // die Kombination zwischen Signifikator und der dort gewählten Karte, sonst den festen
-  // Matrix-Text (Situations- oder Personen-Matrix, je nach writingMode).
-  const getInspirationText = (pos, comboWith, cardNum) => {
-    if (comboWith !== null) {
-      if (!signifikator || !cardNum) return null;
-      return getCombo(signifikator, cardNum);
-    }
-    return getMatrixText(pos);
   };
 
   const getPositionContent = (pos) => {
@@ -2828,332 +1043,8 @@ export default function LenormandApp() {
     <span style={{fontSize:size}}>{SYMBOLS[num]}</span>
   ) : null;
 
-  // Findet YouTube-Links in einem Text (normale Videos, Shorts und youtu.be-Kurzlinks)
-  // und liefert die Video-ID — wird genutzt, um Lektionen/Beiträge mit Videotext automatisch
-  // als großes eingebettetes Video darzustellen, statt nur als rohen Link.
-  const extractYoutubeId = (url) => {
-    const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
-    return m ? m[1] : null;
-  };
-
-  // Zerlegt einen Beitrags-/Antworttext in normale Textabschnitte und YouTube-Links,
-  // und rendert Letztere als großes eingebettetes Video (gleiche Optik wie auf der Willkommensseite).
-  // Erkennt GIF-Links (auch mit Query-Parametern dahinter, wie bei Tenor/Giphy-Links üblich)
-  const isGifUrl = (url) => /\.gif(\?.*)?$/i.test(url);
-  // Erkennt normale Bild-Links (jpg/jpeg/png/webp/svg), genau wie isGifUrl — als
-  // Übergangslösung, bis es einen echten Bild-Upload gibt. Funktioniert mit jedem Link
-  // zu einer Bilddatei, der im Text steht (z.B. von einem eigenen Hosting), nicht nur
-  // mit Links, die man selbst hochgeladen hat.
-  const isImageUrl = (url) => /\.(jpe?g|png|webp|svg)(\?.*)?$/i.test(url);
-
-  const renderTextWithVideos = (text) => {
-    if (!text) return null;
-    const urlPattern = /(https?:\/\/[^\s]+)/g;
-    const parts = text.split(urlPattern);
-    return parts.map((part, i) => {
-      const isUrl = /^https?:\/\//.test(part);
-      const videoId = isUrl ? extractYoutubeId(part) : null;
-      if (videoId) {
-        return (
-          <div key={i} style={{ borderRadius:10, overflow:"hidden", margin:"10px 0", position:"relative", paddingTop:"56.25%" }}>
-            <iframe
-              src={`https://www.youtube.com/embed/${videoId}`}
-              title="Video"
-              style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-        );
-      }
-      // GIFs werden direkt eingebettet und spielen automatisch ab — wirkt wie ein kleines
-      // Video, macht das Forum lebendiger statt nur einen Link anzuzeigen.
-      if (isUrl && isGifUrl(part)) {
-        return (
-          <img key={i} src={part} alt="GIF" loading="lazy"
-            style={{ maxWidth:"100%", borderRadius:10, margin:"10px 0", display:"block" }} />
-        );
-      }
-      // Normale Bild-Links genauso direkt einbetten — Übergangslösung bis es echten
-      // Bild-Upload gibt. Klick auf das Bild öffnet es in voller Größe in neuem Tab.
-      if (isUrl && isImageUrl(part)) {
-        return (
-          <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ display:"block", margin:"10px 0" }}>
-            <img src={part} alt="Bild" loading="lazy"
-              style={{ maxWidth:"100%", borderRadius:10, display:"block" }} />
-          </a>
-        );
-      }
-      // Normale Links (z.B. zur Pro-Mitgliedschafts-Seite) werden klickbar dargestellt,
-      // statt nur als unscheinbarer Text stehen zu bleiben.
-      if (isUrl) {
-        return (
-          <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-            style={{ color:gold, textDecoration:"underline", wordBreak:"break-all" }}>
-            {part}
-          </a>
-        );
-      }
-      return part ? <span key={i} style={{whiteSpace:"pre-wrap"}}>{part}</span> : null;
-    });
-  };
-
-  // Rang/Titel anhand der Beitragszahl — Annas eigene Staffelung mit Emoji vor dem Titel.
-  const forumRankForPostCount = (count) => {
-    if (count > 1000) return "🗿 Urgestein";
-    if (count >= 801) return "🌙 Alte Seele";
-    if (count >= 501) return "🐉 Schreib Monster";
-    if (count >= 201) return "✨ Magisches Wesen";
-    if (count >= 101) return "🗝️ Geheimniskrämer";
-    if (count >= 51) return "🔑 Insider";
-    if (count >= 26) return "📜 Wort Weise";
-    if (count >= 11) return "🦉 Wissendes Wesen";
-    if (count >= 6) return "🔍 Spürnase";
-    return "🌱 Newbie";
-  };
-
-  // Berechnet aus einem Geburtsdatum das aktuelle Alter als kurzes Label, z.B. "57j".
-  // Kein Geburtsdatum hinterlegt -> leerer String, dann erscheint im Profil/Beitrag
-  // einfach nichts dazu (kein Pflichtfeld).
-  const ageFromBirthdate = (birthdate) => {
-    if (!birthdate) return "";
-    const b = new Date(birthdate);
-    if (isNaN(b.getTime())) return "";
-    const today = new Date();
-    let age = today.getFullYear() - b.getFullYear();
-    const hasHadBirthdayThisYear = (today.getMonth() > b.getMonth()) || (today.getMonth() === b.getMonth() && today.getDate() >= b.getDate());
-    if (!hasHadBirthdayThisYear) age -= 1;
-    return age >= 0 ? `${age}j` : "";
-  };
-
-  const forumRoleLabel = (role) => {
-    if (role === "admin") return "Admin";
-    if (role === "mod") return "Moderator";
-    if (role === "pro_full") return "V.I.P.";
-    if (role === "pro") return "Pro";
-    return "Mitglied";
-  };
-
-  // Wiederverwendbares Daily-Untermenü (Tageskarten/Zauberzettel/Writing/Quest).
-  const DailySubNav = () => (
-    <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-      {[["tagebuch","📓 Tageskarten"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"],["quest","🎯 Quest"]].map(([m,l]) => {
-        const isActive = dailyMode === m && view === "tagebuch";
-        return (
-          <button key={m} onClick={() => {
-              setView("tagebuch"); setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt");
-            }}
-            style={{ background:isActive?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${isActive?gold:"rgba(200,169,110,0.2)"}`, color:isActive?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
-            {l}
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  // Wiederverwendbares Forum-Untermenü (Profil/Forum/Kurse/Quiz) — wird sowohl im
-  // normalen Forum-Bereich (view==="forum") als auch im Quiz selbst (view==="quiz", ein
-  // eigener View-Wert) eingebunden, damit man von beiden Seiten aus konsistent wechseln
-  // kann, ohne dass das Untermenü beim Quiz-Klick verschwindet.
-  const ForumSubNav = () => (
-    <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-      {[["profil","👤 Profil"],["forum","📙 Forum"],["kurse","🎓 Kurse"],["quiz","🎓 Quiz"]].map(([m,l]) => {
-        const isActive = m === "quiz" ? view === "quiz" : (view === "forum" && communityMode === m);
-        return (
-          <button key={m} onClick={() => {
-              if (m === "quiz") {
-                setView("quiz");
-                setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0);
-                return;
-              }
-              setView("forum"); setCommunityMode(m);
-              if (m === "forum") { setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
-            }}
-            style={{ background:isActive?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${isActive?gold:"rgba(200,169,110,0.2)"}`, color:isActive?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
-            {l}
-          </button>
-        );
-      })}
-    </div>
-  );
-
-  // Wiederverwendbare Statistik-Zeile (alle Mitglieder, alle Beiträge inkl. Antworten,
-  // heute aktiv) — wird auf jeder Forum-Unterseite unten eingebunden, nicht nur in der
-  // Kategorien-Übersicht. Greift auf den forumStats-State zu, der in loadForumCategories()
-  // berechnet wird.
-  const ForumStatsBar = () => (
-    <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:24, paddingTop:16, borderTop:"1px solid rgba(200,169,110,0.12)", flexWrap:"wrap" }}>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:18, color:gold }}>🌙 {forumStats.totalMembers.toLocaleString('de-DE')}</div>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Mitglieder</div>
-      </div>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:18, color:gold }}>📔 {forumStats.totalPosts.toLocaleString('de-DE')}</div>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Beiträge</div>
-      </div>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:18, color:gold }}>✨ {forumStats.activeToday.toLocaleString('de-DE')}</div>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heute aktiv</div>
-      </div>
-      <div style={{ textAlign:"center" }}>
-        <div style={{ fontSize:18, color:gold }}>🌱 {forumStats.newToday.toLocaleString('de-DE')}</div>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heutige Neuanmeldungen</div>
-      </div>
-    </div>
-  );
-
-  // Kleine Profilkarte vor jedem Beitrag/jeder Antwort: Name, Rolle, Rang, Mitglied seit.
-  // Schmale linke Profil-Spalte (Avatar-Platzhalter mit Initiale, Name, Rolle, Rang,
-  // Mitglied seit) — wird neben den Beitragstext gesetzt, wie in einem klassischen Forum.
-  const ForumProfileTag = ({ userId, displayName }) => {
-    const p = userId ? forumProfiles[userId] : null;
-    const rank = forumRankForPostCount(p?.postCount || 0);
-    const initial = (displayName || "?").trim().charAt(0).toUpperCase() || "?";
-    const age = ageFromBirthdate(p?.birthdate);
-    // Nur klickbar, wenn es eine echte userId gibt — Gast-/Anonym-Beiträge haben keine
-    // und sollen nicht zu einem leeren Profil führen.
-    const clickable = !!userId;
-    return (
-      <div onClick={() => { if (clickable) { setViewedProfileId(userId); setViewedProfileName(displayName); } }}
-        style={{ display:"flex", flexDirection:"column", alignItems:"center", width:78, flexShrink:0, textAlign:"center", gap:4, cursor:clickable?"pointer":"default" }}>
-        <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, color:gold, fontFamily:"Georgia,serif" }}>
-          {initial}
-        </div>
-        <span style={{ fontSize:11, color:gold, lineHeight:1.2 }}>{displayName}{age && <span style={{ color:"#9a8060", fontSize:9 }}> · {age}</span>}</span>
-        {p && (
-          <>
-            <span style={{ fontSize:8, color:"#7a6040", background:"rgba(200,169,110,0.08)", padding:"2px 6px", borderRadius:8 }}>{forumRoleLabel(p.role)}</span>
-            <span style={{ fontSize:9, color:gold, lineHeight:1.3 }}>{rank}</span>
-            {p.createdAt && <span style={{ fontSize:7, color:"#5a4a34", lineHeight:1.3 }}>seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"short", year:"numeric"})}</span>}
-          </>
-        )}
-      </div>
-    );
-  };
-
-  // Stellt eine Antwort + alle ihre verschachtelten Unter-Antworten dar (rekursiv, mit
-  // wachsendem Einzug pro Ebene). depth steuert den Einzug, maxDepth begrenzt ihn nach
-  // unten hin, damit es auf schmalen Bildschirmen nicht zu eng wird.
-  const ForumReplyThread = ({ reply, allReplies, depth }) => {
-    const children = allReplies.filter(r => r.reply_to_id === reply.id);
-    const indent = Math.min(depth, 4) * 22;
-    const isEditing = forumEditingReplyId === reply.id;
-    return (
-      <div style={{ marginLeft: indent }}>
-        <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
-          {isEditing ? (
-            <InlineEditBox
-              initialValue={reply.body}
-              onSave={(newBody) => saveEditForumReply(reply.id, newBody)}
-              onCancel={() => setForumEditingReplyId(null)}
-            />
-          ) : (<>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
-              {forumCanEdit(reply, reply.user_id) && (
-                <button onClick={() => startEditForumReply(reply)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:11 }}>✎</button>
-              )}
-              {(isMod || reply.user_id === getUserId()) && (
-                <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
-              )}
-            </div>
-            <div style={{ display:"flex", gap:12 }}>
-              <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
-              <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
-                <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:6 }}>{renderTextWithVideos(reply.body)}</div>
-                {(() => {
-                  const sig = reply.user_id === getUserId()
-                    ? userSignature
-                    : forumProfiles[reply.user_id]?.signature;
-                  return sig ? (
-                    <div style={{ marginBottom:6, paddingTop:6, borderTop:"1px solid rgba(200,169,110,0.08)", fontSize:10, color:"#7a6040", fontStyle:"italic" }}>{sig}</div>
-                  ) : null;
-                })()}
-                <div style={{ display:"flex", gap:14, alignItems:"center" }}>
-                  <button onClick={() => toggleForumReplyLike(reply.id)}
-                    style={{ background:"transparent", border:"none", color:forumMyLikes[reply.id]?gold:"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:4 }}>
-                    {forumMyLikes[reply.id] ? "★" : "☆"} {forumLikeCounts[reply.id] || 0}
-                  </button>
-                  <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); }}
-                    style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
-                    ↩ Antworten
-                  </button>
-                </div>
-              </div>
-            </div>
-          </>)}
-        </div>
-        {children.map(child => (
-          <ForumReplyThread key={child.id} reply={child} allReplies={allReplies} depth={depth + 1} />
-        ))}
-      </div>
-    );
-  };
-
-  // Diese Bereiche sind auch ohne Login erreichbar — alles andere bleibt hinter der Anmeldung.
-  // "random" (Frage) ist als kleiner kostenloser Vorgeschmack gedacht; Forum-LESEN ist frei,
-  // aber zum Schreiben braucht's trotzdem ein Konto (das wird innerhalb des Forums selbst geprüft).
-  const freieViews = ["liesmich", "fragmich", "forum", "shop", "impressum", "agb"];
-  if (!session && !freieViews.includes(view)) return loginScreen;
-
-  // PRO-geschützte Bereiche: das sind die Inhalte, die früher exklusiv im gedruckten Buch
-  // standen (Kombinationen, alle Karten, Personen-Matrix, Situations-Matrix) sowie
-  // Zauberzettel und Writing. "Frage" bleibt bewusst frei als kostenloser Vorgeschmack,
-  // genau wie Tageskarten, Forum und Quiz.
-  const proGatedView = () => {
-    if (view === "picker" || view === "cards") return true;
-    if (view === "matrix" && mode === "situation") return true;
-    if (view === "personen" && mode === "personen") return true;
-    if (view === "tagebuch" && (dailyMode === "manifest" || dailyMode === "writing")) return true;
-    return false;
-  };
-  if (session && !isPro && proGatedView()) {
-    return (
-      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
-        <div style={{ maxWidth:440, textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:14, padding:"40px 32px" }}>
-          <div style={{ fontSize:32, marginBottom:14 }}>🔒</div>
-          <div style={{ fontSize:18, color:gold, marginBottom:12 }}>Dieser Bereich ist PRO</div>
-          <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.7, marginBottom:24 }}>
-            Dieser Inhalt gehört zu den Kernkapiteln der Lenormand Matrix und ist daher Teil des PRO-Zugangs, genau wie im Buch.
-          </div>
-          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
-            style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 26px", borderRadius:6, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
-            Jetzt freischalten →
-          </a>
-          <div style={{ marginTop:18 }}>
-            <button onClick={() => { setView("liesmich"); }} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>← Zurück zur Übersicht</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
-
-      {(isAdmin || hasHomeAdmin) && (
-        <AdminBar
-          gold={gold}
-          displayName={userDisplayName || getUserEmail()}
-          myEmail={getUserEmail()}
-          accounts={switcherAccounts}
-          accountsLoading={switcherLoading}
-          open={switcherOpen}
-          onOpen={() => { setSwitcherOpen(true); loadSwitcherAccounts(); }}
-          onClose={() => { setSwitcherOpen(false); setSwitcherAddOpen(false); setSwitcherMsg(""); }}
-          onSwitch={(acc) => switchToAccount(acc, getUserId(), getAccessToken(), setSwitcherSwitching)}
-          switching={switcherSwitching}
-          onForget={async (id) => { await forgetAccount(id, getAccessToken()); loadSwitcherAccounts(); }}
-          addOpen={switcherAddOpen}
-          onAddOpen={() => setSwitcherAddOpen(true)}
-          onAddCancel={() => { setSwitcherAddOpen(false); setSwitcherMsg(""); }}
-          onAddSubmit={handleSwitcherAddAccount}
-          addMsg={switcherMsg}
-          isRealAdmin={isAdmin}
-          onBackToAdmin={handleBackToAdmin}
-          switchingBack={switchingBackToAdmin}
-        />
-      )}
+    <div style={{ minHeight:"100vh", background:T.bg, fontFamily:"Georgia,serif", color:T.text, transition:"all 0.3s" }}>
 
       {/* Konfetti */}
       {showConfetti && (
@@ -3199,7 +1090,7 @@ export default function LenormandApp() {
           }}>
           <img
             src={splashImage}
-            alt="Lenormandia"
+            alt="Lenormand Matrix"
             style={{ width:"100%", height:"100%", objectFit:"contain", objectPosition:"center center", position:"absolute", inset:0 }}
           />
           <div style={{
@@ -3224,7 +1115,7 @@ export default function LenormandApp() {
       {access === "expired" && (
         <div style={{ position:"fixed", inset:0, background:"linear-gradient(160deg,#080512,#0f0a1a)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", zIndex:1000, padding:24 }}>
           <div style={{ fontSize:40, marginBottom:16 }}>🔐</div>
-          <h2 style={{ color:"#c8a96e", fontWeight:"normal", fontSize:22, marginBottom:8, textAlign:"center" }}>Lenormandia</h2>
+          <h2 style={{ color:"#c8a96e", fontWeight:"normal", fontSize:22, marginBottom:8, textAlign:"center" }}>Lenormand Matrix</h2>
           <p style={{ color:"#7a6040", fontSize:13, marginBottom:24, textAlign:"center", maxWidth:320 }}>
             Deine 14-tägige Probezeit ist abgelaufen.<br/>Gib dein Passwort ein um weiterzumachen.
           </p>
@@ -3253,28 +1144,41 @@ export default function LenormandApp() {
         </div>
       )}
 
-      {access !== "trial" && proTrialDaysLeft !== null && (
-        <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:"1px solid rgba(200,169,110,0.2)", padding:"8px 16px", textAlign:"center", fontSize:11, color:"#9a8060" }}>
-          ✦ Pro-Testphase: noch {proTrialDaysLeft} {proTrialDaysLeft === 1 ? "Tag" : "Tage"} kostenlos &nbsp;·&nbsp;
-          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
-            Jetzt freischalten →
-          </a>
-        </div>
-      )}
-
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", background:"radial-gradient(ellipse at 15% 15%,rgba(180,120,60,0.07) 0%,transparent 45%),radial-gradient(ellipse at 85% 85%,rgba(60,40,100,0.08) 0%,transparent 45%)" }}/>
 
+      <style>{`
+        :root {
+          --bg: ${darkMode ? "#080512" : "#fdf6ee"};
+          --text: ${darkMode ? "#f0e8d8" : "#2a1a3a"};
+          --text-mid: ${darkMode ? "#c0b090" : "#5a3a6a"};
+          --text-dim: ${darkMode ? "#7a6040" : "#8a6a9a"};
+          --gold: ${darkMode ? "#c8a96e" : "#9a6020"};
+          --surface: ${darkMode ? "rgba(200,169,110,0.04)" : "rgba(120,60,160,0.04)"};
+          --border: ${darkMode ? "rgba(200,169,110,0.15)" : "rgba(120,60,160,0.15)"};
+          --input-bg: ${darkMode ? "rgba(200,169,110,0.04)" : "rgba(120,60,160,0.04)"};
+          --input-text: ${darkMode ? "#d4c4a0" : "#3a1a5a"};
+          --card-bg: ${darkMode ? "rgba(200,169,110,0.03)" : "rgba(120,60,160,0.03)"};
+        }
+        textarea, input {
+          color: var(--input-text) !important;
+          background: var(--input-bg) !important;
+        }
+      `}</style>
+
       {/* Header */}
-      <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:"1px solid rgba(200,169,110,0.15)", position:"relative" }}>
-        <div style={{ fontSize:10, letterSpacing:6, color:"#7a6040", marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
-        <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color:gold, margin:"0 0 4px", letterSpacing:2, textShadow:"0 0 30px rgba(200,169,110,0.25)" }}>Lenormandia</h1>
-        <div style={{ fontSize:10, color:"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>wo Karten Geheimnisse offenbaren — und du nicht allein damit bist</div>
+      <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:`1px solid ${T.border}`, position:"relative" }}>
+        <button onClick={toggleTheme} style={{ position:"absolute", top:16, right:16, background:T.surface, border:`1px solid ${T.border}`, color:T.textDim, padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+          {darkMode ? "☀️ Hell" : "🌙 Dunkel"}
+        </button>
+        <div style={{ fontSize:10, letterSpacing:6, color:T.textDim, marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
+        <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color:T.gold, margin:"0 0 4px", letterSpacing:2 }}>Lenormand Matrix</h1>
+        <div style={{ fontSize:10, color:T.textMid, letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>Die Sprache hinter den Zeichen</div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {/* Reihe 1 */}
-          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["matrix","⬛ Matrix"]].map(([v,l]) => (
+          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["tagebuch","✨ Daily"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
-                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
+                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
                 else if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
               }}
@@ -3284,13 +1188,11 @@ export default function LenormandApp() {
           ))}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
-          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","📙 Forum"],["shop","🛍️ Shop"]].map(([v,l]) => (
+          {[["matrix","⬛ Matrix"],["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["quiz","🎓 Quiz"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
-                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
-                else if(v==="tagebuch") { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
-                else if(v==="forum") { setView(v); setCommunityMode("forum"); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
-                else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { setView(v); if(v!==view) reset(); } }
+                else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); }
+                else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { if(v==="quiz" && view==="quiz") { startQuiz(); } else { setView(v); if(v!==view) { reset(); if(v==="quiz") { setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0); } } } } }
               }}
               style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
               {l}
@@ -3305,15 +1207,6 @@ export default function LenormandApp() {
         {/* ── LIESMICH ── */}
         {view === "liesmich" && (
           <div style={{ maxWidth:700, margin:"0 auto" }}>
-            <div style={{ borderRadius:12, overflow:"hidden", marginBottom:24, position:"relative", paddingTop:"56.25%" }}>
-              <iframe
-                src="https://www.youtube.com/embed/N9sWhC_j_qE"
-                title="Anna Benoir - Lenormandia"
-                style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
             <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.18)", borderRadius:12, padding:"28px 32px", marginBottom:24 }}>
               <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:16 }}>Einleitung</div>
               {("Willkommen in der Welt der Mlle Lenormand.\n\nPassend zum 10-jährigen Jubiläum der Lenormand Matrix gehen wir mit der Zeit — und verwandeln das Buch in ein Erlebnis.\n\nDas Lenormand ist eine sehr alte, ehrliche und vor allem alltagstaugliche Sprache der Symbole. Sie spricht nicht immer das aus, was wir hören wollen. Aber sie sagt immer das, was wir brauchen.\n\nWas mich an den Lenormand-Karten am meisten gewurmt hat, war dass sie auf der einen Seite so viele Informationen zu bieten haben — man aber die Hälfte mindestens übersieht, wenn man sie nicht alle auswendig kann. Ich wollte mich nicht geschlagen geben. Nicht von diesen Karten!\n\nAlso habe ich mich durch die Massen an Informationen gewühlt, sortiert — und sie in einer Matrix zusammengeschrieben, damit du mit ihr sicher, sanft und sehr, sehr schnell arbeiten kannst.\n\nIn dieser App findest du alle 1260 Kombinationen, die Situations-Matrix und die Personen-Matrix — und ein Quiz, damit du die Karten wirklich lernst. Nicht auswendig. Sondern mit dem Herzen.\n\nIn einem magischen Universum wird nichts dem Zufall überlassen. Auch nicht, dass du hier gelandet bist.\n\nMein Name ist Anna Benoir — und ich lege die Karten. 🎴").split("\n\n").map((para, i) => (
@@ -3321,6 +1214,15 @@ export default function LenormandApp() {
                   {para}
                 </p>
               ))}
+            </div>
+            <div style={{ borderRadius:12, overflow:"hidden", marginBottom:24, position:"relative", paddingTop:"56.25%" }}>
+              <iframe
+                src="https://www.youtube.com/embed/N9sWhC_j_qE"
+                title="Anna Benoir - Lenormand Matrix"
+                style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
             </div>
           </div>
         )}
@@ -3666,7 +1568,7 @@ export default function LenormandApp() {
                     return {label:posLabels[pos], card:cardDisplay, text, isSig, isKombi:isKombi&&!isPersonen};
                   });
 
-                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lenormandia</title>
+                  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lenormand Matrix</title>
                   <style>
                     body{font-family:Georgia,serif;color:#1a1a1a;background:white;margin:0;padding:24px 32px;}
                     h1{font-size:20px;font-weight:normal;text-align:center;margin:0 0 4px;}
@@ -3700,10 +1602,6 @@ export default function LenormandApp() {
                   w.document.write(html);
                   w.document.close();
                 }} style={{ background:"rgba(200,169,110,0.1)", border:`1px solid rgba(200,169,110,0.3)`, color:gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>🖨 Drucken</button>
-                <button onClick={shareFrageToForum} disabled={shareFrageStatus==="sharing"}
-                  style={{ background:"rgba(200,169,110,0.1)", border:`1px solid rgba(200,169,110,0.3)`, color: shareFrageStatus==="done" ? "#5a9a5a" : gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif", opacity: shareFrageStatus==="sharing"?0.6:1 }}>
-                  {shareFrageStatus==="sharing" ? "Teilt…" : shareFrageStatus==="done" ? "✓ Geteilt" : shareFrageStatus==="error" ? "✕ Fehler" : "💬 Im Forum teilen"}
-                </button>
                 <button onClick={reset} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Neu</button>
               </div>
             </div>
@@ -3768,641 +1666,9 @@ export default function LenormandApp() {
           </>)}
         </>)}
 
-        {/* ── FORUM / COMMUNITY ── */}
-        {view === "forum" && viewedProfileId && (() => {
-          const p = forumProfiles[viewedProfileId];
-          const rank = forumRankForPostCount(p?.postCount || 0);
-          const initial = (viewedProfileName || "?").trim().charAt(0).toUpperCase() || "?";
-          const age = ageFromBirthdate(p?.birthdate);
-          return (
-            <div style={{ maxWidth:420, margin:"0 auto", padding:"20px 0", textAlign:"center" }}>
-              <button onClick={() => { setViewedProfileId(null); setViewedProfileName(""); }}
-                style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück zum Forum</button>
-              <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
-                {initial}
-              </div>
-              <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{viewedProfileName || "Mitglied"}{age && <span style={{ color:"#9a8060", fontSize:13 }}> · {age}</span>}</div>
-              <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:10 }}>{forumRoleLabel(p?.role)}</div>
-              <div style={{ fontSize:12, color:gold, marginBottom:6 }}>{rank}</div>
-              {p?.createdAt && <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14 }}>Mitglied seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"long", year:"numeric"})}</div>}
-              {p?.bio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginTop:14, whiteSpace:"pre-wrap", textAlign:"left", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"14px 16px" }}>{p.bio}</div>}
-              <div style={{ fontSize:11, color:"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag oder Antwort" : "Beiträge &amp; Antworten"} im Forum</div>
-            </div>
-          );
-        })()}
-
-        {view === "forum" && !viewedProfileId && (
-          <div style={{ maxWidth:700, margin:"0 auto" }}>
-
-            {/* Untermenü */}
-            <ForumSubNav />
-
-            {/* PROFIL */}
-            {communityMode === "profil" && (
-              <div style={{ maxWidth:420, margin:"0 auto", padding:"20px 0" }}>
-                {!profileEditing && (
-                  <div style={{ textAlign:"center" }}>
-                    <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
-                      {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
-                    </div>
-                    <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}{ageFromBirthdate(userBirthdate) && <span style={{ color:"#9a8060", fontSize:13 }}> · {ageFromBirthdate(userBirthdate)}</span>}</div>
-                    <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:14 }}>{forumRoleLabel(userRole)}</div>
-                    {userBio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:14, whiteSpace:"pre-wrap" }}>{userBio}</div>}
-                    {userSignature && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginBottom:14, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.1)" }}>{userSignature}</div>}
-                    <div style={{ fontSize:11, color:"#5a4a34", marginBottom:20 }}>{getUserEmail()}</div>
-                    <button onClick={() => setProfileEditing(true)}
-                      style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px 20px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                      ✎ Profil bearbeiten
-                    </button>
-                  </div>
-                )}
-
-                {profileEditing && (
-                  <ProfileEditBox
-                    initialName={userDisplayName}
-                    initialBio={userBio}
-                    initialSignature={userSignature}
-                    initialBirthdate={userBirthdate}
-                    initialGender={userGender}
-                    saveStatus={profileSaveStatus}
-                    onSave={saveProfile}
-                    onCancel={() => setProfileEditing(false)}
-                    gold={gold}
-                  />
-                )}
-                {!profileEditing && <ForumStatsBar />}
-              </div>
-            )}
-
-            {/* FORUM */}
-            {communityMode === "forum" && (<>
-            {forumError && (
-              <div style={{ background:"rgba(180,80,60,0.1)", border:"1px solid rgba(180,80,60,0.3)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#d09080", fontSize:12 }}>
-                {forumError}
-              </div>
-            )}
-
-            {/* KATEGORIEN-LISTE */}
-            {forumView === "liste" && (
-              <div>
-                <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-                  {isAdmin && (
-                    <button onClick={() => setForumShowNewCat(v => !v)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-                      {forumShowNewCat ? "✕ Abbrechen" : "+ Neue Kategorie"}
-                    </button>
-                  )}
-                </div>
-
-                {isAdmin && forumShowNewCat && (
-                  <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:16, marginBottom:16 }}>
-                    <input placeholder="Name der Kategorie" value={forumNewCatName} onChange={e => setForumNewCatName(e.target.value)}
-                      style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-                    <input placeholder="Beschreibung (optional, ein kurzer Satz)" value={forumNewCatDescription} onChange={e => setForumNewCatDescription(e.target.value)}
-                      style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-                    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-                      <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1 }}>Icon</div>
-                      <input placeholder="z.B. 💬" value={forumNewCatIcon} maxLength={4} onChange={e => setForumNewCatIcon(e.target.value)}
-                        style={{ width:60, padding:"6px 8px", textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none" }} />
-                      <div style={{ fontSize:9, color:"#5a4a34" }}>nur 1 Emoji, kein Text — Vorschau:</div>
-                      <span style={{ fontSize:22 }}>{forumNewCatIcon}</span>
-                    </div>
-                    <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-                      {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"]].map(([v,l]) => (
-                        <button key={v} onClick={() => setForumNewCatVisibility(v)} style={{ flex:1, background:forumNewCatVisibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${forumNewCatVisibility===v?gold:"rgba(200,169,110,0.2)"}`, color:forumNewCatVisibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
-                      ))}
-                    </div>
-                    <label style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:11, color:"#9a8060", cursor:"pointer" }}>
-                      <input type="checkbox" checked={forumNewCatGuestPost} onChange={e => setForumNewCatGuestPost(e.target.checked)} />
-                      Gäste dürfen hier auch ohne Login schreiben (z.B. für Mitmach-Mittwoch)
-                    </label>
-                    <button onClick={() => createForumCategory("forum")} style={{ width:"100%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Kategorie anlegen</button>
-                  </div>
-                )}
-
-                {forumCategories.length === 0 && (
-                  <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Kategorien vorhanden.</div>
-                )}
-
-                {forumCategories.map(cat => {
-                  const locked = !forumCanEnterCategory(cat);
-                  const glow = cat.hasUnread && !locked;
-                  if (isAdmin && forumEditingCategoryId === cat.id) {
-                    return (
-                      <CategoryEditBox
-                        key={cat.id}
-                        initialName={cat.name}
-                        initialDescription={cat.description || ""}
-                        initialIcon={cat.icon || "💬"}
-                        initialVisibility={cat.visibility}
-                        initialGuestPost={!!cat.guest_can_post}
-                        onSave={(fields) => saveEditForumCategory(cat.id, fields)}
-                        onCancel={() => setForumEditingCategoryId(null)}
-                        gold={gold}
-                      />
-                    );
-                  }
-                  return (
-                  <div key={cat.id} onClick={() => openForumCategory(cat)}
-                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, background: glow ? "rgba(200,169,110,0.1)" : cat.pinned ? "rgba(200,169,110,0.06)" : "rgba(200,169,110,0.03)", border:`1px solid ${glow ? gold : cat.pinned ? "rgba(200,169,110,0.35)" : "rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer", opacity: locked ? 0.7 : 1, boxShadow: glow ? "0 0 14px rgba(200,169,110,0.18)" : "none" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                      <span style={{ fontSize:22, maxWidth:32, overflow:"hidden", flexShrink:0 }}>{(cat.icon || "💬").slice(0, 4)}</span>
-                      <div>
-                        <div style={{ fontSize:14, color:gold, display:"flex", alignItems:"center", gap:6 }}>
-                          {cat.pinned && <span style={{fontSize:11}}>📌</span>}
-                          {glow && <span style={{width:7, height:7, borderRadius:"50%", background:gold, display:"inline-block", flexShrink:0}}></span>}
-                          <span style={{fontWeight: glow ? "bold" : "normal"}}>{cat.name}</span>
-                          {cat.visibility==="pro" && <span style={{fontSize:9, color:"#9a7060"}}>⭐ PRO</span>}
-                          {locked && <span style={{fontSize:10, color:"#7a6040"}}>🔒</span>}
-                        </div>
-                        {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{cat.description}</div>}
-                        <div style={{ fontSize:10, color:"#5a4a34", marginTop:3 }}>
-                          {cat.postCount || 0} {cat.postCount === 1 ? "Beitrag" : "Beiträge"}{locked && " · Login nötig"}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                      {isAdmin && (
-                        <button onClick={e => { e.stopPropagation(); setForumEditingCategoryId(cat.id); }}
-                          title="Kategorie bearbeiten"
-                          style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
-                      )}
-                      {isAdmin && (
-                        <button onClick={e => { e.stopPropagation(); toggleForumCategoryPin(cat); }}
-                          title={cat.pinned ? "Anpinnen lösen" : "Kategorie anpinnen"}
-                          style={{ background: cat.pinned ? "rgba(200,169,110,0.15)" : "transparent", border:`1px solid ${cat.pinned ? gold : "rgba(200,169,110,0.25)"}`, color: cat.pinned ? gold : "#9a8060", cursor:"pointer", fontSize:13, padding:"4px 8px", borderRadius:5 }}>📌</button>
-                      )}
-                      {isAdmin && (
-                        <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kategorie "${cat.name}" wirklich löschen? Alle Beiträge darin gehen verloren.`)) deleteForumCategory(cat.id); }}
-                          style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
-                      )}
-                      <span style={{ color:"#5a4a34", fontSize:16 }}>{locked ? "🔒" : "→"}</span>
-                    </div>
-                  </div>
-                  );
-                })}
-
-                {/* Echte Forum-Statistik (siehe loadForumCategories) statt Fake-Zahlen */}
-                <ForumStatsBar />
-              </div>
-            )}
-
-            {/* KATEGORIE: BEITRAGSLISTE */}
-            {forumView === "kategorie" && forumActiveCategory && (
-              <div>
-                <button onClick={() => { setForumView("liste"); setForumActiveCategory(null); }} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kategorien</button>
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
-                  <span style={{ fontSize:20 }}>{forumActiveCategory.icon}</span>
-                  <div style={{ fontSize:16, color:gold }}>{forumActiveCategory.name}</div>
-                </div>
-
-                <div style={{ textAlign:"right", marginBottom:14 }}>
-                  <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { setForumView("neu"); setForumError(""); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                    ✎ {forumActiveCategory.name === "Mitmach-Mittwoch" ? "Frage stellen" : "Neuer Beitrag"}
-                  </button>
-                </div>
-
-                {forumPosts.length === 0 && (
-                  <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Beiträge — sei die/der Erste!</div>
-                )}
-
-                {forumPosts.map(post => {
-                  const isUnread = !isGuest && post.user_id !== getUserId() && !forumReadPostIds.has(post.id);
-                  return (
-                  <div key={post.id}
-                    style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, background: post.pinned ? "rgba(200,169,110,0.07)" : isUnread ? "rgba(200,169,110,0.07)" : "rgba(200,169,110,0.03)", border:`1px solid ${post.pinned ? "rgba(200,169,110,0.35)" : isUnread ? "rgba(200,169,110,0.3)" : "rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"12px 14px", marginBottom:8 }}>
-                    <div onClick={() => openForumPost(post)} style={{ flex:1, minWidth:0, cursor:"pointer" }}>
-                      <div style={{ fontSize:13, color:gold, marginBottom:4, display:"flex", alignItems:"center", gap:6 }}>
-                        {post.pinned && <span>📌</span>}
-                        {isUnread && <span style={{width:7, height:7, borderRadius:"50%", background:gold, display:"inline-block", flexShrink:0}}></span>}
-                        <span style={{fontWeight: isUnread ? "bold" : "normal"}}>{post.title}</span>
-                      </div>
-                      <div style={{ fontSize:10, color:"#7a6040" }}>{post.display_name} · {new Date(post.created_at).toLocaleDateString('de-DE')}</div>
-                    </div>
-                    {isMod && (
-                      <button onClick={e => { e.stopPropagation(); toggleForumPostPin(post); }}
-                        title={post.pinned ? "Anpinnen lösen" : "Beitrag anpinnen"}
-                        style={{ background: post.pinned ? "rgba(200,169,110,0.15)" : "transparent", border:`1px solid ${post.pinned ? gold : "rgba(200,169,110,0.25)"}`, color: post.pinned ? gold : "#9a8060", cursor:"pointer", fontSize:12, padding:"4px 8px", borderRadius:5, flexShrink:0 }}>📌</button>
-                    )}
-                  </div>
-                  );
-                })}
-                <ForumStatsBar />
-              </div>
-            )}
-
-            {/* NEUER BEITRAG */}
-            {forumView === "neu" && forumActiveCategory && (
-              <div>
-                <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
-                <div style={{ fontSize:14, color:gold, marginBottom:14 }}>✎ Neuer Beitrag in {forumActiveCategory.name}</div>
-                {isGuest && (
-                  <input placeholder="Dein Name (erscheint öffentlich)" value={forumNewName} onChange={e => setForumNewName(e.target.value)}
-                    style={{ width:"100%", padding:"9px 12px", marginBottom:10, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-                )}
-                <input placeholder="Titel" value={forumNewTitle} onChange={e => setForumNewTitle(e.target.value)}
-                  style={{ width:"100%", padding:"9px 12px", marginBottom:10, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-                <textarea placeholder="Dein Text…" value={forumNewBody} onChange={e => setForumNewBody(e.target.value)} rows={6}
-                  style={{ width:"100%", padding:"10px 12px", marginBottom:12, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                <button onClick={createForumPost} style={{ width:"100%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>Veröffentlichen</button>
-              </div>
-            )}
-
-            {/* POST-DETAIL MIT ANTWORTEN */}
-            {forumView === "post" && forumActivePost && (
-              <div>
-                <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zur Liste</button>
-                <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
-                  {forumEditingPostId === forumActivePost.id ? (
-                    <InlinePostEditBox
-                      initialTitle={forumActivePost.title}
-                      initialBody={forumActivePost.body}
-                      onSave={(newTitle, newBody) => saveEditForumPost(forumActivePost.id, newTitle, newBody)}
-                      onCancel={() => setForumEditingPostId(null)}
-                    />
-                  ) : (<>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-                      <div style={{ fontSize:15, color:gold, marginBottom:6 }}>{forumActivePost.title}</div>
-                      <div style={{ display:"flex", gap:8, flexShrink:0 }}>
-                        <button onClick={() => {
-                            const url = `${window.location.origin}${window.location.pathname}#post-${forumActivePost.id}`;
-                            navigator.clipboard.writeText(url).then(() => {
-                              setLinkCopiedPostId(forumActivePost.id);
-                              setTimeout(() => setLinkCopiedPostId(null), 2000);
-                            });
-                          }}
-                          title="Link zu diesem Beitrag kopieren"
-                          style={{ background:"transparent", border:"none", color: linkCopiedPostId===forumActivePost.id ? "#5a9a5a" : "#9a8060", cursor:"pointer", fontSize:12 }}>
-                          {linkCopiedPostId===forumActivePost.id ? "✓ kopiert" : "🔗"}
-                        </button>
-                        {forumCanEdit(forumActivePost, forumActivePost.user_id) && (
-                          <button onClick={() => startEditForumPost(forumActivePost)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
-                        )}
-                        {(isMod || forumActivePost.user_id === getUserId()) && (
-                          <button onClick={() => { if(window.confirm("Beitrag wirklich löschen?")) deleteForumPost(forumActivePost.id); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ display:"flex", gap:14 }}>
-                      <ForumProfileTag userId={forumActivePost.user_id} displayName={forumActivePost.display_name} />
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:9, color:"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
-                        {forumActivePost.matrix_data ? (
-                          <ForumMatrixGrid data={forumActivePost.matrix_data} gold={gold} />
-                        ) : (
-                          <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
-                        )}
-                        {(() => {
-                          const sig = forumActivePost.user_id === getUserId()
-                            ? userSignature
-                            : forumProfiles[forumActivePost.user_id]?.signature;
-                          return sig ? (
-                            <div style={{ marginTop:10, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.1)", fontSize:11, color:"#7a6040", fontStyle:"italic" }}>{sig}</div>
-                          ) : null;
-                        })()}
-                        <button onClick={() => toggleForumPostLike(forumActivePost.id)}
-                          style={{ marginTop:10, background:"transparent", border:"none", color:forumMyPostLike?gold:"#9a8060", cursor:"pointer", fontSize:12, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:5 }}>
-                          {forumMyPostLike ? "★" : "☆"} {forumPostLikeCount}
-                        </button>
-                      </div>
-                    </div>
-                  </>)}
-                </div>
-
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                  <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
-                  <div style={{ display:"flex", gap:6 }}>
-                    {[["neueste","Neueste"],["beliebteste","Beliebteste"]].map(([s,l]) => (
-                      <button key={s} onClick={() => { setForumReplySort(s); setForumRepliesVisibleCount(20); }}
-                        style={{ background:forumReplySort===s?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${forumReplySort===s?gold:"rgba(200,169,110,0.2)"}`, color:forumReplySort===s?gold:"#7a6040", padding:"4px 10px", borderRadius:6, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                        {l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {(() => {
-                  // Nur Top-Level-Antworten werden sortiert/paginiert — Unterantworten zu
-                  // einer sichtbaren Top-Level-Antwort werden immer komplett mitgeladen,
-                  // damit kein Gesprächsverlauf mitten drin abgeschnitten wird.
-                  const topLevel = forumReplies.filter(r => !r.reply_to_id);
-                  const sorted = [...topLevel].sort((a, b) => {
-                    if (forumReplySort === "beliebteste") {
-                      const diff = (forumLikeCounts[b.id] || 0) - (forumLikeCounts[a.id] || 0);
-                      if (diff !== 0) return diff;
-                      return new Date(b.created_at) - new Date(a.created_at); // bei Gleichstand: neueste zuerst
-                    }
-                    return new Date(b.created_at) - new Date(a.created_at); // "neueste"
-                  });
-                  const visible = sorted.slice(0, forumRepliesVisibleCount);
-                  const hasMore = forumRepliesVisibleCount < sorted.length;
-                  return (<>
-                    {visible.map(reply => (
-                      <ForumReplyThread key={reply.id} reply={reply} allReplies={forumReplies} depth={0} />
-                    ))}
-                    {hasMore && (
-                      <div ref={el => {
-                          if (!el) return;
-                          const observer = new IntersectionObserver((entries) => {
-                            if (entries[0].isIntersecting) {
-                              setForumRepliesVisibleCount(prev => prev + 20);
-                              observer.disconnect();
-                            }
-                          }, { rootMargin: "200px" });
-                          observer.observe(el);
-                        }}
-                        style={{ textAlign:"center", padding:"10px 0" }}>
-                        <span style={{ fontSize:11, color:"#7a6040" }}>Lade weitere Antworten…</span>
-                      </div>
-                    )}
-                  </>);
-                })()}
-
-                <div style={{ marginTop:14 }}>
-                  {forumReplyToId && (
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11, color:"#9a8060", marginBottom:6, background:"rgba(200,169,110,0.05)", padding:"5px 10px", borderRadius:6 }}>
-                      <span>Antwort an {forumReplyToName}</span>
-                      <button onClick={() => { setForumReplyToId(null); setForumReplyToName(""); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
-                    </div>
-                  )}
-                  <textarea placeholder="Antworten…" value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
-                    style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                  <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { createForumReply(); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
-                </div>
-                <ForumStatsBar />
-              </div>
-            )}
-            </>)}
-
-            {/* KURSE — Übersicht folgt */}
-            {communityMode === "kurse" && (<>
-              {/* Zugriffssperre für alle ohne pro_full */}
-              {!isProFull ? (
-                <div style={{ textAlign:"center", padding:"40px 20px" }}>
-                  <div style={{ fontSize:32, marginBottom:14 }}>🎓</div>
-                  <div style={{ fontSize:16, color:gold, marginBottom:10 }}>Kursbereich</div>
-                  <div style={{ fontSize:13, color:"#7a6040", lineHeight:1.7, marginBottom:20, maxWidth:320, margin:"0 auto 20px" }}>
-                    Dieser Bereich ist ausschließlich für Mitglieder mit vollem PRO-Zugang — nicht für die 14-tägige Testphase.
-                  </div>
-                  <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
-                    style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 26px", borderRadius:6, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
-                    Jetzt freischalten →
-                  </a>
-                </div>
-              ) : (<>
-
-                {/* KURS-LISTE */}
-                {kurseView === "liste" && (
-                  <div>
-                    {isAdmin && (
-                      <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-                        <button onClick={() => setKurseShowNewCat(v => !v)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-                          {kurseShowNewCat ? "✕ Abbrechen" : "+ Neuer Kurs"}
-                        </button>
-                      </div>
-                    )}
-                    {isAdmin && kurseShowNewCat && (
-                      <CategoryEditBox
-                        initialName="" initialDescription="" initialIcon="🎓"
-                        initialVisibility="pro" initialGuestPost={false}
-                        onSave={(fields) => { createForumCategory("kurse", fields); setKurseShowNewCat(false); }}
-                        onCancel={() => setKurseShowNewCat(false)}
-                        gold={gold}
-                      />
-                    )}
-                    {kurseCategories.length === 0 && (
-                      <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>
-                        Noch keine Kurse vorhanden — bald geht's los! 🌙
-                      </div>
-                    )}
-                    {kurseCategories.map(cat => (
-                      <div key={cat.id} onClick={() => { setKurseActiveCategory(cat); setKurseView("kategorie"); loadKursePosts(cat.id); }}
-                        style={{ display:"flex", alignItems:"center", gap:14, background:"rgba(200,169,110,0.03)", border:`1px solid rgba(200,169,110,0.2)`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
-                        <span style={{ fontSize:28, flexShrink:0 }}>{cat.icon || "🎓"}</span>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:14, color:gold, marginBottom:3 }}>{cat.name}</div>
-                          {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic" }}>{cat.description}</div>}
-                          <div style={{ fontSize:10, color:"#5a4a34", marginTop:3 }}>{cat.postCount || 0} {cat.postCount === 1 ? "Lektion" : "Lektionen"}</div>
-                        </div>
-                        {isAdmin && (
-                          <button onClick={e => { e.stopPropagation(); setForumEditingCategoryId(cat.id); }} title="Kurs bearbeiten"
-                            style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
-                        )}
-                        {isAdmin && (
-                          <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kurs "${cat.name}" wirklich löschen?`)) deleteForumCategory(cat.id); }}
-                            style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
-                        )}
-                        <span style={{ color:"#5a4a34", fontSize:16 }}>→</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* LEKTIONEN-LISTE */}
-                {kurseView === "kategorie" && kurseActiveCategory && (
-                  <div>
-                    <button onClick={() => { setKurseView("liste"); setKurseActiveCategory(null); setKursePosts([]); }}
-                      style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kursen</button>
-                    <div style={{ fontSize:22, color:gold, marginBottom:4 }}>{kurseActiveCategory.icon} {kurseActiveCategory.name}</div>
-                    {kurseActiveCategory.description && <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:16 }}>{kurseActiveCategory.description}</div>}
-
-                    {isAdmin && (
-                      <div style={{ marginBottom:16 }}>
-                        <button onClick={() => setKurseView("neu")} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.3)`, color:gold, padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                          + Neue Lektion
-                        </button>
-                      </div>
-                    )}
-
-                    {kursePosts.length === 0 && (
-                      <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"20px 0" }}>Noch keine Lektionen in diesem Kurs.</div>
-                    )}
-                    {kursePosts.map((post, idx) => (
-                      <div key={post.id} onClick={() => { setKurseActivePost(post); setKurseView("post"); loadForumReplies(post.id); markForumPostRead(post.id); }}
-                        style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"12px 16px", marginBottom:8, cursor:"pointer" }}>
-                        <div style={{ width:28, height:28, borderRadius:"50%", background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:gold, flexShrink:0 }}>{idx + 1}</div>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:13, color:gold }}>{post.title}</div>
-                          <div style={{ fontSize:10, color:"#5a4a34", marginTop:2 }}>{new Date(post.created_at).toLocaleDateString('de-DE')}</div>
-                        </div>
-                        <span style={{ color:"#5a4a34", fontSize:14 }}>→</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* NEUE LEKTION ANLEGEN — nur Admin */}
-                {kurseView === "neu" && kurseActiveCategory && isAdmin && (
-                  <div>
-                    <button onClick={() => setKurseView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
-                    <div style={{ fontSize:14, color:gold, marginBottom:16 }}>Neue Lektion in „{kurseActiveCategory.name}"</div>
-                    <InlinePostEditBox
-                      initialTitle="" initialBody=""
-                      onSave={async (title, body) => {
-                        if (!title.trim()) return;
-                        try {
-                          const r = await fetch(`${SUPABASE_URL}/rest/v1/forum_posts`, {
-                            method:"POST", headers:{...dbHeaders(), "Prefer":"return=representation"},
-                            body: JSON.stringify({ category_id: kurseActiveCategory.id, title: title.trim(), body: body.trim(), user_id: getUserId(), display_name: userDisplayName || "Anna" })
-                          });
-                          const data = await r.json();
-                          if (data && data[0]) {
-                            setKursePosts(prev => [...prev, data[0]]);
-                            setKurseView("kategorie");
-                          }
-                        } catch {}
-                      }}
-                      onCancel={() => setKurseView("kategorie")}
-                    />
-                  </div>
-                )}
-
-                {/* LEKTION DETAIL MIT FRAGEN/DISKUSSION */}
-                {kurseView === "post" && kurseActivePost && (
-                  <div>
-                    <button onClick={() => { setKurseView("kategorie"); setKurseActivePost(null); }}
-                      style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zum Kurs</button>
-                    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
-                      {forumEditingPostId === kurseActivePost.id ? (
-                        <InlinePostEditBox
-                          initialTitle={kurseActivePost.title} initialBody={kurseActivePost.body}
-                          onSave={(newTitle, newBody) => saveEditForumPost(kurseActivePost.id, newTitle, newBody)}
-                          onCancel={() => setForumEditingPostId(null)}
-                        />
-                      ) : (<>
-                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
-                          <div style={{ fontSize:16, color:gold }}>{kurseActivePost.title}</div>
-                          {isAdmin && (
-                            <div style={{ display:"flex", gap:8 }}>
-                              <button onClick={() => setForumEditingPostId(kurseActivePost.id)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
-                              <button onClick={async () => { if(window.confirm("Lektion wirklich löschen?")) { await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${kurseActivePost.id}`, {method:"DELETE", headers:dbHeaders()}); setKursePosts(prev => prev.filter(p => p.id !== kurseActivePost.id)); setKurseView("kategorie"); setKurseActivePost(null); } }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(kurseActivePost.body)}</div>
-                      </>)}
-                    </div>
-
-                    {/* Fragen & Diskussion — nutzt dasselbe Reply-System wie das Forum */}
-                    <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>
-                      💬 Fragen & Diskussion ({forumReplies.length})
-                    </div>
-                    {forumReplies.filter(r => !r.reply_to_id).map(reply => (
-                      <ForumReplyThread key={reply.id} reply={reply} allReplies={forumReplies} depth={0} />
-                    ))}
-                    {!isGuest && (
-                      <div style={{ marginTop:14 }}>
-                        {forumReplyToId && (
-                          <div style={{ fontSize:11, color:"#7a6040", marginBottom:6 }}>
-                            ↩ Antwort auf {forumReplyToName} &nbsp;
-                            <button onClick={() => { setForumReplyToId(null); setForumReplyToName(""); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10 }}>✕</button>
-                          </div>
-                        )}
-                        <textarea value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
-                          placeholder="Deine Frage oder Anmerkung zur Lektion…"
-                          style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                        <button onClick={() => createForumReply(kurseActivePost.id)}
-                          style={{ marginTop:8, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
-                          Frage stellen
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-              </>)}
-            </>)}
-          </div>
-        )}
-
-        {/* ── SHOP — eigenständiger Bereich, unabhängig vom Forum ── */}
-        {view === "shop" && (
-          <div>
-              <div style={{ textAlign:"center", marginBottom:24 }}>
-                  <div style={{ fontSize:16, color:gold, marginBottom:6 }}>Wo möchtest du ankommen?</div>
-                  <div style={{ fontSize:12, color:"#7a6040" }}>Drei Wege durch Lenormandia — such dir aus, wie tief du eintauchen willst.</div>
-                </div>
-                <style>{`
-                  .shop-tiers { display: flex; flex-direction: column; gap: 14px; max-width: 420px; margin: 0 auto; }
-                  @media (min-width: 880px) {
-                    .shop-tiers { flex-direction: row; align-items: stretch; max-width: 980px; gap: 18px; }
-                    .shop-tier { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
-                  }
-                `}</style>
-                <div className="shop-tiers">
-
-                  {/* GAST */}
-                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:12, padding:"20px 22px" }}>
-                    <div style={{ fontSize:14, color:"#9a8060", marginBottom:2 }}>🌙 Gast</div>
-                    <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14, fontStyle:"italic" }}>Steck einfach mal die Nase rein</div>
-                    {["Willkommensseite & erster Einblick", "Eine Frage stellen, als kleiner Vorgeschmack", "Beim Mitmach-Mittwoch im Forum mitlesen"].map((f,i) => (
-                      <div key={i} style={{ fontSize:12, color:"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
-                    ))}
-                  </div>
-
-                  {/* MITGLIED */}
-                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:12, padding:"20px 22px" }}>
-                    <div style={{ fontSize:14, color:gold, marginBottom:2 }}>🦉 Mitglied</div>
-                    <div style={{ fontSize:11, color:"#7a6040", marginBottom:14, fontStyle:"italic" }}>Kostenlos dabei sein, mitfühlen, mitwachsen</div>
-                    {["Alles aus Gast, und ein eigener Platz am Tisch", "Im Forum selbst schreiben & mitreden", "Tageskarten mit eigenem Tagebuch", "Spielerisch die Karten lernen im Quiz", "Eigenes Profil mit Rang & Signatur"].map((f,i) => (
-                      <div key={i} style={{ fontSize:12, color:"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
-                    ))}
-                    <a href="https://www.annabenoir.de/_paylink/AZ7k4iP9" target="_blank" rel="noopener noreferrer"
-                      style={{ display:"block", textAlign:"center", marginTop:"auto", paddingTop:14 }}>
-                      <span style={{ display:"block", background:"transparent", border:"1px solid rgba(200,169,110,0.3)", color:"#9a8060", padding:"8px", borderRadius:7, fontSize:11, letterSpacing:0.5 }}>
-                        ☕ Magst du Anna ein Käffchen spendieren?
-                      </span>
-                    </a>
-                  </div>
-
-                  {/* V.I.P. */}
-                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.09)", border:`1.5px solid ${gold}`, borderRadius:12, padding:"20px 22px", boxShadow:"0 0 20px rgba(200,169,110,0.12)" }}>
-                    <div style={{ fontSize:14, color:gold, marginBottom:2 }}>✨ V.I.P.</div>
-                    <div style={{ fontSize:11, color:"#9a7a40", marginBottom:14, fontStyle:"italic" }}>Einmalig 85 € — und Lenormandia gehört für immer auch dir</div>
-                    {["Alles aus Mitglied, und der ganze Schatz dazu", "Alle Kombinationen & alle 36 Karten im Detail", "Situations- & Personen-Matrix vollständig", "Zauberzettel & Writing-Werkzeug", "Kurse-Bereich mit allen Lektionen", "Vorrangige Beantwortung deiner Fragen durch Anna Benoir oder geprüfte Berater"].map((f,i) => (
-                      <div key={i} style={{ fontSize:12, color:"#e0d0a8", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
-                    ))}
-                    <a href="https://www.annabenoir.de/_paylink/AZ7k5c0S" target="_blank" rel="noopener noreferrer"
-                      style={{ display:"block", textAlign:"center", marginTop:"auto", paddingTop:16, textDecoration:"none" }}>
-                      <span style={{ display:"block", background:"rgba(200,169,110,0.18)", border:`1px solid ${gold}`, color:gold, padding:"10px", borderRadius:7, fontSize:13, letterSpacing:1 }}>
-                        Jetzt V.I.P. werden →
-                      </span>
-                    </a>
-                  </div>
-
-                </div>
-                <div style={{ textAlign:"center", fontSize:10, color:"#5a4a34", marginTop:18, fontStyle:"italic" }}>
-                  Zum Vergleich: der Preis einer einzelnen Beratung — dafür bist du für immer dabei.
-                </div>
-          </div>
-        )}
-
-        {/* ── IMPRESSUM (Platzhalter) ── */}
-        {view === "impressum" && (
-          <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
-            <button onClick={() => setView("liesmich")}
-              style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
-            <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Impressum</div>
-            <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.8 }}>
-              Hier kommt bald das vollständige Impressum hin.
-            </div>
-          </div>
-        )}
-
-        {/* ── AGB (Platzhalter) ── */}
-        {view === "agb" && (
-          <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
-            <button onClick={() => setView("liesmich")}
-              style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
-            <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Allgemeine Geschäftsbedingungen</div>
-            <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.8 }}>
-              Hier kommen bald die vollständigen AGB hin.
-            </div>
-          </div>
-        )}
-
         {/* ── QUIZ ── */}
         {view === "quiz" && (
           <div>
-            <ForumSubNav />
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Lenormand Quiz</div>
 
@@ -4431,13 +1697,8 @@ export default function LenormandApp() {
               </div>
               {/* Separate Highscores */}
               <div style={{ display:"flex", justifyContent:"center", gap:8, flexWrap:"wrap", marginBottom:4 }}>
-                {[["karte","🔮","Karten"], ["person","👤","Personen"], ["zeit","⏰","Zeiten"], ["kombis","🃏","Kombinationen"]].map(([m, icon, label]) => {
-                  // Highscore für "Kombinationen" fasst die früher getrennten 2er/3er/4er-
-                  // Bestwerte zusammen (Summe), damit beim Umstieg kein bereits erspielter
-                  // Highscore einfach verschwindet.
-                  const best = typeof stats.bestScore === "object"
-                    ? (m === "kombis" ? (stats.bestScore["kombis"] || 0) + (stats.bestScore["3er"] || 0) + (stats.bestScore["4er"] || 0) : (stats.bestScore[m] || 0))
-                    : (stats.bestScore || 0);
+                {[["karte","🔮","Karten"], ["person","👤","Personen"], ["zeit","⏰","Zeiten"], ["kombis","🃏","2er"], ["3er","🔺","3er"], ["4er","🔷","4er"]].map(([m, icon, label]) => {
+                  const best = typeof stats.bestScore === "object" ? (stats.bestScore[m] || 0) : (stats.bestScore || 0);
                   const isActive = quizMode === m;
                   return (
                     <div key={m}
@@ -4546,15 +1807,7 @@ export default function LenormandApp() {
                             setCurrentStreak(0);
                             setQuizAnswer("wrong");
                             let wrongCombo = null;
-                            // Im "Kombinationen"-Modus kann die aktuelle Frage je nach Zufall
-                            // eine 2er-, 3er- oder 4er-Kombination sein — quizCards.mode sagt,
-                            // welche es tatsächlich war (von startQuiz/start3erQuiz/start4erQuiz
-                            // gesetzt), quizMode allein würde hier nicht reichen.
-                            const effectiveMode = quizCards?.mode || quizMode;
-                            if (effectiveMode === "3er" || effectiveMode === "4er") {
-                              const wrongCluster = CLUSTERS[effectiveMode].find(c => c.text === opt);
-                              wrongCombo = wrongCluster ? wrongCluster.label : null;
-                            } else if (quizMode === "kombis") {
+                            if (quizMode === "kombis") {
                               const wrongKey = Object.keys(COMBOS).find(k => trimCombo(COMBOS[k]) === opt || COMBOS[k] === opt);
                               wrongCombo = wrongKey ? `${CARDS[wrongKey.split("-")[0]].name} + ${CARDS[wrongKey.split("-")[1]].name}` : null;
                             } else if (quizMode === "zeit") {
@@ -4566,6 +1819,9 @@ export default function LenormandApp() {
                             } else if (quizMode === "karte") {
                               const wrongKey = Object.keys(CARDS).find(k => CARDS[k].kw === opt);
                               wrongCombo = wrongKey ? CARDS[String(wrongKey)].name : null;
+                            } else if (quizMode === "3er" || quizMode === "4er") {
+                              const wrongCluster = CLUSTERS[quizMode].find(c => c.text === opt);
+                              wrongCombo = wrongCluster ? wrongCluster.label : null;
                             }
                             setQuizCards(prev => ({...prev, selectedWrong: opt, selectedWrongCombo: wrongCombo}));
                             setQuizScore(s => {
@@ -4613,24 +1869,22 @@ export default function LenormandApp() {
           <div style={{ paddingBottom:30 }}>
 
             {/* Untermenü */}
-            <DailySubNav />
+            <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20 }}>
+              {[["tagebuch","📓 Tagebuch"],["doku","📋 Dokumentation"],["manifest","✨ Zauberzettel"],["writing","✍️ Writing"]].map(([m,l]) => (
+                <button key={m} onClick={() => { setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt"); }}
+                  style={{ background:dailyMode===m?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${dailyMode===m?gold:"rgba(200,169,110,0.2)"}`, color:dailyMode===m?gold:"#7a6040", padding:"7px 20px", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1, transition:"all 0.2s" }}>
+                  {l}
+                </button>
+              ))}
+            </div>
 
             {/* TAGEBUCH */}
             {dailyMode === "tagebuch" && (
               <div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:12 }}>
-                    <button onClick={() => navigateDay(-1)}
-                      style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:gold, width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>‹</button>
-                    <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase" }}>
-                      Tageskombination · {formatDate(selectedDateKey)}
-                      {isToday && <span style={{ marginLeft:6, color:gold, fontSize:8 }}>● heute</span>}
-                    </div>
-                    <button onClick={() => navigateDay(1)} disabled={isToday}
-                      style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:isToday?"#3a2a18":gold, width:32, height:32, borderRadius:"50%", cursor:isToday?"default":"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, opacity:isToday?0.3:1 }}>›</button>
-                  </div>
+                  <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
                   <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
-                    {[selectedCard.c1, selectedCard.c2].map((num, i) => (
+                    {[todayCard.c1, todayCard.c2].map((num, i) => (
                       <div key={i} style={{ textAlign:"center" }}>
                         <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
                         <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
@@ -4640,22 +1894,18 @@ export default function LenormandApp() {
                   </div>
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:8 }}>
-                    💭 Gedanken
-                    {tagebuchSaveStatus === "saving" && <span style={{ fontSize:9, color:"#9a8060", letterSpacing:0, textTransform:"none" }}>speichert…</span>}
-                    {tagebuchSaveStatus === "saved" && <span style={{ fontSize:9, color:"#5a9a5a", letterSpacing:0, textTransform:"none" }}>✓ gespeichert</span>}
-                  </div>
-                  <textarea placeholder={getUserId() ? "Was siehst du in dieser Kombination?" : "Zum Schreiben bitte einloggen — kein Eintrag geht dabei verloren."} value={selectedEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
+                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
+                  <textarea placeholder="Was siehst du in dieser Kombination?" value={todayEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
-                  <textarea placeholder="Was hat sich bewahrheitet?" value={selectedEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
+                  <textarea placeholder="Was hat sich bewahrheitet?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:18 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
-                  <textarea placeholder="Das Fazit des Tages…" value={selectedEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
+                  <textarea placeholder="Das Fazit des Tages…" value={todayEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
@@ -4666,62 +1916,103 @@ export default function LenormandApp() {
                     </button>
                   ) : (
                     <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Emanuel sagt</div>
-                      <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[selectedCard.comboKey] || "Vertraue deiner Intuition."}</div>
+                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
+                      <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[todayCard.comboKey] || "Vertraue deiner Intuition."}</div>
                       <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
                     </div>
                   )}
                 </div>
-                <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16, display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
+                <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
                   <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     🖨️ Drucken
                   </button>
-                  <button onClick={() => { setShareTageskarteOpen(true); setShareTageskarteIncludeNotes(false); setShareTageskarteStatus(""); }}
-                    style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                    💬 Im Forum teilen
-                  </button>
                 </div>
+              </div>
+            )}
 
-                {shareTageskarteOpen && (
-                  <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:20 }}
-                    onClick={() => { if (shareTageskarteStatus !== "sharing") { setShareTageskarteOpen(false); setShareTageskarteStatus(""); } }}>
-                    <div onClick={e => e.stopPropagation()}
-                      style={{ background:"#0f0a1a", border:"1px solid rgba(200,169,110,0.3)", borderRadius:12, padding:"24px 22px", maxWidth:340, width:"100%", textAlign:"center" }}>
-                      {shareTageskarteStatus === "done" ? (
-                        <div style={{ color:gold, fontSize:14 }}>✨ Geteilt! Du findest deinen Beitrag unter „Tageskarten" im Forum.</div>
-                      ) : shareTageskarteStatus === "error" ? (
-                        <div>
-                          <div style={{ color:"#c87a6a", fontSize:13, marginBottom:14 }}>Konnte nicht geteilt werden. Versuch's gleich noch mal.</div>
-                          <button onClick={() => { setShareTageskarteOpen(false); setShareTageskarteStatus(""); }} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Schließen</button>
-                        </div>
+            {/* DOKUMENTATION */}
+            {dailyMode === "doku" && (
+              <div>
+                {tagebuchView === "tagebuch" && (
+                  <div>
+                    <div style={{ textAlign:"center", marginBottom:20 }}>
+                      <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Klient</div>
+                      <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Für wen legst du heute?</div>
+                    </div>
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Name</div>
+                      <input placeholder="z.B. Siegbert M." value={klientName} onChange={e => setKlientName(e.target.value)}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                    <div style={{ marginBottom:24 }}>
+                      <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Geburtsdatum</div>
+                      <input placeholder="z.B. 15.03.1952" value={klientGeburt} onChange={e => setKlientGeburt(e.target.value)}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    </div>
+                    <div style={{ display:"flex", justifyContent:"center" }}>
+                      <button onClick={() => setTagebuchView("doku")}
+                        style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                        Weiter →
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {tagebuchView === "doku" && (
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                      <button onClick={() => setTagebuchView("tagebuch")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
+                      {klientName && <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>👤 {klientName}{klientGeburt ? ` · ${klientGeburt}` : ""}</div>}
+                    </div>
+                    <div style={{ textAlign:"center", marginBottom:20 }}>
+                      <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Tageskombination · {formatDate(todayKey)}</div>
+                      <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
+                        {[todayCard.c1, todayCard.c2].map((num, i) => (
+                          <div key={i} style={{ textAlign:"center" }}>
+                            <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
+                            <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
+                            <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(",").slice(0,2).join(",")}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>💭 Gedanken</div>
+                      <textarea placeholder="Was bewegt den Klienten?" value={todayEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    </div>
+                    <div style={{ marginBottom:14 }}>
+                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
+                      <textarea placeholder="Was zeigt die Kombination?" value={todayEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    </div>
+                    <div style={{ marginBottom:18 }}>
+                      <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
+                      <textarea placeholder="Empfehlung / nächster Schritt…" value={todayEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
+                        style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    </div>
+                    <div style={{ textAlign:"center", marginBottom:20 }}>
+                      {!tippVisible ? (
+                        <button onClick={() => setTippVisible(true)}
+                          style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"12px 28px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                          ✨ Tipp vom Universum
+                        </button>
                       ) : (
-                        <>
-                          <div style={{ fontSize:14, color:gold, marginBottom:14 }}>Tageskombination teilen</div>
-                          <div style={{ fontSize:12, color:"#9a8060", marginBottom:16, lineHeight:1.6 }}>
-                            {SYMBOLS[selectedCard.c1]}{SYMBOLS[selectedCard.c2]} {CARDS[selectedCard.c1].name} &amp; {CARDS[selectedCard.c2].name} — {formatDate(selectedDateKey)}
-                          </div>
-                          <label style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, fontSize:12, color:"#d4c4a0", cursor:"pointer", textAlign:"left" }}>
-                            <input type="checkbox" checked={shareTageskarteIncludeNotes} onChange={e => setShareTageskarteIncludeNotes(e.target.checked)} />
-                            Meine Notizen (Gedanken, Reflexionen, Resümee) mit teilen
-                          </label>
-                          <div style={{ display:"flex", gap:8 }}>
-                            <button onClick={() => shareTageskarteToForum(shareTageskarteIncludeNotes)} disabled={shareTageskarteStatus==="sharing"}
-                              style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"9px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", opacity:shareTageskarteStatus==="sharing"?0.6:1 }}>
-                              {shareTageskarteStatus==="sharing" ? "Teilt…" : "Teilen"}
-                            </button>
-                            <button onClick={() => setShareTageskarteOpen(false)} disabled={shareTageskarteStatus==="sharing"}
-                              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
-                              Abbrechen
-                            </button>
-                          </div>
-                        </>
+                        <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
+                          <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Anna sagt</div>
+                          <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[todayCard.comboKey] || "Vertraue deiner Intuition."}</div>
+                          <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
+                        </div>
                       )}
+                    </div>
+                    <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
+                      <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                        🖨️ Drucken
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
             )}
-
 
           </div>
         )}
@@ -4736,19 +2027,11 @@ export default function LenormandApp() {
                   <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Woran arbeitest du heute?</div>
                 </div>
 
-                {/* Ordner / Projekte */}
+                {/* Ordner */}
                 <div style={{ marginBottom:20 }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
                     <div style={{ fontSize:10, color:"#7a6040", letterSpacing:2, textTransform:"uppercase" }}>📁 Projekte</div>
-                    <div style={{ display:"flex", gap:6 }}>
-                      {emptyProjectsCount > 0 && (
-                        <button onClick={cleanupEmptyProjects} title="Löscht alle Sessions, die noch nirgends Text enthalten"
-                          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a7060", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                          🧹 {emptyProjectsCount} leere aufräumen
-                        </button>
-                      )}
-                      <button onClick={() => setShowNewFolder(f => !f)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>+ Neu</button>
-                    </div>
+                    <button onClick={() => setShowNewFolder(f => !f)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>+ Neu</button>
                   </div>
 
                   {showNewFolder && (
@@ -4761,24 +2044,13 @@ export default function LenormandApp() {
                   )}
 
                   <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
-                    <button onClick={() => {
-                      setWritingProjectId(null);
-                      setWritingProjekt("");
-                      setWritingHook("");
-                      setWritingBemerkung("");
-                      setSelectedTemplate(null);
-                      setShowProjectList(false);
-                    }}
-                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${gold}`, background:"rgba(200,169,110,0.18)", color:gold, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", fontWeight:"bold" }}>
-                      ✨ Start (neue Session)
-                    </button>
-                    <button onClick={() => { setSelectedFolder(null); setShowProjectList(true); }}
-                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder && showProjectList?gold:"rgba(200,169,110,0.2)"}`, background:!selectedFolder && showProjectList?"rgba(200,169,110,0.12)":"transparent", color:!selectedFolder && showProjectList?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                    <button onClick={() => setSelectedFolder(null)}
+                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder?gold:"rgba(200,169,110,0.2)"}`, background:!selectedFolder?"rgba(200,169,110,0.12)":"transparent", color:!selectedFolder?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                       Alle
                     </button>
                     {folders.map(f => (
                       <div key={f.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                        <button onClick={() => { setSelectedFolder(f.id); setShowProjectList(true); }}
+                        <button onClick={() => setSelectedFolder(f.id)}
                           style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedFolder===f.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedFolder===f.id?"rgba(200,169,110,0.12)":"transparent", color:selectedFolder===f.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                           📁 {f.name}
                         </button>
@@ -4790,121 +2062,41 @@ export default function LenormandApp() {
                     ))}
                   </div>
 
-                  {/* Sessions im gewählten Ordner — nur sichtbar wenn "Alle" oder ein Ordner aktiv gewählt wurde, NICHT bei "Start" */}
-                  {showProjectList && (
-                    <div style={{ maxHeight:280, overflowY:"auto" }}>
-                      {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).length === 0 && (
-                        <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Noch keine Sessions hier.</div>
-                      )}
-                      {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).map(proj => (
-                        <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 12px" }}>
-                          <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textAlign:"left" }}>
-                            ✍️ {proj.name}
-                          </button>
-                          <span style={{ fontSize:9, color:"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
-                          <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
-                        </div>
-                      ))}
+                  {/* Sessions im gewählten Ordner */}
+                  {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).map(proj => (
+                    <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 12px" }}>
+                      <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textAlign:"left" }}>
+                        ✍️ {proj.name}
+                      </button>
+                      <span style={{ fontSize:9, color:"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
+                      <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
                     </div>
-                  )}
+                  ))}
                 </div>
 
                 <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16, marginBottom:14 }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
-                    <div style={{ fontSize:11, color:"#9a8060" }}>Session-Name</div>
-                  </div>
-                  <input placeholder="z.B. Die Karten haben gesprochen… und ich schreibe es auf 😄" value={writingProjekt}
-                    onChange={e => {
-                      setWritingProjekt(e.target.value);
-                      if (writingProjectId) saveWritingSession(writingNotes, e.target.value, writingBemerkung);
-                    }}
+                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Session-Name</div>
+                  <input placeholder="z.B. Die Karten haben gesprochen… und ich schreibe es auf 😄" value={writingProjekt} onChange={e => setWritingProjekt(e.target.value)}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-                  {selectedFolder && (
-                    <div style={{ fontSize:10, color:"#7a6040", marginTop:6 }}>
-                      📁 wird abgelegt in: {folders.find(f => f.id === selectedFolder)?.name || ""}
-                    </div>
-                  )}
                 </div>
-                <div style={{ marginBottom:24 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>🎯 The Hook</div>
-                  <textarea placeholder="Der Aufhänger, der die Leute reinzieht…" value={writingHook} onChange={e => setWritingHook(e.target.value)} rows={2}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                </div>
-
-                <div style={{ height:1, background:"linear-gradient(90deg, transparent, rgba(200,169,110,0.25), transparent)", margin:"0 0 20px" }} />
-
                 <div style={{ marginBottom:24 }}>
                   <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
                   <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
-
-                <div style={{ marginBottom:24 }}>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-                    <div style={{ fontSize:11, color:"#9a8060" }}>📋 Vorlage</div>
-                  </div>
-                  {textTemplates.length === 0 ? (
-                    <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Noch keine Vorlagen gespeichert — die kommen nach dem Schreiben per "💾 Speichern unter" dazu.</div>
-                  ) : (
-                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                      <button onClick={() => setSelectedTemplate(null)}
-                        style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedTemplate?gold:"rgba(200,169,110,0.2)"}`, background:!selectedTemplate?"rgba(200,169,110,0.12)":"transparent", color:!selectedTemplate?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-                        Ohne Vorlage
-                      </button>
-                      {textTemplates.map(tpl => (
-                        <div key={tpl.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
-                          <button onClick={() => setSelectedTemplate(tpl)}
-                            style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedTemplate?.id===tpl.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedTemplate?.id===tpl.id?"rgba(200,169,110,0.12)":"transparent", color:selectedTemplate?.id===tpl.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
-                            📋 {tpl.name}
-                          </button>
-                          <button onClick={() => deleteTemplate(tpl.id)} style={{ background:"transparent", border:"none", color:"#4a3a2a", cursor:"pointer", fontSize:10 }}>✕</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {selectedTemplate && (
-                    <div style={{ marginTop:10, padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:6, fontSize:10, color:"#9a8060", lineHeight:1.6 }}>
-                      <div style={{ color:gold, marginBottom:3 }}>Vorschau "{selectedTemplate.name}":</div>
-                      {Object.entries(selectedTemplate.notes || {}).filter(([k,v]) => v && String(v).trim()).length === 0 ? (
-                        <div style={{ fontStyle:"italic" }}>(noch keine Inhalte in dieser Vorlage)</div>
-                      ) : (
-                        Object.entries(selectedTemplate.notes || {}).filter(([k,v]) => v && String(v).trim()).map(([k,v]) => (
-                          <div key={k}><strong>{TEMPLATE_FIELD_LABELS[k] || k}:</strong> {String(v).slice(0, 80)}{String(v).length > 80 ? "…" : ""}</div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display:"flex", justifyContent:"center", gap:10, flexWrap:"wrap" }}>
+                <div style={{ display:"flex", justifyContent:"center", gap:10 }}>
                   <button onClick={() => {
                     writingRandom();
-                    setWritingMode("situation");
-                    setMatrixFreeText({});
-                    setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
+                    setWritingNotes({});
                     setWritingProjectId(null);
                     setWritingView("writing");
                   }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     🎲 Würfeln →
                   </button>
                   <button onClick={() => {
-                    writingRandom();
-                    setWritingMode("personen");
-                    setMatrixFreeText({});
-                    setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
-                    setWritingProjectId(null);
-                    setWritingView("writing");
-                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                    👤 Personen →
-                  </button>
-                  <button onClick={() => {
                     setMatrixCards(Array(9).fill(null));
                     setSignifikator(null);
-                    setIntroCard(null);
-                    setOutroCard(null);
-                    setWritingMode("situation");
-                    setMatrixFreeText({});
-                    setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
+                    setWritingNotes({});
                     setWritingProjectId(null);
                     setWritingView("picking");
                   }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.4)`, color:"#c8a96e", padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
@@ -4920,152 +2112,65 @@ export default function LenormandApp() {
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
                   <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
                   <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic" }}>Klicke eine Position — dann wähle die Karte</div>
-                  <button onClick={() => { if(signifikator || matrixFreeText[4]) setWritingView("writing"); }}
-                    disabled={!signifikator && !matrixFreeText[4]}
-                    style={{ background:(signifikator||matrixFreeText[4])?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${(signifikator||matrixFreeText[4])?gold:"rgba(200,169,110,0.2)"}`, color:(signifikator||matrixFreeText[4])?gold:"#4a3a24", padding:"6px 16px", borderRadius:6, cursor:(signifikator||matrixFreeText[4])?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>
+                  <button onClick={() => { if(signifikator) setWritingView("writing"); }}
+                    disabled={!signifikator}
+                    style={{ background:signifikator?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${signifikator?gold:"rgba(200,169,110,0.2)"}`, color:signifikator?gold:"#4a3a24", padding:"6px 16px", borderRadius:6, cursor:signifikator?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>
                     Weiter →
                   </button>
                 </div>
 
-                {/* Intro — wie eine 10. Position, eigene Zeile vor der 3×3-Matrix */}
-                <div onClick={() => {
-                    const willActivate = activePos !== "intro";
-                    setActivePos(willActivate ? "intro" : null);
-                    if (willActivate) setPickerMode(matrixFreeText["intro"] ? "freitext" : "karte");
-                  }}
-                  style={{ border:`1.5px solid ${activePos==="intro"?gold:(introCard||matrixFreeText["intro"])?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 10px", marginBottom:8, cursor:"pointer", background:activePos==="intro"?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Intro</div>
-                  {introCard ? (<>
-                    <span style={{ fontSize:18 }}>{SYMBOLS[introCard]}</span>
-                    <span style={{ fontSize:10, color:gold }}>{CARDS[introCard].name}</span>
-                  </>) : matrixFreeText["intro"] ? (
-                    <span style={{ fontSize:10, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText["intro"].slice(0,30)}{matrixFreeText["intro"].length>30?"…":""}</span>
-                  ) : <span style={{ fontSize:10, color:"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
-                </div>
-
                 {/* 3×3 Grid */}
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
                   {[0,1,2,3,4,5,6,7,8].map(pos => {
                     const card = matrixCards ? matrixCards[pos] : null;
-                    const freeText = matrixFreeText[pos];
                     const isCenter = pos === 4;
                     const labels = ["Gedanken","IST-Situation","Rat der Engel","Warnung","Signifikator","Nahe Zukunft","Ursache","Unbew. Zukunft","Ergebnis"];
                     const isActive = activePos === pos;
                     return (
-                      <div key={pos} onClick={() => {
-                        const willActivate = !isActive;
-                        setActivePos(willActivate ? pos : null);
-                        if (willActivate) setPickerMode(matrixFreeText[pos] ? "freitext" : "karte");
-                      }}
-                        style={{ border:`1.5px solid ${isActive?gold:(card||freeText)?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 6px", textAlign:"center", cursor:"pointer", background:isCenter?"rgba(200,169,110,0.08)":isActive?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", minHeight:80 }}>
+                      <div key={pos} onClick={() => setActivePos(isActive ? null : pos)}
+                        style={{ border:`1.5px solid ${isActive?gold:card?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 6px", textAlign:"center", cursor:"pointer", background:isCenter?"rgba(200,169,110,0.08)":isActive?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", minHeight:80 }}>
                         <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", marginBottom:4 }}>{labels[pos]}</div>
                         {card ? (<>
                           <div style={{ fontSize:24 }}>{SYMBOLS[card]}</div>
                           <div style={{ fontSize:8, color:gold, marginTop:2 }}>{CARDS[card].name}</div>
-                        </>) : freeText ? (
-                          <div style={{ fontSize:10, color:gold, marginTop:10, lineHeight:1.3, wordBreak:"break-word" }}>✍️ {freeText.slice(0, 40)}{freeText.length > 40 ? "…" : ""}</div>
-                        ) : <div style={{ fontSize:10, color:"#3a2a18", marginTop:8 }}>+</div>}
+                        </>) : <div style={{ fontSize:10, color:"#3a2a18", marginTop:8 }}>+</div>}
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Outro — wie eine 11. Position, eigene Zeile nach der 3×3-Matrix */}
-                <div onClick={() => {
-                    const willActivate = activePos !== "outro";
-                    setActivePos(willActivate ? "outro" : null);
-                    if (willActivate) setPickerMode(matrixFreeText["outro"] ? "freitext" : "karte");
-                  }}
-                  style={{ border:`1.5px solid ${activePos==="outro"?gold:(outroCard||matrixFreeText["outro"])?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 10px", marginBottom:16, cursor:"pointer", background:activePos==="outro"?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Outro</div>
-                  {outroCard ? (<>
-                    <span style={{ fontSize:18 }}>{SYMBOLS[outroCard]}</span>
-                    <span style={{ fontSize:10, color:gold }}>{CARDS[outroCard].name}</span>
-                  </>) : matrixFreeText["outro"] ? (
-                    <span style={{ fontSize:10, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText["outro"].slice(0,30)}{matrixFreeText["outro"].length>30?"…":""}</span>
-                  ) : <span style={{ fontSize:10, color:"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
-                </div>
-
-                {/* Karten-Suche und Grid, oder freier Text */}
+                {/* Karten-Suche und Grid */}
                 {activePos !== null && (
                   <div>
-                    <div style={{ display:"flex", gap:6, marginBottom:8 }}>
-                      <button onClick={() => setPickerMode(m => m === "freitext" ? "karte" : "freitext")}
-                        style={{ background: pickerMode==="freitext" ? "rgba(200,169,110,0.15)" : "transparent", border:`1px solid ${pickerMode==="freitext"?gold:"rgba(200,169,110,0.2)"}`, color: pickerMode==="freitext"?gold:"#7a6040", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                        {pickerMode === "freitext" ? "🃏 stattdessen Karte wählen" : "✍️ stattdessen eigenen Text eintragen"}
-                      </button>
-                      {(getCardForPos(activePos) || matrixFreeText[activePos]) && (
-                        <button onClick={() => {
-                          setCardForPos(activePos, null);
-                          const newFree = {...matrixFreeText};
-                          delete newFree[activePos];
-                          setMatrixFreeText(newFree);
-                          if (activePos === 4) setSignifikator(null);
-                        }} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                          ✕ leeren
-                        </button>
-                      )}
+                    <div style={{ marginBottom:8 }}>
+                      <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
+                        style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
                     </div>
-
-                    {pickerMode === "freitext" ? (
-                      <div>
-                        <textarea
-                          placeholder="Eigener Begriff oder Thema für dieses Feld…"
-                          value={matrixFreeText[activePos] || ""}
-                          onChange={e => {
-                            setMatrixFreeText({...matrixFreeText, [activePos]: e.target.value});
-                            // Freitext und Karte schließen sich an dieser Position gegenseitig aus
-                            if (getCardForPos(activePos)) {
-                              setCardForPos(activePos, null);
-                              if (activePos === 4) setSignifikator(null);
-                            }
+                    <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:6, maxHeight:260, overflowY:"auto" }}>
+                      {filteredCards().map(num => {
+                        const alreadyUsed = matrixCards && matrixCards.includes(num) && matrixCards[activePos] !== num;
+                        return (
+                          <button key={num} onClick={() => {
+                            if (alreadyUsed) return;
+                            const newCards = [...(matrixCards || Array(9).fill(null))];
+                            newCards[activePos] = num;
+                            setMatrixCards(newCards);
+                            if (activePos === 4) setSignifikator(num);
+                            setActivePos(null);
                           }}
-                          rows={2}
-                          style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none" }} />
-                        {activePos === 4 && (
-                          <div style={{ fontSize:9, color:"#7a6040", marginTop:4, fontStyle:"italic" }}>Hinweis: Der Signifikator wird für Kombinationen gebraucht — bei freiem Text entfallen die Kartenkombinationen in den entsprechenden Feldern.</div>
-                        )}
-                      </div>
-                    ) : (
-                      <div>
-                        <div style={{ marginBottom:8 }}>
-                          <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                            style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
-                        </div>
-                        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:6, maxHeight:260, overflowY:"auto" }}>
-                          {filteredCards().map(num => {
-                            // "Schon verwendet"-Sperre gilt nur innerhalb der echten 3×3-Matrix —
-                            // Intro/Outro dürfen auch eine dort bereits liegende Karte nochmal zeigen,
-                            // schließlich sind das ja andere Erzähl-Ebenen (Rahmenhandlung vs. Matrix-Lektüre).
-                            const alreadyUsed = typeof activePos === "number" && matrixCards && matrixCards.includes(num) && matrixCards[activePos] !== num;
-                            return (
-                              <button key={num} onClick={() => {
-                                if (alreadyUsed) return;
-                                setCardForPos(activePos, num);
-                                if (activePos === 4) setSignifikator(num);
-                                // Karte und Freitext schließen sich an dieser Position gegenseitig aus
-                                if (matrixFreeText[activePos]) {
-                                  const newFree = {...matrixFreeText};
-                                  delete newFree[activePos];
-                                  setMatrixFreeText(newFree);
-                                }
-                                setActivePos(null);
-                              }}
-                                style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif" }}>
-                                <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
-                                <div style={{ fontSize:9, color:"#9a8060", marginTop:3 }}>{num}. {CARDS[num].name}</div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+                            style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif" }}>
+                            <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
+                            <div style={{ fontSize:9, color:"#9a8060", marginTop:3 }}>{num}. {CARDS[num].name}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            {writingView === "writing" && (signifikator || matrixFreeText[4]) && matrixCards && (
+            {writingView === "writing" && signifikator && matrixCards && (
               <div>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
                   <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
@@ -5092,14 +2197,8 @@ export default function LenormandApp() {
                   {/* LINKS: Echte Matrix mit Deutungen */}
                   <div className="writing-matrix">
                     <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
-                      {signifikator ? (<>{SYMBOLS[signifikator]} {CARDS[signifikator].name}</>) : matrixFreeText[4] ? (<>✍️ {matrixFreeText[4]}</>) : null}
-                      {" · "}{writingMode === "personen" ? "Personen-Matrix" : "Situations-Matrix"}
+                      {SYMBOLS[signifikator]} {CARDS[signifikator].name} · Situations-Matrix
                     </div>
-                    {writingHook && (
-                      <div style={{ marginBottom:10, fontSize:10, color:"#c8a96e", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:8 }}>
-                        🎯 {writingHook}
-                      </div>
-                    )}
                     {writingBemerkung && (
                       <div style={{ marginBottom:10, fontSize:10, color:"#5a4a34", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.15)", paddingLeft:8 }}>
                         {writingBemerkung}
@@ -5111,8 +2210,10 @@ export default function LenormandApp() {
                         const isSignifikator = pos === 4;
                         const isKombi = KOMBI_POSITIONS.includes(pos);
                         const isActive = activeWritingPos === pos || (activeWritingPos !== null && isSignifikator && [1,5,7].includes(activeWritingPos));
-                        const fixedText = getInspirationText(pos, isKombi ? 4 : null, isKombi ? card : null);
-                        const posLabel = writingMode === "personen" ? (PERSONEN_POSITION_LABELS[String(pos)] || WRITING_POSITION_LABELS[pos]) : WRITING_POSITION_LABELS[pos];
+                        const sitKeys = ["gendanken", null, "rat_der_engel", "warnung", null, null, "wo_es_herkommt", null, "ergebnis_und_wann"];
+                        const cardForText = card ? MATRIX[String(card)] : null;
+                        const fixedText = sitKeys[pos] && cardForText ? cardForText[sitKeys[pos]] : null;
+                        const comboText = isKombi && card ? getCombo(signifikator, card) : null;
                         return (
                           <div key={pos} style={{
                             background: isActive ? "rgba(200,169,110,0.12)" : isSignifikator ? "rgba(200,169,110,0.08)" : isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
@@ -5121,7 +2222,7 @@ export default function LenormandApp() {
                             transition:"all 0.2s"
                           }}>
                             <div style={{ fontSize:8, letterSpacing:2, color: isKombi ? "rgba(212,184,120,0.8)" : "#8a7050", textTransform:"uppercase", marginBottom:4 }}>
-                              {posLabel}{isKombi ? " ✦" : ""}
+                              {POSITION_LABELS[pos]}{isKombi ? " ✦" : ""}
                             </div>
                             {card && (
                               <div style={{ marginBottom:4, display:"flex", alignItems:"center", gap:3 }}>
@@ -5129,12 +2230,10 @@ export default function LenormandApp() {
                                 <span style={{fontSize:7, color:gold}}>{CARDS[card].name}</span>
                               </div>
                             )}
-                            {!card && matrixFreeText[pos] && (
-                              <div style={{ marginBottom:4, fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</div>
-                            )}
-                            {isSignifikator && signifikator && <div style={{ fontSize:8, color:"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
-                            {fixedText && <div style={{ fontSize:9, color: isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
-                            {!isSignifikator && !fixedText && (card || matrixFreeText[pos]) && <div style={{ fontSize:8, color:"#3a2a18" }}>–</div>}
+                            {isSignifikator && <div style={{ fontSize:8, color:"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
+                            {isKombi && comboText && <div style={{ fontSize:9, color:"#d8c8a0", lineHeight:1.6 }}>{comboText}</div>}
+                            {fixedText && <div style={{ fontSize:9, color:"#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
+                            {!isSignifikator && !isKombi && !fixedText && card && <div style={{ fontSize:8, color:"#3a2a18" }}>–</div>}
                           </div>
                         );
                       })}
@@ -5143,217 +2242,33 @@ export default function LenormandApp() {
 
                   {/* RECHTS: Writing-Positionen */}
                   <div className="writing-notes">
-                    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase" }}>
-                        ✍️ Deine Notizen {writingMode === "personen" ? "· 👤 Personen-Matrix" : ""}
-                      </div>
-                      <button onClick={() => setShowSaveTemplate(v => !v)}
-                        style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                        💾 Speichern unter
-                      </button>
-                    </div>
-                    <div style={{ fontSize:9, marginBottom:8, color: writingSaveStatus==="saved" ? "#5a9a5a" : writingSaveStatus==="saving" ? "#9a8060" : writingSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:13 }}>
-                      {writingSaveStatus==="saving" && "Speichert…"}
-                      {writingSaveStatus==="saved" && "✓ Gespeichert"}
-                      {writingSaveStatus==="error" && ("⚠ Nicht gespeichert" + (writingSaveError ? ": " + writingSaveError : " — bitte Internetverbindung prüfen"))}
-                    </div>
-
-                    {showSaveTemplate && (
-                      <div style={{ marginBottom:10 }}>
-                        {templateSaveError && (
-                          <div style={{ fontSize:10, color:"#c87a6a", marginBottom:6, lineHeight:1.4 }}>
-                            ⚠ Fehler beim Speichern: {templateSaveError}
-                          </div>
-                        )}
-                        {textTemplates.length > 0 && (
-                          <div style={{ marginBottom:8 }}>
-                            <div style={{ fontSize:9, color:"#7a6040", marginBottom:4 }}>Bestehende Vorlage mit dem aktuellen Stand aktualisieren:</div>
-                            <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                              {textTemplates.map(tpl => (
-                                <button key={tpl.id} onClick={async () => { await updateTemplate(tpl); }}
-                                  style={{ padding:"5px 10px", borderRadius:5, border:`1px solid ${gold}`, background:"rgba(200,169,110,0.08)", color:gold, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
-                                  💾 {tpl.name}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        <div style={{ fontSize:9, color:"#7a6040", marginBottom:4 }}>Oder als neue Vorlage anlegen:</div>
-                        <div style={{ display:"flex", gap:8 }}>
-                          <input placeholder="Name für eine NEUE Vorlage" value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
-                            onKeyDown={e => e.key==="Enter" && saveTemplate()}
-                            style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
-                          <button onClick={saveTemplate} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>✓ Neu</button>
-                        </div>
-                      </div>
-                    )}
+                    <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>✍️ Deine Notizen</div>
 
                     {/* INTRO */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div onClick={() => setCollapsedFields(c => ({...c, intro: !c.intro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
                         <span style={{ fontSize:11 }}>🎬</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Intro</div>
-                        <span onClick={e => { e.stopPropagation(); setWritingView("picking"); setActivePos("intro"); setPickerMode(matrixFreeText["intro"] ? "freitext" : "karte"); }}
-                          style={{ fontSize:10, color:gold, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
-                          {introCard ? <>{SYMBOLS[introCard]} {CARDS[introCard].name}</> : "🃏 Karte zuordnen"}
-                        </span>
-                        {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.intro ? "▸" : "▾"}</span>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Intro</div>
                       </div>
-                      {!collapsedFields.intro && (<>
-                        <AutoTextarea
-                          placeholder="Deine Begrüßung, Einstieg, Ankündigung…"
-                          value={writingNotes["intro"] || ""}
-                          onChange={e => { const n = {...writingNotes, intro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                          onFocus={() => setActiveWritingPos(null)}
-                          onBlur={() => setActiveWritingPos(null)}
-                          minRows={2}
-                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                        />
-                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
-                        </div>
-                      </>)}
+                      <textarea
+                        placeholder="Deine Begrüßung, Einstieg, Ankündigung…"
+                        value={writingNotes["intro"] || ""}
+                        onChange={e => { const n = {...writingNotes, intro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                        onFocus={() => setActiveWritingPos(null)}
+                        onBlur={() => setActiveWritingPos(null)}
+                        rows={2}
+                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
+                      />
+                      <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                        {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                      </div>
                     </div>
-
                     {[
                       {pos:4, icon:"📖", label:"Signifikator | Thema", comboWith: null},
                       {pos:0, icon:"💭", label:"Gedanken | Anfang", comboWith: null},
                       {pos:1, icon:"🎭", label:"IST-Situation | 1. Katastrophe", comboWith: 4},
                       {pos:2, icon:"👼", label:"Rat der Engel | 2. Katastrophe", comboWith: null},
-                    ].map(({pos, icon, label, comboWith}) => {
-                      const cardNum = matrixCards[pos];
-                      const comboCardNum = comboWith !== null ? matrixCards[comboWith] : null;
-                      const key = String(pos);
-                      const text = writingNotes[key] || "";
-                      const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-                      const reached = wordCount >= 150;
-                      return (
-                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                          <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
-                            <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
-                            {/* Karte(n) oder freier Text anzeigen */}
-                            {cardNum && (<>
-                              <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
-                              <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
-                            </>)}
-                            {!cardNum && matrixFreeText[pos] && (
-                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
-                            )}
-                            {comboCardNum && (<>
-                              <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
-                              <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
-                              <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
-                            </>)}
-                            {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
-                          </div>
-                          {!collapsedFields[key] && (<>
-                            {(() => {
-                              const inspiration = getInspirationText(pos, comboWith, cardNum);
-                              return inspiration ? (
-                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
-                                  💡 {inspiration}
-                                </div>
-                              ) : null;
-                            })()}
-                            <AutoTextarea
-                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
-                              value={text}
-                              onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                              onFocus={() => setActiveWritingPos(pos)}
-                              onBlur={() => setActiveWritingPos(null)}
-                              minRows={2}
-                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                            />
-                            <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                              {wordCount} / 150
-                            </div>
-                          </>)}
-                        </div>
-                      );
-                    })}
-
-                    {[
                       {pos:5, icon:"🔮", label:"Nahe Zukunft | Mittelteil", comboWith: 4},
-                    ].map(({pos, icon, label, comboWith}) => {
-                      const cardNum = matrixCards[pos];
-                      const comboCardNum = comboWith !== null ? matrixCards[comboWith] : null;
-                      const key = String(pos);
-                      const text = writingNotes[key] || "";
-                      const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-                      const reached = wordCount >= 150;
-                      return (
-                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                          <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
-                            <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
-                            {/* Karte(n) oder freier Text anzeigen */}
-                            {cardNum && (<>
-                              <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
-                              <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
-                            </>)}
-                            {!cardNum && matrixFreeText[pos] && (
-                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
-                            )}
-                            {comboCardNum && (<>
-                              <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
-                              <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
-                              <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
-                            </>)}
-                            {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
-                          </div>
-                          {!collapsedFields[key] && (<>
-                            {(() => {
-                              const inspiration = getInspirationText(pos, comboWith, cardNum);
-                              return inspiration ? (
-                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
-                                  💡 {inspiration}
-                                </div>
-                              ) : null;
-                            })()}
-                            <AutoTextarea
-                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
-                              value={text}
-                              onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                              onFocus={() => setActiveWritingPos(pos)}
-                              onBlur={() => setActiveWritingPos(null)}
-                              minRows={2}
-                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                            />
-                            <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                              {wordCount} / 150
-                            </div>
-                          </>)}
-                        </div>
-                      );
-                    })}
-
-                    {/* Freitext nach "Nahe Zukunft" */}
-                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div onClick={() => setCollapsedFields(c => ({...c, nachRatDerEngel: !c.nachRatDerEngel}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
-                        <span style={{ fontSize:11 }}>💕</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Subplot</div>
-                        {(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.nachRatDerEngel ? "▸" : "▾"}</span>
-                      </div>
-                      {!collapsedFields.nachRatDerEngel && (<>
-                        <AutoTextarea
-                          placeholder="…"
-                          value={writingNotes["nachRatDerEngel"] || ""}
-                          onChange={e => { const n = {...writingNotes, nachRatDerEngel: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                          minRows={1}
-                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                        />
-                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
-                        </div>
-                      </>)}
-                    </div>
-
-                    {[
                       {pos:6, icon:"🦋", label:"Ursache | 3. Katastrophe", comboWith: null},
                       {pos:7, icon:"🌌", label:"Unbewusste Zukunft | Rückzug", comboWith: 4},
                       {pos:3, icon:"⚠️", label:"Warnung | Katharsis", comboWith: null},
@@ -5367,196 +2282,107 @@ export default function LenormandApp() {
                       const reached = wordCount >= 150;
                       return (
                         <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
-                          <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
-                            {/* Karte(n) oder freier Text anzeigen */}
+                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{label}</div>
+                            {/* Karte(n) anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
                               <span style={{ fontSize:8, color:gold }}>{CARDS[cardNum].name}</span>
                             </>)}
-                            {!cardNum && matrixFreeText[pos] && (
-                              <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
-                            )}
                             {comboCardNum && (<>
                               <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
                               <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
                               <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
                             </>)}
                             {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
-                          {!collapsedFields[key] && (<>
-                            {(() => {
-                              const inspiration = getInspirationText(pos, comboWith, cardNum);
-                              return inspiration ? (
-                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
-                                  💡 {inspiration}
-                                </div>
-                              ) : null;
-                            })()}
-                            <AutoTextarea
-                              placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
-                              value={text}
-                              onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                              onFocus={() => setActiveWritingPos(pos)}
-                              onBlur={() => setActiveWritingPos(null)}
-                              minRows={2}
-                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                            />
-                            <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                              {wordCount} / 150
-                            </div>
-                          </>)}
+                          <textarea
+                            placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : "Notizen…"}
+                            value={text}
+                            onChange={e => { const n = {...writingNotes, [key]: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                            onFocus={() => setActiveWritingPos(pos)}
+                            onBlur={() => setActiveWritingPos(null)}
+                            rows={2}
+                            style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
+                          />
+                          <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
+                            {wordCount} / 150
+                          </div>
                         </div>
                       );
                     })}
 
                     {/* OUTRO */}
                     <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
-                      <div onClick={() => setCollapsedFields(c => ({...c, outro: !c.outro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
                         <span style={{ fontSize:11 }}>🎬</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Outro</div>
-                        <span onClick={e => { e.stopPropagation(); setWritingView("picking"); setActivePos("outro"); setPickerMode(matrixFreeText["outro"] ? "freitext" : "karte"); }}
-                          style={{ fontSize:10, color:gold, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
-                          {outroCard ? <>{SYMBOLS[outroCard]} {CARDS[outroCard].name}</> : "🃏 Karte zuordnen"}
-                        </span>
-                        {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.outro ? "▸" : "▾"}</span>
+                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Outro</div>
                       </div>
-                      {!collapsedFields.outro && (<>
-                        <AutoTextarea
-                          placeholder="Dein Abschluss, Call to Action, Verabschiedung…"
-                          value={writingNotes["outro"] || ""}
-                          onChange={e => { const n = {...writingNotes, outro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
-                          onFocus={() => setActiveWritingPos(null)}
-                          onBlur={() => setActiveWritingPos(null)}
-                          minRows={2}
-                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
-                        />
-                        <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
-                          {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
-                        </div>
-                      </>)}
+                      <textarea
+                        placeholder="Dein Abschluss, Call to Action, Verabschiedung…"
+                        value={writingNotes["outro"] || ""}
+                        onChange={e => { const n = {...writingNotes, outro: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
+                        onFocus={() => setActiveWritingPos(null)}
+                        onBlur={() => setActiveWritingPos(null)}
+                        rows={2}
+                        style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }}
+                      />
+                      <div style={{ textAlign:"right", fontSize:8, color:"#5a4a34", marginTop:1 }}>
+                        {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} Wörter
+                      </div>
                     </div>
 
                     {/* Drucken */}
                     <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:12, marginTop:4 }}>
                       <button onClick={() => {
                         const heute = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
-                        const posLabelsBeforeEngel = [
+                        const posLabels = [
                           {pos:4, label:"Signifikator | Thema"},
                           {pos:0, label:"Gedanken | Anfang"},
                           {pos:1, label:"IST-Situation | 1. Katastrophe"},
                           {pos:2, label:"Rat der Engel | 2. Katastrophe"},
-                        ];
-                        const posLabelNaheZukunft = {pos:5, label:"Nahe Zukunft | Mittelteil"};
-                        const posLabelsAfterSubplot = [
+                          {pos:5, label:"Nahe Zukunft | Mittelteil"},
                           {pos:6, label:"Ursache | 3. Katastrophe"},
                           {pos:7, label:"Unbewusste Zukunft | Rückzug"},
                           {pos:3, label:"Warnung | Katharsis"},
                           {pos:8, label:"Ergebnis | Pay Off"},
                         ];
-                        const posLabels = [...posLabelsBeforeEngel, posLabelNaheZukunft, ...posLabelsAfterSubplot];
-                        // Bei Personen-Modus die passenden Labels statt der Situations-Begriffe nehmen
-                        const labelFor = (pos, fallback) => writingMode === "personen" ? (PERSONEN_POSITION_LABELS[String(pos)] || fallback) : fallback;
-                        const nachIntroText = writingNotes["nachIntro"] || "";
-                        const nachRatDerEngelText = writingNotes["nachRatDerEngel"] || "";
-                        const vorOutroText = writingNotes["vorOutro"] || "";
                         const introText = writingNotes["intro"] || "";
                         const outroText = writingNotes["outro"] || "";
                         const introWc = introText.trim().split(/\s+/).filter(Boolean).length;
                         const outroWc = outroText.trim().split(/\s+/).filter(Boolean).length;
-                        const nachIntroWc = nachIntroText.trim().split(/\s+/).filter(Boolean).length;
-                        const nachRatDerEngelWc = nachRatDerEngelText.trim().split(/\s+/).filter(Boolean).length;
-                        const vorOutroWc = vorOutroText.trim().split(/\s+/).filter(Boolean).length;
                         const posWc = posLabels.reduce((sum, {pos}) => {
                           const t = writingNotes[String(pos)] || "";
                           return sum + t.trim().split(/\s+/).filter(Boolean).length;
                         }, 0);
-                        const totalWc = introWc + nachIntroWc + posWc + nachRatDerEngelWc + vorOutroWc + outroWc;
+                        const totalWc = introWc + posWc + outroWc;
 
-                        // 3×3-Matrix-Übersicht als HTML-Grid, in der gewohnten Anordnung (Signifikator in der Mitte)
-                        const gridOrder = [0,1,2,3,4,5,6,7,8]; // Gedanken, IST, Rat der Engel, Warnung, Signifikator, Nahe Zukunft, Ursache, Unbew. Zukunft, Ergebnis
-                        const matrixCellsHtml = gridOrder.map(pos => {
-                          const cn = matrixCards[pos];
-                          const ft = matrixFreeText[pos];
-                          const isKombi = KOMBI_POSITIONS.includes(pos);
-                          const lbl = labelFor(pos, WRITING_POSITION_LABELS[pos]);
-                          const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
-                          const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
-                          return "<div class='cell" + (pos===4?" sig":"") + "'><div class='cell-lbl'>" + lbl + "</div><div class='cell-card'>" + cardLine + "</div>"
-                            + (insp ? "<div class='cell-insp'>" + insp + "</div>" : "") + "</div>";
-                        }).join("");
-                        const matrixGridHtml = "<div class='matrix-title'>" + (writingMode === "personen" ? "👤 Personen-Matrix" : "⬛ Situations-Matrix") + "</div>"
-                          + "<div class='grid'>" + matrixCellsHtml + "</div>";
-
-                        const sigLine = signifikator ? (SYMBOLS[signifikator] + " " + CARDS[signifikator].name) : matrixFreeText[4] ? ("✍️ " + matrixFreeText[4]) : "–";
-
-                        const html = "<html><head><title>" + (writingProjekt || "Writing Session") + "</title><style>"
-                          + "body{font-family:Georgia,serif,'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji';max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
+                        const html = "<html><head><title>Writing Session</title><style>"
+                          + "body{font-family:Georgia,serif;max-width:700px;margin:40px auto;color:#2a1a0a;line-height:1.7}"
                           + "h1{color:#8a6020;border-bottom:2px solid #c8a96e;padding-bottom:8px}"
                           + ".meta{font-size:12px;color:#9a8060;margin-bottom:24px}"
                           + ".block{margin-bottom:20px;border-left:3px solid #c8a96e;padding-left:14px}"
                           + ".lbl{font-size:10px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin-bottom:3px}"
                           + ".karte{font-size:13px;color:#8a6020;margin-bottom:5px}"
-                          + ".insp{font-size:11px;color:#7a6040;font-style:italic;margin-bottom:5px}"
                           + ".txt{font-size:12px;color:#3a2a0a;white-space:pre-wrap}"
                           + ".cnt{font-size:9px;color:#9a8060;margin-top:3px}"
                           + ".total{margin-top:32px;padding-top:12px;border-top:2px solid #c8a96e;font-size:11px;color:#8a6020;text-align:right;letter-spacing:1px}"
-                          + ".matrix-title{font-size:11px;color:#9a8060;letter-spacing:2px;text-transform:uppercase;margin:28px 0 8px}"
-                          + ".grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px}"
-                          + ".cell{border:1px solid #d8c8a0;border-radius:6px;padding:8px;background:#fbf8f0}"
-                          + ".cell.sig{background:#f3e8cc;border-color:#c8a96e}"
-                          + ".cell-lbl{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:#9a8060;margin-bottom:3px}"
-                          + ".cell-card{font-size:11px;color:#8a6020;margin-bottom:3px}"
-                          + ".cell-insp{font-size:9px;color:#5a4a34;line-height:1.4}"
                           + "</style></head><body>"
-                          + "<h1>✍️ " + (writingProjekt || "Ohne Titel") + "</h1>"
-                          + "<div class='meta'>"
-                          + (writingHook ? "🎯 " + writingHook + "<br>" : "")
-                          + (writingBemerkung ? writingBemerkung + "<br>" : "")
-                          + "Signifikator: " + sigLine
+                          + "<h1>✍️ Writing Session</h1>"
+                          + "<div class='meta'><strong>" + (writingProjekt||"Ohne Titel") + "</strong>"
+                          + (writingBemerkung ? "<br>" + writingBemerkung : "")
+                          + "<br>Signifikator: " + SYMBOLS[signifikator] + " " + CARDS[signifikator].name
                           + "<br>" + heute + "</div>"
-                          + matrixGridHtml
-                          + (introText ? "<div class='block'><div class='lbl'>🎬 Intro" + (introCard ? " · " + SYMBOLS[introCard] + " " + CARDS[introCard].name : "") + "</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
-                          + (nachIntroText ? "<div class='block'><div class='lbl'>💥 Teaser</div><div class='txt'>" + nachIntroText + "</div><div class='cnt'>" + nachIntroWc + " Wörter</div></div>" : "")
-                          + posLabelsBeforeEngel.map(({pos, label}) => {
+                          + (introText ? "<div class='block'><div class='lbl'>🎬 Intro</div><div class='txt'>" + introText + "</div><div class='cnt'>" + introWc + " Wörter</div></div>" : "")
+                          + posLabels.map(({pos, label}) => {
                               const cn = matrixCards[pos];
-                              const ft = matrixFreeText[pos];
                               const t = writingNotes[String(pos)] || "";
                               if (!t) return "";
                               const wc = t.trim().split(/\s+/).filter(Boolean).length;
-                              const isKombi = KOMBI_POSITIONS.includes(pos);
-                              const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
-                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
-                              return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
+                              return "<div class='block'><div class='lbl'>" + label + "</div><div class='karte'>" + (cn ? SYMBOLS[cn] + " " + CARDS[cn].name : "–") + "</div><div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
                             }).join("")
-                          + [posLabelNaheZukunft].map(({pos, label}) => {
-                              const cn = matrixCards[pos];
-                              const ft = matrixFreeText[pos];
-                              const t = writingNotes[String(pos)] || "";
-                              if (!t) return "";
-                              const wc = t.trim().split(/\s+/).filter(Boolean).length;
-                              const isKombi = KOMBI_POSITIONS.includes(pos);
-                              const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
-                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
-                              return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
-                            }).join("")
-                          + (nachRatDerEngelText ? "<div class='block'><div class='lbl'>💕 Subplot</div><div class='txt'>" + nachRatDerEngelText + "</div><div class='cnt'>" + nachRatDerEngelWc + " Wörter</div></div>" : "")
-                          + posLabelsAfterSubplot.map(({pos, label}) => {
-                              const cn = matrixCards[pos];
-                              const ft = matrixFreeText[pos];
-                              const t = writingNotes[String(pos)] || "";
-                              if (!t) return "";
-                              const wc = t.trim().split(/\s+/).filter(Boolean).length;
-                              const isKombi = KOMBI_POSITIONS.includes(pos);
-                              const insp = getInspirationText(pos, isKombi ? 4 : null, isKombi ? cn : null) || "";
-                              const cardLine = cn ? (SYMBOLS[cn] + " " + CARDS[cn].name) : ft ? ("✍️ " + ft) : "–";
-                              return "<div class='block'><div class='lbl'>" + labelFor(pos, label) + "</div><div class='karte'>" + cardLine + "</div>" + (insp ? "<div class='insp'>💡 " + insp + "</div>" : "") + "<div class='txt'>" + t + "</div><div class='cnt'>" + wc + " Wörter</div></div>";
-                            }).join("")
-                          + (vorOutroText ? "<div class='block'><div class='lbl'>💥 Teaser-Auflösung</div><div class='txt'>" + vorOutroText + "</div><div class='cnt'>" + vorOutroWc + " Wörter</div></div>" : "")
-                          + (outroText ? "<div class='block'><div class='lbl'>🎬 Outro" + (outroCard ? " · " + SYMBOLS[outroCard] + " " + CARDS[outroCard].name : "") + "</div><div class='txt'>" + outroText + "</div><div class='cnt'>" + outroWc + " Wörter</div></div>" : "")
+                          + (outroText ? "<div class='block'><div class='lbl'>🎬 Outro</div><div class='txt'>" + outroText + "</div><div class='cnt'>" + outroWc + " Wörter</div></div>" : "")
                           + "<div class='total'>✦ Gesamt: " + totalWc + " Wörter</div>"
                           + "</body></html>";
                         const w = window.open("","_blank");
@@ -5579,25 +2405,20 @@ export default function LenormandApp() {
           <div style={{ paddingBottom:30 }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Zauberzettel</div>
-              <div style={{ fontSize:10, marginBottom:6, color: manifestSaveStatus==="saved" ? "#5a9a5a" : manifestSaveStatus==="saving" ? "#9a8060" : manifestSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:14 }}>
-                {manifestSaveStatus==="saving" && "Speichert…"}
-                {manifestSaveStatus==="saved" && "✓ Gespeichert"}
-                {manifestSaveStatus==="error" && ("⚠ Nicht gespeichert" + (manifestSaveError ? ": " + manifestSaveError : " — bitte Internetverbindung prüfen"))}
-              </div>
               <div style={{ fontSize:14, color:"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
-                Schreibe auf, was du dir wünschst und was du erschaffen willst. Drücke Enter für einen neuen Punkt — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
+                Schreibe auf, was du dir wünschst und was du erschaffen willst. Trenne deine Wünsche mit einem Komma — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
               </div>
             </div>
 
             {/* 2×2 Grid */}
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:14, marginBottom:20 }}>
               {[
-                {key:"heute",  icon:"📅", label:"Heute",    sub:"Was ist jetzt dran?",           placeholder:"z.B. ausreichend schlafen\nmehr Wasser trinken\neinen Brief schreiben"},
-                {key:"wochen", icon:"⏱️", label:"3 Wochen", sub:"Was kommt bald?",               placeholder:"z.B. die Wohnung aufräumen\neinen Arzttermin machen\nmehr spazieren gehen"},
-                {key:"monate", icon:"🌙", label:"3 Monate", sub:"Was wächst gerade?",            placeholder:"z.B. ein neues Auto\n5 kg abnehmen\neinen Kurs belegen\nmehr Zeit für Familie"},
-                {key:"jahre",  icon:"🌟", label:"3 Jahre",  sub:"Was ist dein großes Bild?",     placeholder:"z.B. ein Haus kaufen\nden Job wechseln\neine Reise machen\nfinanziell frei sein"},
-                {key:"irgendwann", icon:"✨", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen\nein Buch schreiben\nam Meer leben…"},
-                {key:"traum",  icon:"💫", label:"Beweise finden für:", sub:"finde Emanuel im Alltag", placeholder:"z.B. ein zufälliger Moment der Leichtigkeit\neine Begegnung zur richtigen Zeit\nein Gefühl von Klarheit, das einfach da war…"},
+                {key:"heute",  icon:"📅", label:"Heute",    sub:"Was ist jetzt dran?",           placeholder:"z.B. ausreichend schlafen, mehr Wasser trinken, einen Brief schreiben"},
+                {key:"wochen", icon:"⏱️", label:"3 Wochen", sub:"Was kommt bald?",               placeholder:"z.B. die Wohnung aufräumen, einen Arzttermin machen, mehr spazieren gehen"},
+                {key:"monate", icon:"🌙", label:"3 Monate", sub:"Was wächst gerade?",            placeholder:"z.B. ein neues Auto, 5 kg abnehmen, einen Kurs belegen, mehr Zeit für Familie"},
+                {key:"jahre",  icon:"🌟", label:"3 Jahre",  sub:"Was ist dein großes Bild?",     placeholder:"z.B. ein Haus kaufen, den Job wechseln, eine Reise machen, finanziell frei sein"},
+                {key:"irgendwann", icon:"✨", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen, ein Buch schreiben, am Meer leben…"},
+                {key:"traum",  icon:"💫", label:"Mein größter Traum", sub:"Das eine große Ding", placeholder:"Das was so groß ist, dass man es kaum auszusprechen wagt…"},
               ].map(({key, icon, label, sub, placeholder}) => (
                 <div key={key} style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 14px 10px" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
@@ -5617,7 +2438,7 @@ export default function LenormandApp() {
                   {/* Interaktive Liste */}
                   {manifestData[key] && (
                     <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
-                      {manifestData[key].split('\n').map(s => s.trim()).filter(Boolean).map((item, i, arr) => {
+                      {manifestData[key].split(',').map(s => s.trim()).filter(Boolean).map((item, i) => {
                         const checkedKey = `_checked_${key}`;
                         const checked = (manifestData[checkedKey] || []).includes(i);
                         const fieldKeys = ["heute","wochen","monate","jahre","irgendwann","traum"];
@@ -5635,85 +2456,37 @@ export default function LenormandApp() {
                             </button>
                             {/* Text */}
                             <span style={{ flex:1, fontSize:11, color: checked?"#5a7a5a":"#9a8060", textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
-
-                            {/* Innerhalb der Liste nach oben */}
-                            {i > 0 && (
-                              <button onClick={() => {
-                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
-                                const ck = `_checked_${key}`;
-                                const oldChecked = manifestData[ck] || [];
-                                [items[i-1], items[i]] = [items[i], items[i-1]];
-                                const newChecked = oldChecked.map(idx => {
-                                  if (idx === i) return i-1;
-                                  if (idx === i-1) return i;
-                                  return idx;
-                                });
-                                const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
-                                setManifestData(updated);
-                                saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach oben">⬆</button>
-                            )}
-                            {/* Innerhalb der Liste nach unten */}
-                            {i < arr.length-1 && (
-                              <button onClick={() => {
-                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
-                                const ck = `_checked_${key}`;
-                                const oldChecked = manifestData[ck] || [];
-                                [items[i], items[i+1]] = [items[i+1], items[i]];
-                                const newChecked = oldChecked.map(idx => {
-                                  if (idx === i) return i+1;
-                                  if (idx === i+1) return i;
-                                  return idx;
-                                });
-                                const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
-                                setManifestData(updated);
-                                saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach unten">⬇</button>
-                            )}
-
-                            {/* Verschieben zur vorherigen Abteilung (z.B. von "3 Wochen" zu "Heute") */}
+                            {/* Verschieben hoch */}
                             {keyIdx > 0 && (
                               <button onClick={() => {
                                 const prevKey = fieldKeys[keyIdx-1];
-                                const { items, removed, wasChecked, newChecked } = removeManifestItem(manifestData, key, i);
-                                const { text: prevText, checked: prevChecked } = insertManifestItem(
-                                  {...manifestData, [`_checked_${prevKey}`]: manifestData[`_checked_${prevKey}`]},
-                                  prevKey, removed, wasChecked
-                                );
-                                const updated = {
-                                  ...manifestData,
-                                  [key]: items.join('\n'), [`_checked_${key}`]: newChecked,
-                                  [prevKey]: prevText, [`_checked_${prevKey}`]: prevChecked
-                                };
+                                const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                                items.splice(i, 1);
+                                const prevItems = manifestData[prevKey] ? manifestData[prevKey].split(',').map(s=>s.trim()).filter(Boolean) : [];
+                                prevItems.push(item);
+                                const updated = {...manifestData, [key]: items.join(', '), [prevKey]: prevItems.join(', ')};
                                 setManifestData(updated);
                                 saveManifest(updated);
                               }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene früher">↑</button>
                             )}
-                            {/* Verschieben zur nächsten Abteilung (z.B. von "Heute" zu "3 Wochen") */}
+                            {/* Verschieben runter */}
                             {keyIdx < fieldKeys.length-1 && (
                               <button onClick={() => {
                                 const nextKey = fieldKeys[keyIdx+1];
-                                const { items, removed, wasChecked, newChecked } = removeManifestItem(manifestData, key, i);
-                                const { text: nextText, checked: nextChecked } = insertManifestItem(
-                                  {...manifestData, [`_checked_${nextKey}`]: manifestData[`_checked_${nextKey}`]},
-                                  nextKey, removed, wasChecked, 0
-                                );
-                                const updated = {
-                                  ...manifestData,
-                                  [key]: items.join('\n'), [`_checked_${key}`]: newChecked,
-                                  [nextKey]: nextText, [`_checked_${nextKey}`]: nextChecked
-                                };
+                                const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                                items.splice(i, 1);
+                                const nextItems = manifestData[nextKey] ? manifestData[nextKey].split(',').map(s=>s.trim()).filter(Boolean) : [];
+                                nextItems.unshift(item);
+                                const updated = {...manifestData, [key]: items.join(', '), [nextKey]: nextItems.join(', ')};
                                 setManifestData(updated);
                                 saveManifest(updated);
                               }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene später">↓</button>
                             )}
                             {/* Löschen */}
                             <button onClick={() => {
-                              const { items, newChecked } = removeManifestItem(manifestData, key, i);
-                              const ck = `_checked_${key}`;
-                              const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
-                              setManifestData(updated);
-                              saveManifest(updated);
+                              const items = manifestData[key].split(',').map(s=>s.trim()).filter(Boolean);
+                              items.splice(i, 1);
+                              updateManifest(key, items.join(', '));
                             }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a3a2a", padding:"0 2px" }}>✕</button>
                           </div>
                         );
@@ -5729,22 +2502,6 @@ export default function LenormandApp() {
                 style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                 🖨️ Zauberzettel drucken
               </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── QUEST (Platzhalter) ── */}
-        {view === "tagebuch" && dailyMode === "quest" && (
-          <div style={{ paddingBottom:30 }}>
-            <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>🎯 Quest</div>
-            </div>
-            <div style={{ textAlign:"center", padding:"40px 20px", color:"#7a6040" }}>
-              <div style={{ fontSize:32, marginBottom:14 }}>🎯</div>
-              <div style={{ fontSize:14, color:gold, marginBottom:10 }}>Tägliche Aufgaben kommen bald hierher</div>
-              <div style={{ fontSize:12, lineHeight:1.7, maxWidth:340, margin:"0 auto" }}>
-                Kleine Quests für jeden Tag — Lenormand Schritt für Schritt im eigenen Tempo erleben.
-              </div>
             </div>
           </div>
         )}
@@ -5899,27 +2656,11 @@ export default function LenormandApp() {
             style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             🐞 Fehler melden
           </a>
-          {isGuest ? (
-            <button onClick={() => setView("forum-login-noetig")}
-              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-              ↪ Login
-            </button>
-          ) : (
-            <button onClick={handleLogout}
-              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-              ↩ Logout
-            </button>
-          )}
-          <button onClick={() => setView("impressum")}
+          <button onClick={handleLogout}
             style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-            Impressum
-          </button>
-          <button onClick={() => setView("agb")}
-            style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-            AGB
+            ↩ Logout
           </button>
         </div>
-
         <div style={{ fontSize:9, color:"#2a1a08", letterSpacing:3, marginBottom:4 }}>
           ANNA BENOIR · LENORMAND MATRIX · 2014 · ALLE RECHTE VORBEHALTEN
         </div>
