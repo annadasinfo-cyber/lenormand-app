@@ -783,8 +783,10 @@ export default function LenormandApp() {
             ← zurück zur App
           </button>
           <div style={{ textAlign:"center", marginBottom:28 }}>
-            <div style={{ fontSize:22, color:"#c8a96e", fontWeight:"normal", marginBottom:4 }}>Willkommen</div>
-            <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Melde dich an um fortzufahren</div>
+            <div style={{ fontSize:28, marginBottom:6 }}>🐍</div>
+            <div style={{ fontSize:16, color:"#f0e8d8", fontWeight:"normal", marginBottom:2, letterSpacing:1 }}>Willkommen in</div>
+            <div style={{ fontSize:22, color:"#c8a96e", fontWeight:"normal", letterSpacing:6, marginBottom:6 }}>L E N O R M A N D I A</div>
+            <div style={{ fontSize:11, color:"#d4c4a0", fontStyle:"italic" }}>Melde dich an um fortzufahren</div>
           </div>
 
           <div style={{ display:"flex", gap:8, marginBottom:24, justifyContent:"center" }}>
@@ -806,18 +808,18 @@ export default function LenormandApp() {
           )}
 
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>E-Mail</div>
+            <div style={{ fontSize:10, color:"#d4c4a0", marginBottom:5 }}>E-Mail</div>
             <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
               placeholder="deine@email.de"
-              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#f0e8d8", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
           </div>
 
           <div style={{ marginBottom:20 }}>
-            <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>Passwort</div>
+            <div style={{ fontSize:10, color:"#d4c4a0", marginBottom:5 }}>Passwort</div>
             <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
               onKeyDown={e => e.key==="Enter" && (authView==="login" ? handleLogin() : handleRegister())}
               placeholder="••••••••"
-              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#f0e8d8", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
           </div>
 
           {authMsg && <div style={{ fontSize:12, color: authMsg.startsWith("✉️") ? "#90d090" : "#c87a6a", marginBottom:14, textAlign:"center", lineHeight:1.6 }}>{authMsg}</div>}
@@ -828,10 +830,10 @@ export default function LenormandApp() {
           </button>
 
           {authView==="register" && (
-            <div style={{ textAlign:"center", marginTop:16, fontSize:10, color:lightMode?"#2a0850":"#3a2a18", lineHeight:1.7 }}>
+            <div style={{ textAlign:"center", marginTop:16, fontSize:10, color:"#c0a880", lineHeight:1.7 }}>
               Du bekommst eine Bestätigungs-E-Mail.<br/>
               Bitte klicke den Link darin — dann kannst du dich einloggen.<br/><br/>
-              <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>
+              <span style={{ color:"#a09070", fontStyle:"italic" }}>
                 Hinweis: Die Mail kommt von einer Supabase-Adresse — das ist unser technischer Versanddienst im Hintergrund und völlig okay. 💛
               </span>
             </div>
