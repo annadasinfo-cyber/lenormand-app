@@ -438,7 +438,7 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirt
 // Account-Switcher: zwischen gemerkten Test-Accounts wechseln, ohne sich jedes Mal
 // neu einzuloggen. Die Liste liegt server-seitig, erscheint also auf jedem Gerät
 // gleich, auf dem man sich als Admin einloggt.
-function AdminBar({ gold, displayName, myEmail, accounts, accountsLoading, onOpen, open, onClose,
+function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoading, onOpen, open, onClose,
                      onSwitch, switching, onForget, addOpen, onAddOpen, onAddCancel,
                      onAddSubmit, addMsg, isRealAdmin, onBackToAdmin, switchingBack }) {
   const [email, setEmail] = useState("");
@@ -3163,6 +3163,7 @@ export default function LenormandApp() {
       {(isAdmin || hasHomeAdmin) && (
         <AdminBar
           gold={gold}
+          lightMode={lightMode}
           displayName={userDisplayName || getUserEmail()}
           myEmail={getUserEmail()}
           accounts={switcherAccounts}
