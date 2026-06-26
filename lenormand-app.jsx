@@ -3303,7 +3303,7 @@ export default function LenormandApp() {
 
       {/* Header */}
       <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, position:"relative" }}>
-        <button onClick={toggleTheme} style={{ position:"absolute", top:16, right:16, background:"transparent", border:`1px solid ${lightMode?"rgba(100,40,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#6a2a8a":"#7a6040", padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+        <button onClick={toggleTheme} style={{ position:"absolute", top:16, right:16, background:"transparent", border:`1px solid ${lightMode?"rgba(100,40,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#6a2a8a":"#7a6040", padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", display:"none" }}>
           {lightMode ? "🌙 Dunkel" : "☀️ Hell"}
         </button>
         <div style={{ fontSize:10, letterSpacing:6, color: lightMode?"#8a5a9a":"#7a6040", marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
@@ -5939,6 +5939,10 @@ export default function LenormandApp() {
             style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             🐞 Fehler melden
           </a>
+          <button onClick={toggleTheme}
+            style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+            {lightMode ? "🌙 Dunkel" : "☀️ Hell"}
+          </button>
           {isGuest ? (
             <button onClick={() => setView("forum-login-noetig")}
               style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
