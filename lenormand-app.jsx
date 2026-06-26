@@ -312,10 +312,10 @@ function InlineEditBox({ initialValue, onSave, onCancel, rows, fontSize }) {
   return (
     <div>
       <textarea value={value} onChange={e => setValue(e.target.value)} rows={rows || 3} autoFocus
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:fontSize || 12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:fontSize || 12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
       <div style={{ display:"flex", gap:8 }}>
         <button onClick={() => onSave(value)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Speichern</button>
-        <button onClick={onCancel} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Abbrechen</button>
+        <button onClick={onCancel} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Abbrechen</button>
       </div>
     </div>
   );
@@ -329,12 +329,12 @@ function InlinePostEditBox({ initialTitle, initialBody, onSave, onCancel }) {
   return (
     <div>
       <input type="text" value={title} onChange={e => setTitle(e.target.value)} autoFocus
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#c8a96e", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:"#c8a96e", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
       <textarea value={body} onChange={e => setBody(e.target.value)} rows={4}
-        style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+        style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
       <div style={{ display:"flex", gap:8 }}>
         <button onClick={() => onSave(title, body)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
-        <button onClick={onCancel} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
+        <button onClick={onCancel} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
       </div>
     </div>
   );
@@ -349,16 +349,16 @@ function CategoryEditBox({ initialName, initialDescription, initialIcon, initial
   const [visibility, setVisibility] = useState(initialVisibility);
   const [guestPost, setGuestPost] = useState(initialGuestPost);
   return (
-    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:16, marginBottom:10 }}>
+    <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:10, padding:16, marginBottom:10 }}>
       <input placeholder="Name der Kategorie" value={name} onChange={e => setName(e.target.value)} autoFocus
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
       <input placeholder="Beschreibung (optional, ein kurzer Satz)" value={description} onChange={e => setDescription(e.target.value)}
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1 }}>Icon</div>
+        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1 }}>Icon</div>
         <input placeholder="z.B. 💬" value={icon} maxLength={4} onChange={e => setIcon(e.target.value)}
-          style={{ width:60, padding:"6px 8px", textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none" }} />
-        <div style={{ fontSize:9, color:"#5a4a34" }}>nur 1 Emoji, kein Text — Vorschau:</div>
+          style={{ width:60, padding:"6px 8px", textAlign:"center", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none" }} />
+        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>nur 1 Emoji, kein Text — Vorschau:</div>
         <span style={{ fontSize:22 }}>{icon}</span>
       </div>
       <div style={{ display:"flex", gap:8, marginBottom:8 }}>
@@ -366,7 +366,7 @@ function CategoryEditBox({ initialName, initialDescription, initialIcon, initial
           <button key={v} onClick={() => setVisibility(v)} style={{ flex:1, background:visibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${visibility===v?gold:"rgba(200,169,110,0.2)"}`, color:visibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
         ))}
       </div>
-      <label style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:11, color:"#9a8060", cursor:"pointer" }}>
+      <label style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:11, color:lightMode?"#2a0850":"#9a8060", cursor:"pointer" }}>
         <input type="checkbox" checked={guestPost} onChange={e => setGuestPost(e.target.checked)} />
         Gäste dürfen hier auch ohne Login schreiben (z.B. für Mitmach-Mittwoch)
       </label>
@@ -374,7 +374,7 @@ function CategoryEditBox({ initialName, initialDescription, initialIcon, initial
         <button onClick={() => onSave({ name, description, icon, visibility, guestPost })}
           style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
         <button onClick={onCancel}
-          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
+          style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
       </div>
     </div>
   );
@@ -393,20 +393,20 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirt
       <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 18px" }}>
         {(name || "?").trim().charAt(0).toUpperCase() || "?"}
       </div>
-      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Name</div>
+      <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>Name</div>
       <input type="text" value={name} onChange={e => setName(e.target.value)} autoFocus
-        style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
-      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Über mich</div>
+        style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+      <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>Über mich</div>
       <textarea value={bio} onChange={e => setBio(e.target.value)} rows={4} placeholder="Erzähl ein bisschen über dich…"
-        style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+        style={{ width:"100%", padding:"9px 12px", marginBottom:14, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
       <div style={{ display:"flex", gap:10, marginBottom:14 }}>
         <div style={{ flex:1 }}>
-          <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Geburtsdatum <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(optional)</span></div>
+          <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>Geburtsdatum <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>(optional)</span></div>
           <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)}
-            style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }} />
+            style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", colorScheme:"dark" }} />
         </div>
       </div>
-      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Geschlecht <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(optional)</span></div>
+      <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>Geschlecht <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>(optional)</span></div>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
         {[["weiblich","weiblich"],["männlich","männlich"],["sag ich nicht","sag ich nicht"]].map(([v,l]) => (
           <button key={v} onClick={() => setGender(g => g === v ? "" : v)}
@@ -415,17 +415,17 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirt
           </button>
         ))}
       </div>
-      <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Signatur <span style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>(erscheint unter deinen Beiträgen &amp; Antworten)</span></div>
+      <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>Signatur <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>(erscheint unter deinen Beiträgen &amp; Antworten)</span></div>
       <input type="text" value={signature} onChange={e => setSignature(e.target.value)} maxLength={120} placeholder="z.B. wer Mut hat selbst zu denken, hat auch Freiheit, selbst zu handeln"
-        style={{ width:"100%", padding:"9px 12px", marginBottom:4, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", fontStyle:"italic" }} />
-      <div style={{ fontSize:9, color:"#5a4a34", marginBottom:18, textAlign:"right" }}>{signature.length}/120</div>
+        style={{ width:"100%", padding:"9px 12px", marginBottom:4, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", fontStyle:"italic" }} />
+      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", marginBottom:18, textAlign:"right" }}>{signature.length}/120</div>
       <div style={{ display:"flex", gap:8 }}>
         <button onClick={() => onSave({ name, bio, signature, birthdate, gender })} disabled={saveStatus==="saving"}
           style={{ flex:1, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"9px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", opacity: saveStatus==="saving" ? 0.6 : 1 }}>
           {saveStatus==="saving" ? "Speichert…" : "Speichern"}
         </button>
         <button onClick={onCancel}
-          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
+          style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
           Abbrechen
         </button>
       </div>
@@ -445,8 +445,8 @@ function AdminBar({ gold, displayName, myEmail, accounts, accountsLoading, onOpe
   const [password, setPassword] = useState("");
   return (
     <>
-      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:"#0a0612", borderBottom:"1px solid rgba(200,169,110,0.25)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
-        <div style={{ color:"#7a6040", letterSpacing:1 }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:"#0a0612", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
+        <div style={{ color:lightMode?"#2a0850":"#7a6040", letterSpacing:1 }}>
           {isRealAdmin ? "👑 Admin" : "🧪 Test-Account"} · {displayName}
         </div>
         <div style={{ display:"flex", gap:8 }}>
@@ -470,14 +470,14 @@ function AdminBar({ gold, displayName, myEmail, accounts, accountsLoading, onOpe
         <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"flex-start", justifyContent:"center", zIndex:2100, padding:"60px 20px 20px" }}
           onClick={onClose}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background:"#0f0a1a", border:"1px solid rgba(200,169,110,0.3)", borderRadius:12, padding:"22px 20px", maxWidth:380, width:"100%", maxHeight:"80vh", overflowY:"auto" }}>
+            style={{ background:"#0f0a1a", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:12, padding:"22px 20px", maxWidth:380, width:"100%", maxHeight:"80vh", overflowY:"auto" }}>
             <div style={{ fontSize:14, color:gold, marginBottom:4 }}>🔀 Account-Switcher</div>
-            <div style={{ fontSize:11, color:"#7a6040", marginBottom:16 }}>Synchronisiert sich über alle Geräte — wechselt direkt ohne erneutes Einloggen.</div>
+            <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", marginBottom:16 }}>Synchronisiert sich über alle Geräte — wechselt direkt ohne erneutes Einloggen.</div>
 
             {accountsLoading ? (
-              <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:14 }}>Lädt…</div>
+              <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginBottom:14 }}>Lädt…</div>
             ) : accounts.length === 0 ? (
-              <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:14 }}>Noch keine weiteren Accounts gemerkt — logg dich einmal in einen Test-Account ein, dann erscheint er hier.</div>
+              <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginBottom:14 }}>Noch keine weiteren Accounts gemerkt — logg dich einmal in einen Test-Account ein, dann erscheint er hier.</div>
             ) : accounts.map(acc => {
                 const isMe = acc.account_email === myEmail;
                 const isSwitching = switching === acc.id;
@@ -501,11 +501,11 @@ function AdminBar({ gold, displayName, myEmail, accounts, accountsLoading, onOpe
               })}
 
             {addOpen ? (
-              <div style={{ marginTop:14, paddingTop:14, borderTop:"1px solid rgba(200,169,110,0.15)" }}>
+              <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}` }}>
                 <input type="email" placeholder="E-Mail" value={email} onChange={e => setEmail(e.target.value)} autoFocus
-                  style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                  style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
                 <input type="password" placeholder="Passwort" value={password} onChange={e => setPassword(e.target.value)}
-                  style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                  style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
                 {addMsg && <div style={{ fontSize:11, color: addMsg.startsWith("✓") ? "#5a9a5a" : "#c87a6a", marginBottom:8 }}>{addMsg}</div>}
                 <div style={{ display:"flex", gap:8 }}>
                   <button onClick={() => onAddSubmit(email, password)}
@@ -513,14 +513,14 @@ function AdminBar({ gold, displayName, myEmail, accounts, accountsLoading, onOpe
                     Hinzufügen
                   </button>
                   <button onClick={() => { setEmail(""); setPassword(""); onAddCancel(); }}
-                    style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                    style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"8px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
                     Abbrechen
                   </button>
                 </div>
               </div>
             ) : (
               <button onClick={onAddOpen}
-                style={{ width:"100%", marginTop:14, background:"transparent", border:"1px dashed rgba(200,169,110,0.3)", color:"#9a8060", padding:"9px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                style={{ width:"100%", marginTop:14, background:"transparent", border:"1px dashed rgba(200,169,110,0.3)", color:lightMode?"#2a0850":"#9a8060", padding:"9px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
                 + Account hinzufügen, ohne mich auszuloggen
               </button>
             )}
@@ -540,12 +540,12 @@ function ForumMatrixGrid({ data, gold }) {
   return (
     <div style={{ marginTop:12, marginBottom:8 }}>
       {data.question && (
-        <div style={{ fontSize:11, color:"#9a8060", fontStyle:"italic", marginBottom:10 }}>✦ {data.question}</div>
+        <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:10 }}>✦ {data.question}</div>
       )}
       <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:8 }}>
         <span style={{ fontSize:16 }}>{data.sigSymbol}</span>
         <span style={{ fontSize:12, color:gold }}>{data.sigName}</span>
-        <span style={{ fontSize:9, color:"#5a4a34" }}>· {isPersonen ? "Personen-Matrix" : "Situations-Matrix"}</span>
+        <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>· {isPersonen ? "Personen-Matrix" : "Situations-Matrix"}</span>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6 }}>
         {data.cells.map((c, pos) => (
@@ -566,7 +566,7 @@ function ForumMatrixGrid({ data, gold }) {
             {c.text ? (
               <div style={{ fontSize:11, color: c.isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{c.text}</div>
             ) : (
-              <div style={{ fontSize:8, color:"#3a2a18", fontStyle:"italic" }}>–</div>
+              <div style={{ fontSize:8, color:lightMode?"#2a0850":"#3a2a18", fontStyle:"italic" }}>–</div>
             )}
           </div>
         ))}
@@ -577,6 +577,12 @@ function ForumMatrixGrid({ data, gold }) {
 
 export default function LenormandApp() {
   const gold = "#c8a96e";
+  const [lightMode, setLightMode] = React.useState(() => localStorage.getItem("lenni_theme") === "light");
+  const toggleTheme = () => setLightMode(m => { localStorage.setItem("lenni_theme", !m ? "light" : "dark"); return !m; });
+  const appBg = lightMode
+    ? "linear-gradient(to bottom, #fdf5e0 0%, #e8f0a0 35%, #d8b8e8 70%, #a050b0 100%)"
+    : "linear-gradient(160deg,#080512,#0f0a1a,#0a0810)";
+  const appColor = lightMode ? "#2a0850" : "#f0e8d8";
   const [view, setView] = useState(() => sessionStorage.getItem("lenni_view") || "liesmich");
 
   // Auth
@@ -617,6 +623,29 @@ export default function LenormandApp() {
   // auf derselben Seite lässt (dailyMode/communityMode werden weiter unten gesichert,
   // direkt nachdem sie deklariert sind).
   React.useEffect(() => { sessionStorage.setItem("lenni_view", view); }, [view]);
+
+  // Auto-Refresh Token alle 45 Minuten
+  React.useEffect(() => {
+    if (!session) return;
+    const refresh = async () => {
+      try {
+        const s = supabase.auth.getSession();
+        if (!s?.refresh_token) return;
+        const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+          method:"POST",
+          headers:{"apikey":SUPABASE_KEY,"Content-Type":"application/json"},
+          body: JSON.stringify({refresh_token: s.refresh_token})
+        });
+        const data = await r.json();
+        if (data.access_token) {
+          localStorage.setItem("sb_session", JSON.stringify(data));
+          setSession(data);
+        }
+      } catch {}
+    };
+    const interval = setInterval(refresh, 45 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [!!session]);
 
   const [authView, setAuthView] = React.useState("login");
   // Account-Switcher (nur Admins): offen/zu, plus eigenes kleines Mini-Login-Formular
@@ -738,7 +767,7 @@ export default function LenormandApp() {
   // (das war die Ursache des leeren Bildschirms nach dem Einloggen, der erst durch
   // Neuladen der Seite verschwand).
   const loginScreen = (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"stretch" }}>
+    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:lightMode?"#2a0850":"#f0e8d8", display:"flex", alignItems:"stretch" }}>
 
       {/* Links: Dekorativ */}
       <div style={{ flex:"1 1 50%", position:"relative", overflow:"hidden", minHeight:"100vh", background:"linear-gradient(135deg,#0a0518,#150a2a,#0a0518)", display:"flex", alignItems:"center", justifyContent:"center" }}>
@@ -754,12 +783,12 @@ export default function LenormandApp() {
       <div style={{ flex:"0 0 min(100%, 400px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 32px", background:"rgba(8,5,18,0.95)" }}>
         <div style={{ width:"100%", maxWidth:360 }}>
           <button onClick={() => { if (view === "forum-login-noetig") { setView("forum"); } else { const freie = ["liesmich","fragmich","forum"]; if (!freie.includes(view)) setView("liesmich"); } }}
-            style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif" }}>
+            style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif" }}>
             ← zurück zur App
           </button>
           <div style={{ textAlign:"center", marginBottom:28 }}>
             <div style={{ fontSize:22, color:"#c8a96e", fontWeight:"normal", marginBottom:4 }}>Willkommen</div>
-            <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Melde dich an um fortzufahren</div>
+            <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Melde dich an um fortzufahren</div>
           </div>
 
           <div style={{ display:"flex", gap:8, marginBottom:24, justifyContent:"center" }}>
@@ -773,26 +802,26 @@ export default function LenormandApp() {
 
           {authView === "register" && (
             <div style={{ marginBottom:14 }}>
-              <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Name</div>
+              <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>Name</div>
               <input type="text" value={authName} onChange={e => setAuthName(e.target.value)}
                 placeholder="Wie du im Forum heißen möchtest"
-                style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
             </div>
           )}
 
           <div style={{ marginBottom:14 }}>
-            <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>E-Mail</div>
+            <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>E-Mail</div>
             <input type="email" value={authEmail} onChange={e => setAuthEmail(e.target.value)}
               placeholder="deine@email.de"
-              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
           </div>
 
           <div style={{ marginBottom:20 }}>
-            <div style={{ fontSize:10, color:"#7a6040", marginBottom:5 }}>Passwort</div>
+            <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginBottom:5 }}>Passwort</div>
             <input type="password" value={authPassword} onChange={e => setAuthPassword(e.target.value)}
               onKeyDown={e => e.key==="Enter" && (authView==="login" ? handleLogin() : handleRegister())}
               placeholder="••••••••"
-              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+              style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
           </div>
 
           {authMsg && <div style={{ fontSize:12, color: authMsg.startsWith("✉️") ? "#90d090" : "#c87a6a", marginBottom:14, textAlign:"center", lineHeight:1.6 }}>{authMsg}</div>}
@@ -803,10 +832,10 @@ export default function LenormandApp() {
           </button>
 
           {authView==="register" && (
-            <div style={{ textAlign:"center", marginTop:16, fontSize:10, color:"#3a2a18", lineHeight:1.7 }}>
+            <div style={{ textAlign:"center", marginTop:16, fontSize:10, color:lightMode?"#2a0850":"#3a2a18", lineHeight:1.7 }}>
               Du bekommst eine Bestätigungs-E-Mail.<br/>
               Bitte klicke den Link darin — dann kannst du dich einloggen.<br/><br/>
-              <span style={{ color:"#5a4a34", fontStyle:"italic" }}>
+              <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>
                 Hinweis: Die Mail kommt von einer Supabase-Adresse — das ist unser technischer Versanddienst im Hintergrund und völlig okay. 💛
               </span>
             </div>
@@ -2982,22 +3011,22 @@ export default function LenormandApp() {
   // Kategorien-Übersicht. Greift auf den forumStats-State zu, der in loadForumCategories()
   // berechnet wird.
   const ForumStatsBar = () => (
-    <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:24, paddingTop:16, borderTop:"1px solid rgba(200,169,110,0.12)", flexWrap:"wrap" }}>
+    <div style={{ display:"flex", justifyContent:"center", gap:24, marginTop:24, paddingTop:16, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, flexWrap:"wrap" }}>
       <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:18, color:gold }}>🌙 {forumStats.totalMembers.toLocaleString('de-DE')}</div>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Mitglieder</div>
+        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Mitglieder</div>
       </div>
       <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:18, color:gold }}>📔 {forumStats.totalPosts.toLocaleString('de-DE')}</div>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Beiträge</div>
+        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Alle Beiträge</div>
       </div>
       <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:18, color:gold }}>✨ {forumStats.activeToday.toLocaleString('de-DE')}</div>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heute aktiv</div>
+        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heute aktiv</div>
       </div>
       <div style={{ textAlign:"center" }}>
         <div style={{ fontSize:18, color:gold }}>🌱 {forumStats.newToday.toLocaleString('de-DE')}</div>
-        <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heutige Neuanmeldungen</div>
+        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>Heutige Neuanmeldungen</div>
       </div>
     </div>
   );
@@ -3019,12 +3048,12 @@ export default function LenormandApp() {
         <div style={{ width:44, height:44, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, color:gold, fontFamily:"Georgia,serif" }}>
           {initial}
         </div>
-        <span style={{ fontSize:11, color:gold, lineHeight:1.2 }}>{displayName}{age && <span style={{ color:"#9a8060", fontSize:9 }}> · {age}</span>}</span>
+        <span style={{ fontSize:11, color:gold, lineHeight:1.2 }}>{displayName}{age && <span style={{ color:lightMode?"#2a0850":"#9a8060", fontSize:9 }}> · {age}</span>}</span>
         {p && (
           <>
-            <span style={{ fontSize:8, color:"#7a6040", background:"rgba(200,169,110,0.08)", padding:"2px 6px", borderRadius:8 }}>{forumRoleLabel(p.role)}</span>
+            <span style={{ fontSize:8, color:lightMode?"#2a0850":"#7a6040", background:"rgba(200,169,110,0.08)", padding:"2px 6px", borderRadius:8 }}>{forumRoleLabel(p.role)}</span>
             <span style={{ fontSize:9, color:gold, lineHeight:1.3 }}>{rank}</span>
-            {p.createdAt && <span style={{ fontSize:7, color:"#5a4a34", lineHeight:1.3 }}>seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"short", year:"numeric"})}</span>}
+            {p.createdAt && <span style={{ fontSize:7, color:lightMode?"#2a0850":"#5a4a34", lineHeight:1.3 }}>seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"short", year:"numeric"})}</span>}
           </>
         )}
       </div>
@@ -3040,7 +3069,7 @@ export default function LenormandApp() {
     const isEditing = forumEditingReplyId === reply.id;
     return (
       <div style={{ marginLeft: indent }}>
-        <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
+        <div style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
           {isEditing ? (
             <InlineEditBox
               initialValue={reply.body}
@@ -3050,7 +3079,7 @@ export default function LenormandApp() {
           ) : (<>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:8 }}>
               {forumCanEdit(reply, reply.user_id) && (
-                <button onClick={() => startEditForumReply(reply)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:11 }}>✎</button>
+                <button onClick={() => startEditForumReply(reply)} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:11 }}>✎</button>
               )}
               {(isMod || reply.user_id === getUserId()) && (
                 <button onClick={() => deleteForumReply(reply.id)} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
@@ -3059,14 +3088,14 @@ export default function LenormandApp() {
             <div style={{ display:"flex", gap:12 }}>
               <ForumProfileTag userId={reply.user_id} displayName={reply.display_name} />
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ fontSize:9, color:"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
-                <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:6 }}>{renderTextWithVideos(reply.body)}</div>
+                <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", marginBottom:4 }}>{new Date(reply.created_at).toLocaleDateString('de-DE')}</div>
+                <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.6, marginBottom:6 }}>{renderTextWithVideos(reply.body)}</div>
                 {(() => {
                   const sig = reply.user_id === getUserId()
                     ? userSignature
                     : forumProfiles[reply.user_id]?.signature;
                   return sig ? (
-                    <div style={{ marginBottom:6, paddingTop:6, borderTop:"1px solid rgba(200,169,110,0.08)", fontSize:10, color:"#7a6040", fontStyle:"italic" }}>{sig}</div>
+                    <div style={{ marginBottom:6, paddingTop:6, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.08)"}`, fontSize:10, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{sig}</div>
                   ) : null;
                 })()}
                 <div style={{ display:"flex", gap:14, alignItems:"center" }}>
@@ -3075,7 +3104,7 @@ export default function LenormandApp() {
                     {forumMyLikes[reply.id] ? "★" : "☆"} {forumLikeCounts[reply.id] || 0}
                   </button>
                   <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); }}
-                    style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
+                    style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
                     ↩ Antworten
                   </button>
                 </div>
@@ -3109,11 +3138,11 @@ export default function LenormandApp() {
   };
   if (session && !isPro && proGatedView()) {
     return (
-      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
-        <div style={{ maxWidth:440, textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:14, padding:"40px 32px" }}>
+      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:lightMode?"#2a0850":"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+        <div style={{ maxWidth:440, textAlign:"center", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"40px 32px" }}>
           <div style={{ fontSize:32, marginBottom:14 }}>🔒</div>
           <div style={{ fontSize:18, color:gold, marginBottom:12 }}>Dieser Bereich ist PRO</div>
-          <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.7, marginBottom:24 }}>
+          <div style={{ fontSize:13, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.7, marginBottom:24 }}>
             Dieser Inhalt gehört zu den Kernkapiteln der Lenormand Matrix und ist daher Teil des PRO-Zugangs, genau wie im Buch.
           </div>
           <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
@@ -3121,7 +3150,7 @@ export default function LenormandApp() {
             Jetzt freischalten →
           </a>
           <div style={{ marginTop:18 }}>
-            <button onClick={() => { setView("liesmich"); }} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>← Zurück zur Übersicht</button>
+            <button onClick={() => { setView("liesmich"); }} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>← Zurück zur Übersicht</button>
           </div>
         </div>
       </div>
@@ -3129,7 +3158,7 @@ export default function LenormandApp() {
   }
 
   return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8" }}>
+    <div className={lightMode ? "light-theme" : "dark-theme"} style={{ minHeight:"100vh", background:appBg, fontFamily:"Georgia,serif", color:appColor, transition:"background 0.4s" }}>
 
       {(isAdmin || hasHomeAdmin) && (
         <AdminBar
@@ -3164,6 +3193,14 @@ export default function LenormandApp() {
               0%,100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
               50% { transform: translate(-50%,-50%) scale(1.08); opacity:0.9; }
             }
+            .light-theme, .light-theme div, .light-theme span, .light-theme p,
+            .light-theme h1, .light-theme h2, .light-theme h3, .light-theme button,
+            .light-theme input, .light-theme textarea, .light-theme a, .light-theme label {
+              color: #2a0850 !important;
+            }
+            .light-theme input, .light-theme textarea {
+              background: rgba(100,50,140,0.06) !important;
+            }
           `}</style>
           <div style={{
             position:"fixed",
@@ -3181,7 +3218,7 @@ export default function LenormandApp() {
             <div style={{ fontSize:22, color:"#c8a96e", fontFamily:"Georgia,serif", letterSpacing:2, marginBottom:4 }}>
               NEUER REKORD!
             </div>
-            <div style={{ fontSize:13, color:"#a09070", fontFamily:"Georgia,serif" }}>
+            <div style={{ fontSize:13, color:lightMode?"#2a0850":"#a09070", fontFamily:"Georgia,serif" }}>
               {quizMode === "kombis" ? "Kombinationen" : quizMode === "zeit" ? "Zeitrahmen" : "Personen"}
             </div>
           </div>
@@ -3225,7 +3262,7 @@ export default function LenormandApp() {
         <div style={{ position:"fixed", inset:0, background:"linear-gradient(160deg,#080512,#0f0a1a)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", zIndex:1000, padding:24 }}>
           <div style={{ fontSize:40, marginBottom:16 }}>🔐</div>
           <h2 style={{ color:"#c8a96e", fontWeight:"normal", fontSize:22, marginBottom:8, textAlign:"center" }}>Lenormandia</h2>
-          <p style={{ color:"#7a6040", fontSize:13, marginBottom:24, textAlign:"center", maxWidth:320 }}>
+          <p style={{ color:lightMode?"#2a0850":"#7a6040", fontSize:13, marginBottom:24, textAlign:"center", maxWidth:320 }}>
             Deine 14-tägige Probezeit ist abgelaufen.<br/>Gib dein Passwort ein um weiterzumachen.
           </p>
           <input type="password" placeholder="Passwort eingeben…" value={pwInput}
@@ -3238,14 +3275,14 @@ export default function LenormandApp() {
             Freischalten
           </button>
           <a href="https://www.annabenoir.de" target="_blank" rel="noopener noreferrer"
-            style={{ fontSize:11, color:"#5a4a34", textDecoration:"none" }}>
+            style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", textDecoration:"none" }}>
             Passwort kaufen → www.AnnaBenoir.de
           </a>
         </div>
       )}
 
       {access === "trial" && (
-        <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:"1px solid rgba(200,169,110,0.2)", padding:"8px 16px", textAlign:"center", fontSize:11, color:"#9a8060" }}>
+        <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, padding:"8px 16px", textAlign:"center", fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>
           ✦ Probezeit: noch {getDaysLeft()} Tage kostenlos &nbsp;·&nbsp;
           <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
             Jetzt freischalten →
@@ -3254,7 +3291,7 @@ export default function LenormandApp() {
       )}
 
       {access !== "trial" && proTrialDaysLeft !== null && (
-        <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:"1px solid rgba(200,169,110,0.2)", padding:"8px 16px", textAlign:"center", fontSize:11, color:"#9a8060" }}>
+        <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, padding:"8px 16px", textAlign:"center", fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>
           ✦ Pro-Testphase: noch {proTrialDaysLeft} {proTrialDaysLeft === 1 ? "Tag" : "Tage"} kostenlos &nbsp;·&nbsp;
           <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
             Jetzt freischalten →
@@ -3265,10 +3302,13 @@ export default function LenormandApp() {
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", background:"radial-gradient(ellipse at 15% 15%,rgba(180,120,60,0.07) 0%,transparent 45%),radial-gradient(ellipse at 85% 85%,rgba(60,40,100,0.08) 0%,transparent 45%)" }}/>
 
       {/* Header */}
-      <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:"1px solid rgba(200,169,110,0.15)", position:"relative" }}>
-        <div style={{ fontSize:10, letterSpacing:6, color:"#7a6040", marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
-        <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color:gold, margin:"0 0 4px", letterSpacing:2, textShadow:"0 0 30px rgba(200,169,110,0.25)" }}>Lenormandia</h1>
-        <div style={{ fontSize:10, color:"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>wo Karten Geheimnisse offenbaren — und du nicht allein damit bist</div>
+      <div style={{ textAlign:"center", padding:"24px 20px 14px", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, position:"relative" }}>
+        <button onClick={toggleTheme} style={{ position:"absolute", top:16, right:16, background:"transparent", border:`1px solid ${lightMode?"rgba(100,40,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#6a2a8a":"#7a6040", padding:"4px 12px", borderRadius:20, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+          {lightMode ? "🌙 Dunkel" : "☀️ Hell"}
+        </button>
+        <div style={{ fontSize:10, letterSpacing:6, color: lightMode?"#8a5a9a":"#7a6040", marginBottom:5, textTransform:"uppercase" }}>Anna Benoir</div>
+        <h1 style={{ fontSize:"clamp(26px,4vw,42px)", fontWeight:"normal", color: lightMode?"#5a1080":gold, margin:"0 0 4px", letterSpacing:2 }}>Lenormandia</h1>
+        <div style={{ fontSize:10, color: lightMode?"#7a3a9a":"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>wo Karten Geheimnisse offenbaren — und du nicht allein damit bist</div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {/* Reihe 1 */}
           {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["matrix","⬛ Matrix"]].map(([v,l]) => (
@@ -3315,9 +3355,9 @@ export default function LenormandApp() {
               />
             </div>
             <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.18)", borderRadius:12, padding:"28px 32px", marginBottom:24 }}>
-              <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:16 }}>Einleitung</div>
+              <div style={{ fontSize:9, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:16 }}>Einleitung</div>
               {("Willkommen in der Welt der Mlle Lenormand.\n\nPassend zum 10-jährigen Jubiläum der Lenormand Matrix gehen wir mit der Zeit — und verwandeln das Buch in ein Erlebnis.\n\nDas Lenormand ist eine sehr alte, ehrliche und vor allem alltagstaugliche Sprache der Symbole. Sie spricht nicht immer das aus, was wir hören wollen. Aber sie sagt immer das, was wir brauchen.\n\nWas mich an den Lenormand-Karten am meisten gewurmt hat, war dass sie auf der einen Seite so viele Informationen zu bieten haben — man aber die Hälfte mindestens übersieht, wenn man sie nicht alle auswendig kann. Ich wollte mich nicht geschlagen geben. Nicht von diesen Karten!\n\nAlso habe ich mich durch die Massen an Informationen gewühlt, sortiert — und sie in einer Matrix zusammengeschrieben, damit du mit ihr sicher, sanft und sehr, sehr schnell arbeiten kannst.\n\nIn dieser App findest du alle 1260 Kombinationen, die Situations-Matrix und die Personen-Matrix — und ein Quiz, damit du die Karten wirklich lernst. Nicht auswendig. Sondern mit dem Herzen.\n\nIn einem magischen Universum wird nichts dem Zufall überlassen. Auch nicht, dass du hier gelandet bist.\n\nMein Name ist Anna Benoir — und ich lege die Karten. 🎴").split("\n\n").map((para, i) => (
-                <p key={i} style={{ fontSize:15, lineHeight:1.9, color:"#d4c4a0", marginBottom:16, fontFamily:"Georgia,serif" }}>
+                <p key={i} style={{ fontSize:15, lineHeight:1.9, color:lightMode?"#2a0850":"#d4c4a0", marginBottom:16, fontFamily:"Georgia,serif" }}>
                   {para}
                 </p>
               ))}
@@ -3352,21 +3392,21 @@ export default function LenormandApp() {
             </div>
             {selected.length === 2 && showResult && (
               <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.18)", borderRadius:10, padding:"18px 22px", marginBottom:20 }}>
-                <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", marginBottom:10, textTransform:"uppercase" }}>
+                <div style={{ fontSize:9, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", marginBottom:10, textTransform:"uppercase" }}>
                   {mode==="situation"?"Situations-Deutung":"Personen-Deutung"} · {CARDS[selected[0]].name} + {CARDS[selected[1]].name}
                 </div>
-                <div style={{ fontSize:17, lineHeight:1.95, color:"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.25)", paddingLeft:14 }}>{showResult}</div>
-                <div style={{ marginTop:14, paddingTop:12, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
+                <div style={{ fontSize:17, lineHeight:1.95, color:lightMode?"#2a0850":"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.25)", paddingLeft:14 }}>{showResult}</div>
+                <div style={{ marginTop:14, paddingTop:12, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.08)"}` }}>
                   <div style={{ fontSize:9, letterSpacing:3, color:"#5a4a30", marginBottom:6, textTransform:"uppercase" }}>Keywords</div>
                   <div style={{ fontSize:11, color:"#8a7860", lineHeight:1.6 }}><span style={{color:gold}}>{CARDS[selected[0]].name}:</span> {CARDS[selected[0]].kw}</div>
                   <div style={{ fontSize:11, color:"#8a7860", lineHeight:1.6, marginTop:3 }}><span style={{color:gold}}>{CARDS[selected[1]].name}:</span> {CARDS[selected[1]].kw}</div>
                 </div>
-                <button onClick={() => setSelected([])} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
+                <button onClick={() => setSelected([])} style={{ marginTop:12, background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
               </div>
             )}
             <div style={{ marginBottom:12 }}>
               <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
               {filteredCards().map(num => {
@@ -3376,12 +3416,12 @@ export default function LenormandApp() {
                   <button key={num} onClick={() => !isDisabled && toggleCard(num)}
                     style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:isDisabled?"default":"pointer", opacity:isDisabled?0.22:1, color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
                     <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                    <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:"#9a8060"}}>{num}.</span> <span style={{color:"#d4c4a0"}}>{CARDS[num].name}</span></div>
+                    <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
                   </button>
                 );
               })}
             </div>
-            {selected.length === 1 && <div style={{ textAlign:"center", marginTop:14, color:"#5a4a34", fontSize:11, fontStyle:"italic" }}>Wähle noch eine zweite Karte…</div>}
+            {selected.length === 1 && <div style={{ textAlign:"center", marginTop:14, color:lightMode?"#2a0850":"#5a4a34", fontSize:11, fontStyle:"italic" }}>Wähle noch eine zweite Karte…</div>}
           </>)}
 
           {/* ── 3er / 4er Picker ── */}
@@ -3423,30 +3463,30 @@ export default function LenormandApp() {
               {comboSelected.length === maxCards && (
                 <div style={{ marginBottom:16 }}>
                   {cluster ? (
-                    <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 20px" }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>{comboView} · Erweiterte Bedeutung</div>
-                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:"1px solid rgba(200,169,110,0.3)", borderRadius:4, padding:"2px 8px", fontSize:9, color:gold, marginBottom:10, letterSpacing:0.5 }}>{cluster.label}</div>
-                      <div style={{ fontSize:16, lineHeight:1.9, color:"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:14 }}>{cluster.text}</div>
+                    <div style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:10, padding:"16px 20px" }}>
+                      <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:8 }}>{comboView} · Erweiterte Bedeutung</div>
+                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:4, padding:"2px 8px", fontSize:9, color:gold, marginBottom:10, letterSpacing:0.5 }}>{cluster.label}</div>
+                      <div style={{ fontSize:16, lineHeight:1.9, color:lightMode?"#2a0850":"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:14 }}>{cluster.text}</div>
                     </div>
                   ) : (
-                    <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:10, padding:"14px 18px" }}>
-                      <div style={{ fontSize:12, color:"#9a8060", fontStyle:"italic", marginBottom:12, lineHeight:1.6 }}>
+                    <div style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:10, padding:"14px 18px" }}>
+                      <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:12, lineHeight:1.6 }}>
                         ✦ Diese Konstellation hat keine eigene Bedeutungsebene — doch die Karten sprechen trotzdem. Die ersten zwei Karten erzählen:
                       </div>
                       {fallback2er ? (
-                        <div style={{ fontSize:15, lineHeight:1.9, color:"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>{fallback2er}</div>
+                        <div style={{ fontSize:15, lineHeight:1.9, color:lightMode?"#2a0850":"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>{fallback2er}</div>
                       ) : (
-                        <div style={{ fontSize:13, color:"#5a4a34", fontStyle:"italic" }}>Keine 2er-Kombination gefunden.</div>
+                        <div style={{ fontSize:13, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Keine 2er-Kombination gefunden.</div>
                       )}
                     </div>
                   )}
-                  <button onClick={() => setComboSelected([])} style={{ marginTop:10, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
+                  <button onClick={() => setComboSelected([])} style={{ marginTop:10, background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
                 </div>
               )}
 
               {/* Hinweis wie viele noch fehlen */}
               {comboSelected.length < maxCards && comboSelected.length > 0 && (
-                <div style={{ textAlign:"center", marginBottom:10, color:"#5a4a34", fontSize:11, fontStyle:"italic" }}>
+                <div style={{ textAlign:"center", marginBottom:10, color:lightMode?"#2a0850":"#5a4a34", fontSize:11, fontStyle:"italic" }}>
                   Noch {needed} Karte{needed>1?"n":""} wählen…
                 </div>
               )}
@@ -3455,7 +3495,7 @@ export default function LenormandApp() {
               {comboSelected.length < maxCards && (<>
                 <div style={{ marginBottom:12 }}>
                   <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                    style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                    style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
                 </div>
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
                   {filteredCards().map(num => {
@@ -3467,7 +3507,7 @@ export default function LenormandApp() {
                       }}
                         style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
                         <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                        <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:"#9a8060"}}>{num}.</span> <span style={{color:"#d4c4a0"}}>{CARDS[num].name}</span></div>
+                        <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
                       </button>
                     );
                   })}
@@ -3482,16 +3522,16 @@ export default function LenormandApp() {
           {/* Step 0: Frage eingeben */}
           {matrixView === "question" && (<>
             <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Schritt 1</div>
+              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Schritt 1</div>
               <div style={{ fontSize:16, color:gold, marginBottom:6 }}>Deine Frage</div>
-              <div style={{ fontSize:11, color:"#5a4a34" }}>Formuliere deine Frage so klar wie möglich</div>
+              <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34" }}>Formuliere deine Frage so klar wie möglich</div>
             </div>
             <textarea
               placeholder="Was möchtest du wissen?"
               value={question}
               onChange={e => setQuestion(e.target.value)}
               rows={3}
-              style={{ width:"100%", padding:"12px 14px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:8, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }}
+              style={{ width:"100%", padding:"12px 14px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }}
             />
             <div style={{ display:"flex", justifyContent:"center", gap:10, marginTop:16, flexWrap:"wrap" }}>
               {mode === "personen" && (
@@ -3510,22 +3550,22 @@ export default function LenormandApp() {
           {/* Step 1: Signifikator wählen */}
           {matrixView === "signifikator" && (<>
             <div style={{ textAlign:"center", marginBottom:18 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Schritt 1</div>
+              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Schritt 1</div>
               <div style={{ fontSize:16, color:gold }}>Wähle deinen Signifikator</div>
-              <div style={{ fontSize:11, color:"#5a4a34", marginTop:4 }}>Das Thema, um das es geht</div>
+              <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", marginTop:4 }}>Das Thema, um das es geht</div>
             </div>
             <div style={{ marginBottom:12 }}>
               <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
             </div>
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
               {filteredCards().map(num => (
                 <button key={num} onClick={() => { selectSignifikator(num); setSearch(""); }}
-                  style={{ background:"rgba(200,169,110,0.015)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:7, padding:"8px 4px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif", transition:"all 0.18s" }}
+                  style={{ background:"rgba(200,169,110,0.015)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif", transition:"all 0.18s" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.35)"; e.currentTarget.style.color=gold; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
                   <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                  <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:"#9a8060"}}>{num}.</span> <span style={{color:"#d4c4a0"}}>{CARDS[num].name}</span></div>
+                  <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
                 </button>
               ))}
             </div>
@@ -3534,14 +3574,14 @@ export default function LenormandApp() {
           {/* Step 2: Matrix Layout */}
           {matrixView === "layout" && signifikator && (<>
             {question ? (
-              <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:12, color:"#9a8060", fontStyle:"italic", lineHeight:1.5 }}>
+              <div style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", lineHeight:1.5 }}>
                 ✦ {question}
               </div>
             ) : null}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              <button onClick={() => setMatrixView("signifikator")} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>← Signifikator</button>
+              <button onClick={() => setMatrixView("signifikator")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>← Signifikator</button>
               <div style={{ textAlign:"center" }}>
-                <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase" }}>Schritt 2</div>
+                <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase" }}>Schritt 2</div>
                 <div style={{ fontSize:13, color:gold }}>Karten legen</div>
               </div>
 <div style={{display:"flex", gap:6}}>
@@ -3579,7 +3619,7 @@ export default function LenormandApp() {
                       textAlign:"center", minHeight:80, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
                       transition:"all 0.2s"
                     }}>
-                    <div style={{ fontSize:8, letterSpacing:2, color:"#5a4a34", textTransform:"uppercase", marginBottom:4 }}>
+                    <div style={{ fontSize:8, letterSpacing:2, color:lightMode?"#2a0850":"#5a4a34", textTransform:"uppercase", marginBottom:4 }}>
                       {mode === "personen" ? ["Sternzeichen","Haarfarbe","Charakter","Figur","Signifikator","Beruf/Berufung","Größe","Alter","Woher"][pos] : (POSITION_LABELS[pos] + (isKombi ? " ✦" : ""))}
                     </div>
                     {card ? (<>
@@ -3598,17 +3638,17 @@ export default function LenormandApp() {
 
             {/* Card picker for active position */}
             {activePos !== null && (<>
-              <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", marginBottom:8, textTransform:"uppercase" }}>
+              <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", marginBottom:8, textTransform:"uppercase" }}>
                 Karte für {POSITION_LABELS[activePos]} wählen
               </div>
               <div style={{ marginBottom:10 }}>
                 <input placeholder="Suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                  style={{ width:"100%", padding:"5px 10px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:4, color:gold, fontFamily:"Georgia,serif", fontSize:10, outline:"none", boxSizing:"border-box" }} />
+                  style={{ width:"100%", padding:"5px 10px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:4, color:gold, fontFamily:"Georgia,serif", fontSize:10, outline:"none", boxSizing:"border-box" }} />
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(70px,1fr))", gap:5, maxHeight:220, overflowY:"auto", padding:"4px 0" }}>
                 {filteredCards(usedCards).map(num => (
                   <button key={num} onClick={() => { placeCard(num); setSearch(""); }}
-                    style={{ background:"rgba(200,169,110,0.015)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:6, padding:"6px 3px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif" }}
+                    style={{ background:"rgba(200,169,110,0.015)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:6, padding:"6px 3px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.4)"; e.currentTarget.style.color=gold; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
                     <div style={{ fontSize:16 }}>{SYMBOLS[num]}</div>
@@ -3622,15 +3662,15 @@ export default function LenormandApp() {
           {/* Step 3: Result */}
           {matrixView === "result" && signifikator && (<>
             {question ? (
-              <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:12, color:"#9a8060", fontStyle:"italic", lineHeight:1.5 }}>
+              <div style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", lineHeight:1.5 }}>
                 ✦ {question}
               </div>
             ) : null}
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-              <button onClick={() => setMatrixView("layout")} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>← Legung</button>
+              <button onClick={() => setMatrixView("layout")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>← Legung</button>
               <div style={{ textAlign:"center" }}>
                 <div style={{ fontSize:13, color:gold }}>{SYMBOLS[signifikator]} {CARDS[signifikator].name}</div>
-                <div style={{ fontSize:9, color:"#5a4a34" }}>{mode === "personen" ? "Personen-Matrix" : "Situations-Matrix"}</div>
+                <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{mode === "personen" ? "Personen-Matrix" : "Situations-Matrix"}</div>
               </div>
               <div style={{display:"flex", gap:8}}>
                 <button onClick={() => {
@@ -3704,7 +3744,7 @@ export default function LenormandApp() {
                   style={{ background:"rgba(200,169,110,0.1)", border:`1px solid rgba(200,169,110,0.3)`, color: shareFrageStatus==="done" ? "#5a9a5a" : gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif", opacity: shareFrageStatus==="sharing"?0.6:1 }}>
                   {shareFrageStatus==="sharing" ? "Teilt…" : shareFrageStatus==="done" ? "✓ Geteilt" : shareFrageStatus==="error" ? "✕ Fehler" : "💬 Im Forum teilen"}
                 </button>
-                <button onClick={reset} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Neu</button>
+                <button onClick={reset} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Neu</button>
               </div>
             </div>
 
@@ -3750,16 +3790,16 @@ export default function LenormandApp() {
                       <div style={{ fontSize:13, color:"#d8c8a0", lineHeight:1.75 }}>{comboText}</div>
                     )}
                     {isKombi && !card && (
-                      <div style={{ fontSize:9, color:"#3a2a18", fontStyle:"italic" }}>–</div>
+                      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#3a2a18", fontStyle:"italic" }}>–</div>
                     )}
                     {isKombi && card && !comboText && (
-                      <div style={{ fontSize:9, color:"#3a2a18", fontStyle:"italic" }}>–</div>
+                      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#3a2a18", fontStyle:"italic" }}>–</div>
                     )}
                     {!isSignifikator && !isKombi && !card && (
-                      <div style={{ fontSize:9, color:"#3a2a18", fontStyle:"italic" }}>–</div>
+                      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#3a2a18", fontStyle:"italic" }}>–</div>
                     )}
                     {fixedText && (
-                      <div style={{ fontSize:13, color:"#c0b090", lineHeight:1.75 }}>{fixedText}</div>
+                      <div style={{ fontSize:13, color:lightMode?"#2a0850":"#c0b090", lineHeight:1.75 }}>{fixedText}</div>
                     )}
                   </div>
                 );
@@ -3777,16 +3817,16 @@ export default function LenormandApp() {
           return (
             <div style={{ maxWidth:420, margin:"0 auto", padding:"20px 0", textAlign:"center" }}>
               <button onClick={() => { setViewedProfileId(null); setViewedProfileName(""); }}
-                style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück zum Forum</button>
+                style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück zum Forum</button>
               <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
                 {initial}
               </div>
-              <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{viewedProfileName || "Mitglied"}{age && <span style={{ color:"#9a8060", fontSize:13 }}> · {age}</span>}</div>
-              <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:10 }}>{forumRoleLabel(p?.role)}</div>
+              <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{viewedProfileName || "Mitglied"}{age && <span style={{ color:lightMode?"#2a0850":"#9a8060", fontSize:13 }}> · {age}</span>}</div>
+              <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:10 }}>{forumRoleLabel(p?.role)}</div>
               <div style={{ fontSize:12, color:gold, marginBottom:6 }}>{rank}</div>
-              {p?.createdAt && <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14 }}>Mitglied seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"long", year:"numeric"})}</div>}
-              {p?.bio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginTop:14, whiteSpace:"pre-wrap", textAlign:"left", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"14px 16px" }}>{p.bio}</div>}
-              <div style={{ fontSize:11, color:"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag oder Antwort" : "Beiträge &amp; Antworten"} im Forum</div>
+              {p?.createdAt && <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", marginBottom:14 }}>Mitglied seit {new Date(p.createdAt).toLocaleDateString('de-DE', {month:"long", year:"numeric"})}</div>}
+              {p?.bio && <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.6, marginTop:14, whiteSpace:"pre-wrap", textAlign:"left", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"14px 16px" }}>{p.bio}</div>}
+              <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag oder Antwort" : "Beiträge &amp; Antworten"} im Forum</div>
             </div>
           );
         })()}
@@ -3805,11 +3845,11 @@ export default function LenormandApp() {
                     <div style={{ width:64, height:64, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:26, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 14px" }}>
                       {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
                     </div>
-                    <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}{ageFromBirthdate(userBirthdate) && <span style={{ color:"#9a8060", fontSize:13 }}> · {ageFromBirthdate(userBirthdate)}</span>}</div>
-                    <div style={{ fontSize:11, color:"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:14 }}>{forumRoleLabel(userRole)}</div>
-                    {userBio && <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.6, marginBottom:14, whiteSpace:"pre-wrap" }}>{userBio}</div>}
-                    {userSignature && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginBottom:14, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.1)" }}>{userSignature}</div>}
-                    <div style={{ fontSize:11, color:"#5a4a34", marginBottom:20 }}>{getUserEmail()}</div>
+                    <div style={{ fontSize:16, color:gold, marginBottom:6 }}>{userDisplayName || "Noch kein Name hinterlegt"}{ageFromBirthdate(userBirthdate) && <span style={{ color:lightMode?"#2a0850":"#9a8060", fontSize:13 }}> · {ageFromBirthdate(userBirthdate)}</span>}</div>
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", background:"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10, marginBottom:14 }}>{forumRoleLabel(userRole)}</div>
+                    {userBio && <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.6, marginBottom:14, whiteSpace:"pre-wrap" }}>{userBio}</div>}
+                    {userSignature && <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginBottom:14, paddingTop:8, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}` }}>{userSignature}</div>}
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", marginBottom:20 }}>{getUserEmail()}</div>
                     <button onClick={() => setProfileEditing(true)}
                       style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px 20px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
                       ✎ Profil bearbeiten
@@ -3847,23 +3887,23 @@ export default function LenormandApp() {
               <div>
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
                   {isAdmin && (
-                    <button onClick={() => setForumShowNewCat(v => !v)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                    <button onClick={() => setForumShowNewCat(v => !v)} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                       {forumShowNewCat ? "✕ Abbrechen" : "+ Neue Kategorie"}
                     </button>
                   )}
                 </div>
 
                 {isAdmin && forumShowNewCat && (
-                  <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:16, marginBottom:16 }}>
+                  <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:10, padding:16, marginBottom:16 }}>
                     <input placeholder="Name der Kategorie" value={forumNewCatName} onChange={e => setForumNewCatName(e.target.value)}
-                      style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                      style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                     <input placeholder="Beschreibung (optional, ein kurzer Satz)" value={forumNewCatDescription} onChange={e => setForumNewCatDescription(e.target.value)}
-                      style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                      style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                     <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
-                      <div style={{ fontSize:9, color:"#7a6040", letterSpacing:1 }}>Icon</div>
+                      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1 }}>Icon</div>
                       <input placeholder="z.B. 💬" value={forumNewCatIcon} maxLength={4} onChange={e => setForumNewCatIcon(e.target.value)}
-                        style={{ width:60, padding:"6px 8px", textAlign:"center", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none" }} />
-                      <div style={{ fontSize:9, color:"#5a4a34" }}>nur 1 Emoji, kein Text — Vorschau:</div>
+                        style={{ width:60, padding:"6px 8px", textAlign:"center", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none" }} />
+                      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>nur 1 Emoji, kein Text — Vorschau:</div>
                       <span style={{ fontSize:22 }}>{forumNewCatIcon}</span>
                     </div>
                     <div style={{ display:"flex", gap:8, marginBottom:8 }}>
@@ -3871,7 +3911,7 @@ export default function LenormandApp() {
                         <button key={v} onClick={() => setForumNewCatVisibility(v)} style={{ flex:1, background:forumNewCatVisibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${forumNewCatVisibility===v?gold:"rgba(200,169,110,0.2)"}`, color:forumNewCatVisibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
                       ))}
                     </div>
-                    <label style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:11, color:"#9a8060", cursor:"pointer" }}>
+                    <label style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, fontSize:11, color:lightMode?"#2a0850":"#9a8060", cursor:"pointer" }}>
                       <input type="checkbox" checked={forumNewCatGuestPost} onChange={e => setForumNewCatGuestPost(e.target.checked)} />
                       Gäste dürfen hier auch ohne Login schreiben (z.B. für Mitmach-Mittwoch)
                     </label>
@@ -3880,7 +3920,7 @@ export default function LenormandApp() {
                 )}
 
                 {forumCategories.length === 0 && (
-                  <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Kategorien vorhanden.</div>
+                  <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Kategorien vorhanden.</div>
                 )}
 
                 {forumCategories.map(cat => {
@@ -3912,10 +3952,10 @@ export default function LenormandApp() {
                           {glow && <span style={{width:7, height:7, borderRadius:"50%", background:gold, display:"inline-block", flexShrink:0}}></span>}
                           <span style={{fontWeight: glow ? "bold" : "normal"}}>{cat.name}</span>
                           {cat.visibility==="pro" && <span style={{fontSize:9, color:"#9a7060"}}>⭐ PRO</span>}
-                          {locked && <span style={{fontSize:10, color:"#7a6040"}}>🔒</span>}
+                          {locked && <span style={{fontSize:10, color:lightMode?"#2a0850":"#7a6040"}}>🔒</span>}
                         </div>
-                        {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{cat.description}</div>}
-                        <div style={{ fontSize:10, color:"#5a4a34", marginTop:3 }}>
+                        {cat.description && <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginTop:2 }}>{cat.description}</div>}
+                        <div style={{ fontSize:10, color:lightMode?"#2a0850":"#5a4a34", marginTop:3 }}>
                           {cat.postCount || 0} {cat.postCount === 1 ? "Beitrag" : "Beiträge"}{locked && " · Login nötig"}
                         </div>
                       </div>
@@ -3924,7 +3964,7 @@ export default function LenormandApp() {
                       {isAdmin && (
                         <button onClick={e => { e.stopPropagation(); setForumEditingCategoryId(cat.id); }}
                           title="Kategorie bearbeiten"
-                          style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                          style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
                       )}
                       {isAdmin && (
                         <button onClick={e => { e.stopPropagation(); toggleForumCategoryPin(cat); }}
@@ -3935,7 +3975,7 @@ export default function LenormandApp() {
                         <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kategorie "${cat.name}" wirklich löschen? Alle Beiträge darin gehen verloren.`)) deleteForumCategory(cat.id); }}
                           style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
                       )}
-                      <span style={{ color:"#5a4a34", fontSize:16 }}>{locked ? "🔒" : "→"}</span>
+                      <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontSize:16 }}>{locked ? "🔒" : "→"}</span>
                     </div>
                   </div>
                   );
@@ -3949,7 +3989,7 @@ export default function LenormandApp() {
             {/* KATEGORIE: BEITRAGSLISTE */}
             {forumView === "kategorie" && forumActiveCategory && (
               <div>
-                <button onClick={() => { setForumView("liste"); setForumActiveCategory(null); }} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kategorien</button>
+                <button onClick={() => { setForumView("liste"); setForumActiveCategory(null); }} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kategorien</button>
                 <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:16 }}>
                   <span style={{ fontSize:20 }}>{forumActiveCategory.icon}</span>
                   <div style={{ fontSize:16, color:gold }}>{forumActiveCategory.name}</div>
@@ -3962,7 +4002,7 @@ export default function LenormandApp() {
                 </div>
 
                 {forumPosts.length === 0 && (
-                  <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Beiträge — sei die/der Erste!</div>
+                  <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Beiträge — sei die/der Erste!</div>
                 )}
 
                 {forumPosts.map(post => {
@@ -3976,7 +4016,7 @@ export default function LenormandApp() {
                         {isUnread && <span style={{width:7, height:7, borderRadius:"50%", background:gold, display:"inline-block", flexShrink:0}}></span>}
                         <span style={{fontWeight: isUnread ? "bold" : "normal"}}>{post.title}</span>
                       </div>
-                      <div style={{ fontSize:10, color:"#7a6040" }}>{post.display_name} · {new Date(post.created_at).toLocaleDateString('de-DE')}</div>
+                      <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040" }}>{post.display_name} · {new Date(post.created_at).toLocaleDateString('de-DE')}</div>
                     </div>
                     {isMod && (
                       <button onClick={e => { e.stopPropagation(); toggleForumPostPin(post); }}
@@ -3993,16 +4033,16 @@ export default function LenormandApp() {
             {/* NEUER BEITRAG */}
             {forumView === "neu" && forumActiveCategory && (
               <div>
-                <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
+                <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
                 <div style={{ fontSize:14, color:gold, marginBottom:14 }}>✎ Neuer Beitrag in {forumActiveCategory.name}</div>
                 {isGuest && (
                   <input placeholder="Dein Name (erscheint öffentlich)" value={forumNewName} onChange={e => setForumNewName(e.target.value)}
-                    style={{ width:"100%", padding:"9px 12px", marginBottom:10, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    style={{ width:"100%", padding:"9px 12px", marginBottom:10, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                 )}
                 <input placeholder="Titel" value={forumNewTitle} onChange={e => setForumNewTitle(e.target.value)}
-                  style={{ width:"100%", padding:"9px 12px", marginBottom:10, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                  style={{ width:"100%", padding:"9px 12px", marginBottom:10, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                 <textarea placeholder="Dein Text…" value={forumNewBody} onChange={e => setForumNewBody(e.target.value)} rows={6}
-                  style={{ width:"100%", padding:"10px 12px", marginBottom:12, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                  style={{ width:"100%", padding:"10px 12px", marginBottom:12, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 <button onClick={createForumPost} style={{ width:"100%", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>Veröffentlichen</button>
               </div>
             )}
@@ -4010,8 +4050,8 @@ export default function LenormandApp() {
             {/* POST-DETAIL MIT ANTWORTEN */}
             {forumView === "post" && forumActivePost && (
               <div>
-                <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zur Liste</button>
-                <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+                <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zur Liste</button>
+                <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
                   {forumEditingPostId === forumActivePost.id ? (
                     <InlinePostEditBox
                       initialTitle={forumActivePost.title}
@@ -4035,7 +4075,7 @@ export default function LenormandApp() {
                           {linkCopiedPostId===forumActivePost.id ? "✓ kopiert" : "🔗"}
                         </button>
                         {forumCanEdit(forumActivePost, forumActivePost.user_id) && (
-                          <button onClick={() => startEditForumPost(forumActivePost)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                          <button onClick={() => startEditForumPost(forumActivePost)} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
                         )}
                         {(isMod || forumActivePost.user_id === getUserId()) && (
                           <button onClick={() => { if(window.confirm("Beitrag wirklich löschen?")) deleteForumPost(forumActivePost.id); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
@@ -4045,18 +4085,18 @@ export default function LenormandApp() {
                     <div style={{ display:"flex", gap:14 }}>
                       <ForumProfileTag userId={forumActivePost.user_id} displayName={forumActivePost.display_name} />
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:9, color:"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
+                        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
                         {forumActivePost.matrix_data ? (
                           <ForumMatrixGrid data={forumActivePost.matrix_data} gold={gold} />
                         ) : (
-                          <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
+                          <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
                         )}
                         {(() => {
                           const sig = forumActivePost.user_id === getUserId()
                             ? userSignature
                             : forumProfiles[forumActivePost.user_id]?.signature;
                           return sig ? (
-                            <div style={{ marginTop:10, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.1)", fontSize:11, color:"#7a6040", fontStyle:"italic" }}>{sig}</div>
+                            <div style={{ marginTop:10, paddingTop:8, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{sig}</div>
                           ) : null;
                         })()}
                         <button onClick={() => toggleForumPostLike(forumActivePost.id)}
@@ -4069,7 +4109,7 @@ export default function LenormandApp() {
                 </div>
 
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-                  <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
+                  <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
                   <div style={{ display:"flex", gap:6 }}>
                     {[["neueste","Neueste"],["beliebteste","Beliebteste"]].map(([s,l]) => (
                       <button key={s} onClick={() => { setForumReplySort(s); setForumRepliesVisibleCount(20); }}
@@ -4110,7 +4150,7 @@ export default function LenormandApp() {
                           observer.observe(el);
                         }}
                         style={{ textAlign:"center", padding:"10px 0" }}>
-                        <span style={{ fontSize:11, color:"#7a6040" }}>Lade weitere Antworten…</span>
+                        <span style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040" }}>Lade weitere Antworten…</span>
                       </div>
                     )}
                   </>);
@@ -4118,13 +4158,13 @@ export default function LenormandApp() {
 
                 <div style={{ marginTop:14 }}>
                   {forumReplyToId && (
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11, color:"#9a8060", marginBottom:6, background:"rgba(200,169,110,0.05)", padding:"5px 10px", borderRadius:6 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11, color:lightMode?"#2a0850":"#9a8060", marginBottom:6, background:"rgba(200,169,110,0.05)", padding:"5px 10px", borderRadius:6 }}>
                       <span>Antwort an {forumReplyToName}</span>
                       <button onClick={() => { setForumReplyToId(null); setForumReplyToName(""); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
                     </div>
                   )}
                   <textarea placeholder="Antworten…" value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
-                    style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                   <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { createForumReply(); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
                 </div>
                 <ForumStatsBar />
@@ -4139,7 +4179,7 @@ export default function LenormandApp() {
                 <div style={{ textAlign:"center", padding:"40px 20px" }}>
                   <div style={{ fontSize:32, marginBottom:14 }}>🎓</div>
                   <div style={{ fontSize:16, color:gold, marginBottom:10 }}>Kursbereich</div>
-                  <div style={{ fontSize:13, color:"#7a6040", lineHeight:1.7, marginBottom:20, maxWidth:320, margin:"0 auto 20px" }}>
+                  <div style={{ fontSize:13, color:lightMode?"#2a0850":"#7a6040", lineHeight:1.7, marginBottom:20, maxWidth:320, margin:"0 auto 20px" }}>
                     Dieser Bereich ist ausschließlich für Mitglieder mit vollem PRO-Zugang — nicht für die 14-tägige Testphase.
                   </div>
                   <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
@@ -4154,7 +4194,7 @@ export default function LenormandApp() {
                   <div>
                     {isAdmin && (
                       <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-                        <button onClick={() => setKurseShowNewCat(v => !v)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                        <button onClick={() => setKurseShowNewCat(v => !v)} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                           {kurseShowNewCat ? "✕ Abbrechen" : "+ Neuer Kurs"}
                         </button>
                       </div>
@@ -4169,7 +4209,7 @@ export default function LenormandApp() {
                       />
                     )}
                     {kurseCategories.length === 0 && (
-                      <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"30px 0" }}>
+                      <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:13, padding:"30px 0" }}>
                         Noch keine Kurse vorhanden — bald geht's los! 🌙
                       </div>
                     )}
@@ -4179,18 +4219,18 @@ export default function LenormandApp() {
                         <span style={{ fontSize:28, flexShrink:0 }}>{cat.icon || "🎓"}</span>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:14, color:gold, marginBottom:3 }}>{cat.name}</div>
-                          {cat.description && <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic" }}>{cat.description}</div>}
-                          <div style={{ fontSize:10, color:"#5a4a34", marginTop:3 }}>{cat.postCount || 0} {cat.postCount === 1 ? "Lektion" : "Lektionen"}</div>
+                          {cat.description && <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{cat.description}</div>}
+                          <div style={{ fontSize:10, color:lightMode?"#2a0850":"#5a4a34", marginTop:3 }}>{cat.postCount || 0} {cat.postCount === 1 ? "Lektion" : "Lektionen"}</div>
                         </div>
                         {isAdmin && (
                           <button onClick={e => { e.stopPropagation(); setForumEditingCategoryId(cat.id); }} title="Kurs bearbeiten"
-                            style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                            style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
                         )}
                         {isAdmin && (
                           <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kurs "${cat.name}" wirklich löschen?`)) deleteForumCategory(cat.id); }}
                             style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
                         )}
-                        <span style={{ color:"#5a4a34", fontSize:16 }}>→</span>
+                        <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontSize:16 }}>→</span>
                       </div>
                     ))}
                   </div>
@@ -4200,9 +4240,9 @@ export default function LenormandApp() {
                 {kurseView === "kategorie" && kurseActiveCategory && (
                   <div>
                     <button onClick={() => { setKurseView("liste"); setKurseActiveCategory(null); setKursePosts([]); }}
-                      style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kursen</button>
+                      style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kursen</button>
                     <div style={{ fontSize:22, color:gold, marginBottom:4 }}>{kurseActiveCategory.icon} {kurseActiveCategory.name}</div>
-                    {kurseActiveCategory.description && <div style={{ fontSize:12, color:"#7a6040", fontStyle:"italic", marginBottom:16 }}>{kurseActiveCategory.description}</div>}
+                    {kurseActiveCategory.description && <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginBottom:16 }}>{kurseActiveCategory.description}</div>}
 
                     {isAdmin && (
                       <div style={{ marginBottom:16 }}>
@@ -4213,17 +4253,17 @@ export default function LenormandApp() {
                     )}
 
                     {kursePosts.length === 0 && (
-                      <div style={{ textAlign:"center", color:"#7a6040", fontSize:13, padding:"20px 0" }}>Noch keine Lektionen in diesem Kurs.</div>
+                      <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:13, padding:"20px 0" }}>Noch keine Lektionen in diesem Kurs.</div>
                     )}
                     {kursePosts.map((post, idx) => (
                       <div key={post.id} onClick={() => { setKurseActivePost(post); setKurseView("post"); loadForumReplies(post.id); markForumPostRead(post.id); }}
-                        style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"12px 16px", marginBottom:8, cursor:"pointer" }}>
+                        style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"12px 16px", marginBottom:8, cursor:"pointer" }}>
                         <div style={{ width:28, height:28, borderRadius:"50%", background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:gold, flexShrink:0 }}>{idx + 1}</div>
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:13, color:gold }}>{post.title}</div>
-                          <div style={{ fontSize:10, color:"#5a4a34", marginTop:2 }}>{new Date(post.created_at).toLocaleDateString('de-DE')}</div>
+                          <div style={{ fontSize:10, color:lightMode?"#2a0850":"#5a4a34", marginTop:2 }}>{new Date(post.created_at).toLocaleDateString('de-DE')}</div>
                         </div>
-                        <span style={{ color:"#5a4a34", fontSize:14 }}>→</span>
+                        <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontSize:14 }}>→</span>
                       </div>
                     ))}
                   </div>
@@ -4232,7 +4272,7 @@ export default function LenormandApp() {
                 {/* NEUE LEKTION ANLEGEN — nur Admin */}
                 {kurseView === "neu" && kurseActiveCategory && isAdmin && (
                   <div>
-                    <button onClick={() => setKurseView("kategorie")} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
+                    <button onClick={() => setKurseView("kategorie")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
                     <div style={{ fontSize:14, color:gold, marginBottom:16 }}>Neue Lektion in „{kurseActiveCategory.name}"</div>
                     <InlinePostEditBox
                       initialTitle="" initialBody=""
@@ -4259,8 +4299,8 @@ export default function LenormandApp() {
                 {kurseView === "post" && kurseActivePost && (
                   <div>
                     <button onClick={() => { setKurseView("kategorie"); setKurseActivePost(null); }}
-                      style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zum Kurs</button>
-                    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
+                      style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zum Kurs</button>
+                    <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
                       {forumEditingPostId === kurseActivePost.id ? (
                         <InlinePostEditBox
                           initialTitle={kurseActivePost.title} initialBody={kurseActivePost.body}
@@ -4272,17 +4312,17 @@ export default function LenormandApp() {
                           <div style={{ fontSize:16, color:gold }}>{kurseActivePost.title}</div>
                           {isAdmin && (
                             <div style={{ display:"flex", gap:8 }}>
-                              <button onClick={() => setForumEditingPostId(kurseActivePost.id)} style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                              <button onClick={() => setForumEditingPostId(kurseActivePost.id)} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
                               <button onClick={async () => { if(window.confirm("Lektion wirklich löschen?")) { await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${kurseActivePost.id}`, {method:"DELETE", headers:dbHeaders()}); setKursePosts(prev => prev.filter(p => p.id !== kurseActivePost.id)); setKurseView("kategorie"); setKurseActivePost(null); } }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:13 }}>✕</button>
                             </div>
                           )}
                         </div>
-                        <div style={{ fontSize:13, color:"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(kurseActivePost.body)}</div>
+                        <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(kurseActivePost.body)}</div>
                       </>)}
                     </div>
 
                     {/* Fragen & Diskussion — nutzt dasselbe Reply-System wie das Forum */}
-                    <div style={{ fontSize:11, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>
                       💬 Fragen & Diskussion ({forumReplies.length})
                     </div>
                     {forumReplies.filter(r => !r.reply_to_id).map(reply => (
@@ -4291,14 +4331,14 @@ export default function LenormandApp() {
                     {!isGuest && (
                       <div style={{ marginTop:14 }}>
                         {forumReplyToId && (
-                          <div style={{ fontSize:11, color:"#7a6040", marginBottom:6 }}>
+                          <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", marginBottom:6 }}>
                             ↩ Antwort auf {forumReplyToName} &nbsp;
                             <button onClick={() => { setForumReplyToId(null); setForumReplyToName(""); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10 }}>✕</button>
                           </div>
                         )}
                         <textarea value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
                           placeholder="Deine Frage oder Anmerkung zur Lektion…"
-                          style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                          style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                         <button onClick={() => createForumReply(kurseActivePost.id)}
                           style={{ marginTop:8, background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
                           Frage stellen
@@ -4318,7 +4358,7 @@ export default function LenormandApp() {
           <div>
               <div style={{ textAlign:"center", marginBottom:24 }}>
                   <div style={{ fontSize:16, color:gold, marginBottom:6 }}>Wo möchtest du ankommen?</div>
-                  <div style={{ fontSize:12, color:"#7a6040" }}>Drei Wege durch Lenormandia — such dir aus, wie tief du eintauchen willst.</div>
+                  <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040" }}>Drei Wege durch Lenormandia — such dir aus, wie tief du eintauchen willst.</div>
                 </div>
                 <style>{`
                   .shop-tiers { display: flex; flex-direction: column; gap: 14px; max-width: 420px; margin: 0 auto; }
@@ -4330,24 +4370,24 @@ export default function LenormandApp() {
                 <div className="shop-tiers">
 
                   {/* GAST */}
-                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:12, padding:"20px 22px" }}>
-                    <div style={{ fontSize:14, color:"#9a8060", marginBottom:2 }}>🌙 Gast</div>
-                    <div style={{ fontSize:11, color:"#5a4a34", marginBottom:14, fontStyle:"italic" }}>Steck einfach mal die Nase rein</div>
+                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:12, padding:"20px 22px" }}>
+                    <div style={{ fontSize:14, color:lightMode?"#2a0850":"#9a8060", marginBottom:2 }}>🌙 Gast</div>
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", marginBottom:14, fontStyle:"italic" }}>Steck einfach mal die Nase rein</div>
                     {["Willkommensseite & erster Einblick", "Eine Frage stellen, als kleiner Vorgeschmack", "Beim Mitmach-Mittwoch im Forum mitlesen"].map((f,i) => (
-                      <div key={i} style={{ fontSize:12, color:"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
+                      <div key={i} style={{ fontSize:12, color:lightMode?"#2a0850":"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
                     ))}
                   </div>
 
                   {/* MITGLIED */}
-                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:12, padding:"20px 22px" }}>
+                  <div className="shop-tier" style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:12, padding:"20px 22px" }}>
                     <div style={{ fontSize:14, color:gold, marginBottom:2 }}>🦉 Mitglied</div>
-                    <div style={{ fontSize:11, color:"#7a6040", marginBottom:14, fontStyle:"italic" }}>Kostenlos dabei sein, mitfühlen, mitwachsen</div>
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", marginBottom:14, fontStyle:"italic" }}>Kostenlos dabei sein, mitfühlen, mitwachsen</div>
                     {["Alles aus Gast, und ein eigener Platz am Tisch", "Im Forum selbst schreiben & mitreden", "Tageskarten mit eigenem Tagebuch", "Spielerisch die Karten lernen im Quiz", "Eigenes Profil mit Rang & Signatur"].map((f,i) => (
-                      <div key={i} style={{ fontSize:12, color:"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
+                      <div key={i} style={{ fontSize:12, color:lightMode?"#2a0850":"#c0b090", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
                     ))}
                     <a href="https://www.annabenoir.de/_paylink/AZ7k4iP9" target="_blank" rel="noopener noreferrer"
                       style={{ display:"block", textAlign:"center", marginTop:"auto", paddingTop:14 }}>
-                      <span style={{ display:"block", background:"transparent", border:"1px solid rgba(200,169,110,0.3)", color:"#9a8060", padding:"8px", borderRadius:7, fontSize:11, letterSpacing:0.5 }}>
+                      <span style={{ display:"block", background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"8px", borderRadius:7, fontSize:11, letterSpacing:0.5 }}>
                         ☕ Magst du Anna ein Käffchen spendieren?
                       </span>
                     </a>
@@ -4369,7 +4409,7 @@ export default function LenormandApp() {
                   </div>
 
                 </div>
-                <div style={{ textAlign:"center", fontSize:10, color:"#5a4a34", marginTop:18, fontStyle:"italic" }}>
+                <div style={{ textAlign:"center", fontSize:10, color:lightMode?"#2a0850":"#5a4a34", marginTop:18, fontStyle:"italic" }}>
                   Zum Vergleich: der Preis einer einzelnen Beratung — dafür bist du für immer dabei.
                 </div>
           </div>
@@ -4379,9 +4419,9 @@ export default function LenormandApp() {
         {view === "impressum" && (
           <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
             <button onClick={() => setView("liesmich")}
-              style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
+              style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
             <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Impressum</div>
-            <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.8 }}>
+            <div style={{ fontSize:13, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.8 }}>
               Hier kommt bald das vollständige Impressum hin.
             </div>
           </div>
@@ -4391,9 +4431,9 @@ export default function LenormandApp() {
         {view === "agb" && (
           <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
             <button onClick={() => setView("liesmich")}
-              style={{ background:"transparent", border:"none", color:"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
+              style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
             <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Allgemeine Geschäftsbedingungen</div>
-            <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.8 }}>
+            <div style={{ fontSize:13, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.8 }}>
               Hier kommen bald die vollständigen AGB hin.
             </div>
           </div>
@@ -4404,14 +4444,14 @@ export default function LenormandApp() {
           <div>
             <ForumSubNav />
             <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Lenormand Quiz</div>
+              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Lenormand Quiz</div>
 
 
 
               <div style={{ fontSize:16, color:gold, marginBottom:4 }}>
                 {quizMode==="kombis" ? "Welche Deutung passt?" : quizMode==="zeit" ? "Wann tritt es ein?" : quizMode==="person" ? "Wer ist diese Person?" : "Was bedeutet diese Karte?"}
               </div>
-                <div style={{ fontSize:12, color:"#5a4a34", marginBottom:12 }}>
+                <div style={{ fontSize:12, color:lightMode?"#2a0850":"#5a4a34", marginBottom:12 }}>
                 ✓ {quizScore.right} richtig &nbsp;·&nbsp; ✗ {quizScore.wrong} falsch
                 {currentStreak >= 2 && <span style={{color:"#d4b878"}}> &nbsp;·&nbsp; 🔥 {currentStreak} in Folge</span>}
               </div>
@@ -4422,9 +4462,9 @@ export default function LenormandApp() {
                   ["📊", "Heute", stats.todayRight + " / " + stats.todayTotal],
                   ["🔥", "Tage-Streak", stats.streakDays + " Tage"]
                 ].map(([icon, label, val]) => (
-                  <div key={label} style={{ background:"rgba(200,169,110,0.05)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:8, padding:"8px 16px", textAlign:"center", minWidth:90 }}>
+                  <div key={label} style={{ background:"rgba(200,169,110,0.05)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 16px", textAlign:"center", minWidth:90 }}>
                     <div style={{ fontSize:18 }}>{icon}</div>
-                    <div style={{ fontSize:9, color:"#7a6040", letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>{label}</div>
+                    <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>{label}</div>
                     <div style={{ fontSize:13, color:"#c8a96e", marginTop:2 }}>{val}</div>
                   </div>
                 ))}
@@ -4459,7 +4499,7 @@ export default function LenormandApp() {
 
             {!quizCards && (
               <div style={{ textAlign:"center", marginTop:8 }}>
-                <div style={{ fontSize:13, color:"#7a6040", marginBottom:14, fontStyle:"italic" }}>
+                <div style={{ fontSize:13, color:lightMode?"#2a0850":"#7a6040", marginBottom:14, fontStyle:"italic" }}>
                   {quizMode==="kombis" ? "Welche Deutung passt?" : quizMode==="zeit" ? "Wann tritt es ein?" : quizMode==="person" ? "Wer ist diese Person?" : (quizMode==="3er"||quizMode==="4er") ? "Was bedeutet diese Kombination?" : "Was bedeutet diese Karte?"}
                 </div>
                 {/* Trainings-Toggle */}
@@ -4471,7 +4511,7 @@ export default function LenormandApp() {
                   </div>
                   <span style={{ fontSize:11, color: trainMode ? gold : "#5a4a34", fontFamily:"Georgia,serif" }}>📖 Training</span>
                 </div>
-                {trainMode && <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginBottom:12 }}>1. Klick = Antwort zeigen · 2. Klick = nächste Frage</div>}
+                {trainMode && <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginBottom:12 }}>1. Klick = Antwort zeigen · 2. Klick = nächste Frage</div>}
                 <button onClick={startCurrentQuiz}
                   style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"12px 32px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                   {trainMode ? "📖 Training starten" : "🎓 Quiz starten"}
@@ -4486,7 +4526,7 @@ export default function LenormandApp() {
                   <div key={i} style={{ width: quizCards.karten && quizCards.karten.length > 2 ? 90 : 120, padding:"12px 8px", border:`1.5px solid ${gold}`, borderRadius:10, textAlign:"center", background:"rgba(200,169,110,0.05)" }}>
                     <div style={{ fontSize: quizCards.karten && quizCards.karten.length > 2 ? 28 : 36 }}>{SYMBOLS[num]}</div>
                     <div style={{ fontSize:10, color:gold, marginTop:6 }}>{num}. {CARDS[num].name}</div>
-                    <div style={{ fontSize:8, color:"#7a6040", marginTop:3, lineHeight:1.4 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
+                    <div style={{ fontSize:8, color:lightMode?"#2a0850":"#7a6040", marginTop:3, lineHeight:1.4 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
                   </div>
                 ))}
               </div>
@@ -4501,9 +4541,9 @@ export default function LenormandApp() {
                     </button>
                   ) : (
                     <>
-                      <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", marginBottom:16, textAlign:"left" }}>
+                      <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:10, padding:"16px 18px", marginBottom:16, textAlign:"left" }}>
                         {quizCards.label && <div style={{ fontSize:9, color:gold, letterSpacing:2, textTransform:"uppercase", marginBottom:8 }}>{quizCards.label}</div>}
-                        <div style={{ fontSize:15, lineHeight:1.85, color:"#e0d0b0" }}>{quizCards.correct}</div>
+                        <div style={{ fontSize:15, lineHeight:1.85, color:lightMode?"#2a0850":"#e0d0b0" }}>{quizCards.correct}</div>
                       </div>
                       <button onClick={startCurrentQuiz}
                         style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
@@ -4588,7 +4628,7 @@ export default function LenormandApp() {
                         {quizAnswer==="correct" ? "🎉 Richtig!" : "❌ Leider falsch!"}
                       </div>
                       {quizAnswer === "wrong" && (
-                        <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"12px 16px", marginBottom:16, fontSize:13, color:"#c0b090", textAlign:"left", lineHeight:1.6 }}>
+                        <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:8, padding:"12px 16px", marginBottom:16, fontSize:13, color:lightMode?"#2a0850":"#c0b090", textAlign:"left", lineHeight:1.6 }}>
                           <div style={{ fontSize:9, color:"#c87a6a", letterSpacing:3, textTransform:"uppercase", marginBottom:6 }}>Deine Antwort war:</div>
                           {quizCards.selectedWrongCombo && (
                             <div style={{ fontSize:10, color:"#c8a96e", marginBottom:6 }}>{quizCards.selectedWrongCombo}</div>
@@ -4621,20 +4661,20 @@ export default function LenormandApp() {
                 <div style={{ textAlign:"center", marginBottom:20 }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:16, marginBottom:12 }}>
                     <button onClick={() => navigateDay(-1)}
-                      style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:gold, width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>‹</button>
-                    <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", textTransform:"uppercase" }}>
+                      style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:gold, width:32, height:32, borderRadius:"50%", cursor:"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>‹</button>
+                    <div style={{ fontSize:9, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase" }}>
                       Tageskombination · {formatDate(selectedDateKey)}
                       {isToday && <span style={{ marginLeft:6, color:gold, fontSize:8 }}>● heute</span>}
                     </div>
                     <button onClick={() => navigateDay(1)} disabled={isToday}
-                      style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:isToday?"#3a2a18":gold, width:32, height:32, borderRadius:"50%", cursor:isToday?"default":"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, opacity:isToday?0.3:1 }}>›</button>
+                      style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:isToday?"#3a2a18":gold, width:32, height:32, borderRadius:"50%", cursor:isToday?"default":"pointer", fontSize:16, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, opacity:isToday?0.3:1 }}>›</button>
                   </div>
                   <div style={{ display:"flex", gap:16, justifyContent:"center", marginBottom:10 }}>
                     {[selectedCard.c1, selectedCard.c2].map((num, i) => (
                       <div key={i} style={{ textAlign:"center" }}>
                         <div style={{ fontSize:44 }}>{SYMBOLS[num]}</div>
                         <div style={{ fontSize:13, color:gold, marginTop:4 }}>{num}. {CARDS[num].name}</div>
-                        <div style={{ fontSize:10, color:"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(",").slice(0,2).join(",")}</div>
+                        <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginTop:2 }}>{CARDS[num].kw.split(",").slice(0,2).join(",")}</div>
                       </div>
                     ))}
                   </div>
@@ -4642,21 +4682,21 @@ export default function LenormandApp() {
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:8 }}>
                     💭 Gedanken
-                    {tagebuchSaveStatus === "saving" && <span style={{ fontSize:9, color:"#9a8060", letterSpacing:0, textTransform:"none" }}>speichert…</span>}
+                    {tagebuchSaveStatus === "saving" && <span style={{ fontSize:9, color:lightMode?"#2a0850":"#9a8060", letterSpacing:0, textTransform:"none" }}>speichert…</span>}
                     {tagebuchSaveStatus === "saved" && <span style={{ fontSize:9, color:"#5a9a5a", letterSpacing:0, textTransform:"none" }}>✓ gespeichert</span>}
                   </div>
                   <textarea placeholder={getUserId() ? "Was siehst du in dieser Kombination?" : "Zum Schreiben bitte einloggen — kein Eintrag geht dabei verloren."} value={selectedEntry.gedanken} onChange={e => updateTagebuch("gedanken", e.target.value)} rows={4}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:14 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
                   <textarea placeholder="Was hat sich bewahrheitet?" value={selectedEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:18 }}>
                   <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
                   <textarea placeholder="Das Fazit des Tages…" value={selectedEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
                   {!tippVisible ? (
@@ -4665,19 +4705,19 @@ export default function LenormandApp() {
                       ✨ Tipp vom Universum
                     </button>
                   ) : (
-                    <div style={{ background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Emanuel sagt</div>
-                      <div style={{ fontSize:14, lineHeight:1.85, color:"#e0d0b0" }}>{COMBOS[selectedCard.comboKey] || "Vertraue deiner Intuition."}</div>
-                      <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
+                    <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:10, padding:"16px 18px", textAlign:"left" }}>
+                      <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Was Emanuel sagt</div>
+                      <div style={{ fontSize:14, lineHeight:1.85, color:lightMode?"#2a0850":"#e0d0b0" }}>{COMBOS[selectedCard.comboKey] || "Vertraue deiner Intuition."}</div>
+                      <button onClick={() => setTippVisible(false)} style={{ marginTop:12, background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Schließen</button>
                     </div>
                   )}
                 </div>
-                <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16, display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
-                  <button onClick={druckeTagebuch} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                <div style={{ textAlign:"center", borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, paddingTop:16, display:"flex", gap:10, justifyContent:"center", flexWrap:"wrap" }}>
+                  <button onClick={druckeTagebuch} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     🖨️ Drucken
                   </button>
                   <button onClick={() => { setShareTageskarteOpen(true); setShareTageskarteIncludeNotes(false); setShareTageskarteStatus(""); }}
-                    style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                    style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     💬 Im Forum teilen
                   </button>
                 </div>
@@ -4686,21 +4726,21 @@ export default function LenormandApp() {
                   <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:20 }}
                     onClick={() => { if (shareTageskarteStatus !== "sharing") { setShareTageskarteOpen(false); setShareTageskarteStatus(""); } }}>
                     <div onClick={e => e.stopPropagation()}
-                      style={{ background:"#0f0a1a", border:"1px solid rgba(200,169,110,0.3)", borderRadius:12, padding:"24px 22px", maxWidth:340, width:"100%", textAlign:"center" }}>
+                      style={{ background:"#0f0a1a", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:12, padding:"24px 22px", maxWidth:340, width:"100%", textAlign:"center" }}>
                       {shareTageskarteStatus === "done" ? (
                         <div style={{ color:gold, fontSize:14 }}>✨ Geteilt! Du findest deinen Beitrag unter „Tageskarten" im Forum.</div>
                       ) : shareTageskarteStatus === "error" ? (
                         <div>
                           <div style={{ color:"#c87a6a", fontSize:13, marginBottom:14 }}>Konnte nicht geteilt werden. Versuch's gleich noch mal.</div>
-                          <button onClick={() => { setShareTageskarteOpen(false); setShareTageskarteStatus(""); }} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Schließen</button>
+                          <button onClick={() => { setShareTageskarteOpen(false); setShareTageskarteStatus(""); }} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Schließen</button>
                         </div>
                       ) : (
                         <>
                           <div style={{ fontSize:14, color:gold, marginBottom:14 }}>Tageskombination teilen</div>
-                          <div style={{ fontSize:12, color:"#9a8060", marginBottom:16, lineHeight:1.6 }}>
+                          <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", marginBottom:16, lineHeight:1.6 }}>
                             {SYMBOLS[selectedCard.c1]}{SYMBOLS[selectedCard.c2]} {CARDS[selectedCard.c1].name} &amp; {CARDS[selectedCard.c2].name} — {formatDate(selectedDateKey)}
                           </div>
-                          <label style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, fontSize:12, color:"#d4c4a0", cursor:"pointer", textAlign:"left" }}>
+                          <label style={{ display:"flex", alignItems:"center", gap:8, marginBottom:20, fontSize:12, color:lightMode?"#2a0850":"#d4c4a0", cursor:"pointer", textAlign:"left" }}>
                             <input type="checkbox" checked={shareTageskarteIncludeNotes} onChange={e => setShareTageskarteIncludeNotes(e.target.checked)} />
                             Meine Notizen (Gedanken, Reflexionen, Resümee) mit teilen
                           </label>
@@ -4710,7 +4750,7 @@ export default function LenormandApp() {
                               {shareTageskarteStatus==="sharing" ? "Teilt…" : "Teilen"}
                             </button>
                             <button onClick={() => setShareTageskarteOpen(false)} disabled={shareTageskarteStatus==="sharing"}
-                              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
+                              style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"9px 16px", borderRadius:7, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>
                               Abbrechen
                             </button>
                           </div>
@@ -4732,22 +4772,22 @@ export default function LenormandApp() {
             {writingView === "projekt" && (
               <div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
-                  <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:6 }}>✍️ Writing</div>
+                  <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:6 }}>✍️ Writing</div>
                   <div style={{ fontSize:16, color:gold, marginBottom:4 }}>Woran arbeitest du heute?</div>
                 </div>
 
                 {/* Ordner / Projekte */}
                 <div style={{ marginBottom:20 }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-                    <div style={{ fontSize:10, color:"#7a6040", letterSpacing:2, textTransform:"uppercase" }}>📁 Projekte</div>
+                    <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", letterSpacing:2, textTransform:"uppercase" }}>📁 Projekte</div>
                     <div style={{ display:"flex", gap:6 }}>
                       {emptyProjectsCount > 0 && (
                         <button onClick={cleanupEmptyProjects} title="Löscht alle Sessions, die noch nirgends Text enthalten"
-                          style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#9a7060", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                          style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:"#9a7060", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
                           🧹 {emptyProjectsCount} leere aufräumen
                         </button>
                       )}
-                      <button onClick={() => setShowNewFolder(f => !f)} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>+ Neu</button>
+                      <button onClick={() => setShowNewFolder(f => !f)} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"3px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>+ Neu</button>
                     </div>
                   </div>
 
@@ -4755,7 +4795,7 @@ export default function LenormandApp() {
                     <div style={{ display:"flex", gap:8, marginBottom:10 }}>
                       <input placeholder="Projektname z.B. Dr. Lydia Hartmann" value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
                         onKeyDown={e => e.key==="Enter" && createFolder()}
-                        style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
+                        style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
                       <button onClick={createFolder} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>✓</button>
                     </div>
                   )}
@@ -4783,7 +4823,7 @@ export default function LenormandApp() {
                           📁 {f.name}
                         </button>
                         {selectedFolder===f.id && (
-                          <button onClick={() => printFolder(f.id)} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12 }} title="Ganzes Projekt drucken">🖨️</button>
+                          <button onClick={() => printFolder(f.id)} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:12 }} title="Ganzes Projekt drucken">🖨️</button>
                         )}
                         <button onClick={() => deleteFolder(f.id)} style={{ background:"transparent", border:"none", color:"#4a3a2a", cursor:"pointer", fontSize:10 }}>✕</button>
                       </div>
@@ -4794,14 +4834,14 @@ export default function LenormandApp() {
                   {showProjectList && (
                     <div style={{ maxHeight:280, overflowY:"auto" }}>
                       {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).length === 0 && (
-                        <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Noch keine Sessions hier.</div>
+                        <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Noch keine Sessions hier.</div>
                       )}
                       {savedProjects.filter(p => selectedFolder ? p.folder_id === selectedFolder : true).map(proj => (
-                        <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:7, padding:"8px 12px" }}>
+                        <div key={proj.id} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:7, padding:"8px 12px" }}>
                           <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textAlign:"left" }}>
                             ✍️ {proj.name}
                           </button>
-                          <span style={{ fontSize:9, color:"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
+                          <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
                           <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
                         </div>
                       ))}
@@ -4809,42 +4849,42 @@ export default function LenormandApp() {
                   )}
                 </div>
 
-                <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16, marginBottom:14 }}>
+                <div style={{ borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, paddingTop:16, marginBottom:14 }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:5 }}>
-                    <div style={{ fontSize:11, color:"#9a8060" }}>Session-Name</div>
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>Session-Name</div>
                   </div>
                   <input placeholder="z.B. Die Karten haben gesprochen… und ich schreibe es auf 😄" value={writingProjekt}
                     onChange={e => {
                       setWritingProjekt(e.target.value);
                       if (writingProjectId) saveWritingSession(writingNotes, e.target.value, writingBemerkung);
                     }}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box" }} />
                   {selectedFolder && (
-                    <div style={{ fontSize:10, color:"#7a6040", marginTop:6 }}>
+                    <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", marginTop:6 }}>
                       📁 wird abgelegt in: {folders.find(f => f.id === selectedFolder)?.name || ""}
                     </div>
                   )}
                 </div>
                 <div style={{ marginBottom:24 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>🎯 The Hook</div>
+                  <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a8060", marginBottom:5 }}>🎯 The Hook</div>
                   <textarea placeholder="Der Aufhänger, der die Leute reinzieht…" value={writingHook} onChange={e => setWritingHook(e.target.value)} rows={2}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
 
                 <div style={{ height:1, background:"linear-gradient(90deg, transparent, rgba(200,169,110,0.25), transparent)", margin:"0 0 20px" }} />
 
                 <div style={{ marginBottom:24 }}>
-                  <div style={{ fontSize:11, color:"#9a8060", marginBottom:5 }}>Bemerkungen</div>
+                  <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a8060", marginBottom:5 }}>Bemerkungen</div>
                   <textarea placeholder="z.B. Szene 1 ~ Was noch geschah…" value={writingBemerkung} onChange={e => setWritingBemerkung(e.target.value)} rows={3}
-                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:7, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                    style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
 
                 <div style={{ marginBottom:24 }}>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-                    <div style={{ fontSize:11, color:"#9a8060" }}>📋 Vorlage</div>
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>📋 Vorlage</div>
                   </div>
                   {textTemplates.length === 0 ? (
-                    <div style={{ fontSize:11, color:"#5a4a34", fontStyle:"italic" }}>Noch keine Vorlagen gespeichert — die kommen nach dem Schreiben per "💾 Speichern unter" dazu.</div>
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Noch keine Vorlagen gespeichert — die kommen nach dem Schreiben per "💾 Speichern unter" dazu.</div>
                   ) : (
                     <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                       <button onClick={() => setSelectedTemplate(null)}
@@ -4863,7 +4903,7 @@ export default function LenormandApp() {
                     </div>
                   )}
                   {selectedTemplate && (
-                    <div style={{ marginTop:10, padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:6, fontSize:10, color:"#9a8060", lineHeight:1.6 }}>
+                    <div style={{ marginTop:10, padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:6, fontSize:10, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.6 }}>
                       <div style={{ color:gold, marginBottom:3 }}>Vorschau "{selectedTemplate.name}":</div>
                       {Object.entries(selectedTemplate.notes || {}).filter(([k,v]) => v && String(v).trim()).length === 0 ? (
                         <div style={{ fontStyle:"italic" }}>(noch keine Inhalte in dieser Vorlage)</div>
@@ -4918,8 +4958,8 @@ export default function LenormandApp() {
             {writingView === "picking" && (
               <div>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-                  <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
-                  <div style={{ fontSize:11, color:"#7a6040", fontStyle:"italic" }}>Klicke eine Position — dann wähle die Karte</div>
+                  <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
+                  <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>Klicke eine Position — dann wähle die Karte</div>
                   <button onClick={() => { if(signifikator || matrixFreeText[4]) setWritingView("writing"); }}
                     disabled={!signifikator && !matrixFreeText[4]}
                     style={{ background:(signifikator||matrixFreeText[4])?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${(signifikator||matrixFreeText[4])?gold:"rgba(200,169,110,0.2)"}`, color:(signifikator||matrixFreeText[4])?gold:"#4a3a24", padding:"6px 16px", borderRadius:6, cursor:(signifikator||matrixFreeText[4])?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>
@@ -4934,13 +4974,13 @@ export default function LenormandApp() {
                     if (willActivate) setPickerMode(matrixFreeText["intro"] ? "freitext" : "karte");
                   }}
                   style={{ border:`1.5px solid ${activePos==="intro"?gold:(introCard||matrixFreeText["intro"])?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 10px", marginBottom:8, cursor:"pointer", background:activePos==="intro"?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Intro</div>
+                  <div style={{ fontSize:8, color:lightMode?"#2a0850":"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Intro</div>
                   {introCard ? (<>
                     <span style={{ fontSize:18 }}>{SYMBOLS[introCard]}</span>
                     <span style={{ fontSize:10, color:gold }}>{CARDS[introCard].name}</span>
                   </>) : matrixFreeText["intro"] ? (
                     <span style={{ fontSize:10, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText["intro"].slice(0,30)}{matrixFreeText["intro"].length>30?"…":""}</span>
-                  ) : <span style={{ fontSize:10, color:"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
+                  ) : <span style={{ fontSize:10, color:lightMode?"#2a0850":"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
                 </div>
 
                 {/* 3×3 Grid */}
@@ -4958,13 +4998,13 @@ export default function LenormandApp() {
                         if (willActivate) setPickerMode(matrixFreeText[pos] ? "freitext" : "karte");
                       }}
                         style={{ border:`1.5px solid ${isActive?gold:(card||freeText)?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 6px", textAlign:"center", cursor:"pointer", background:isCenter?"rgba(200,169,110,0.08)":isActive?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", minHeight:80 }}>
-                        <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", marginBottom:4 }}>{labels[pos]}</div>
+                        <div style={{ fontSize:8, color:lightMode?"#2a0850":"#5a4a34", letterSpacing:1, textTransform:"uppercase", marginBottom:4 }}>{labels[pos]}</div>
                         {card ? (<>
                           <div style={{ fontSize:24 }}>{SYMBOLS[card]}</div>
                           <div style={{ fontSize:8, color:gold, marginTop:2 }}>{CARDS[card].name}</div>
                         </>) : freeText ? (
                           <div style={{ fontSize:10, color:gold, marginTop:10, lineHeight:1.3, wordBreak:"break-word" }}>✍️ {freeText.slice(0, 40)}{freeText.length > 40 ? "…" : ""}</div>
-                        ) : <div style={{ fontSize:10, color:"#3a2a18", marginTop:8 }}>+</div>}
+                        ) : <div style={{ fontSize:10, color:lightMode?"#2a0850":"#3a2a18", marginTop:8 }}>+</div>}
                       </div>
                     );
                   })}
@@ -4977,13 +5017,13 @@ export default function LenormandApp() {
                     if (willActivate) setPickerMode(matrixFreeText["outro"] ? "freitext" : "karte");
                   }}
                   style={{ border:`1.5px solid ${activePos==="outro"?gold:(outroCard||matrixFreeText["outro"])?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 10px", marginBottom:16, cursor:"pointer", background:activePos==="outro"?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
-                  <div style={{ fontSize:8, color:"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Outro</div>
+                  <div style={{ fontSize:8, color:lightMode?"#2a0850":"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Outro</div>
                   {outroCard ? (<>
                     <span style={{ fontSize:18 }}>{SYMBOLS[outroCard]}</span>
                     <span style={{ fontSize:10, color:gold }}>{CARDS[outroCard].name}</span>
                   </>) : matrixFreeText["outro"] ? (
                     <span style={{ fontSize:10, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText["outro"].slice(0,30)}{matrixFreeText["outro"].length>30?"…":""}</span>
-                  ) : <span style={{ fontSize:10, color:"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
+                  ) : <span style={{ fontSize:10, color:lightMode?"#2a0850":"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
                 </div>
 
                 {/* Karten-Suche und Grid, oder freier Text */}
@@ -5001,7 +5041,7 @@ export default function LenormandApp() {
                           delete newFree[activePos];
                           setMatrixFreeText(newFree);
                           if (activePos === 4) setSignifikator(null);
-                        }} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                        }} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
                           ✕ leeren
                         </button>
                       )}
@@ -5021,16 +5061,16 @@ export default function LenormandApp() {
                             }
                           }}
                           rows={2}
-                          style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none" }} />
+                          style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none" }} />
                         {activePos === 4 && (
-                          <div style={{ fontSize:9, color:"#7a6040", marginTop:4, fontStyle:"italic" }}>Hinweis: Der Signifikator wird für Kombinationen gebraucht — bei freiem Text entfallen die Kartenkombinationen in den entsprechenden Feldern.</div>
+                          <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", marginTop:4, fontStyle:"italic" }}>Hinweis: Der Signifikator wird für Kombinationen gebraucht — bei freiem Text entfallen die Kartenkombinationen in den entsprechenden Feldern.</div>
                         )}
                       </div>
                     ) : (
                       <div>
                         <div style={{ marginBottom:8 }}>
                           <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                            style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                            style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
                         </div>
                         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:6, maxHeight:260, overflowY:"auto" }}>
                           {filteredCards().map(num => {
@@ -5051,9 +5091,9 @@ export default function LenormandApp() {
                                 }
                                 setActivePos(null);
                               }}
-                                style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif" }}>
+                                style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif" }}>
                                 <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
-                                <div style={{ fontSize:9, color:"#9a8060", marginTop:3 }}>{num}. {CARDS[num].name}</div>
+                                <div style={{ fontSize:9, color:lightMode?"#2a0850":"#9a8060", marginTop:3 }}>{num}. {CARDS[num].name}</div>
                               </button>
                             );
                           })}
@@ -5068,10 +5108,10 @@ export default function LenormandApp() {
             {writingView === "writing" && (signifikator || matrixFreeText[4]) && matrixCards && (
               <div>
                 <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
-                  <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
+                  <button onClick={() => setWritingView("projekt")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#5a4a34", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", padding:0 }}>← zurück</button>
                   <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                     {writingProjekt && <div style={{ fontSize:11, color:gold, fontStyle:"italic" }}>✍️ {writingProjekt}</div>}
-                    <button onClick={() => { writingRandom(); }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.25)`, color:"#9a8060", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>🎲 neu</button>
+                    <button onClick={() => { writingRandom(); }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.25)`, color:lightMode?"#2a0850":"#9a8060", padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>🎲 neu</button>
                     <button onClick={saveProject} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"4px 10px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>💾 speichern</button>
                   </div>
                 </div>
@@ -5091,7 +5131,7 @@ export default function LenormandApp() {
 
                   {/* LINKS: Echte Matrix mit Deutungen */}
                   <div className="writing-matrix">
-                    <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
+                    <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:8 }}>
                       {signifikator ? (<>{SYMBOLS[signifikator]} {CARDS[signifikator].name}</>) : matrixFreeText[4] ? (<>✍️ {matrixFreeText[4]}</>) : null}
                       {" · "}{writingMode === "personen" ? "Personen-Matrix" : "Situations-Matrix"}
                     </div>
@@ -5101,7 +5141,7 @@ export default function LenormandApp() {
                       </div>
                     )}
                     {writingBemerkung && (
-                      <div style={{ marginBottom:10, fontSize:10, color:"#5a4a34", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.15)", paddingLeft:8 }}>
+                      <div style={{ marginBottom:10, fontSize:10, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.15)", paddingLeft:8 }}>
                         {writingBemerkung}
                       </div>
                     )}
@@ -5134,7 +5174,7 @@ export default function LenormandApp() {
                             )}
                             {isSignifikator && signifikator && <div style={{ fontSize:8, color:"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
                             {fixedText && <div style={{ fontSize:9, color: isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
-                            {!isSignifikator && !fixedText && (card || matrixFreeText[pos]) && <div style={{ fontSize:8, color:"#3a2a18" }}>–</div>}
+                            {!isSignifikator && !fixedText && (card || matrixFreeText[pos]) && <div style={{ fontSize:8, color:lightMode?"#2a0850":"#3a2a18" }}>–</div>}
                           </div>
                         );
                       })}
@@ -5144,11 +5184,11 @@ export default function LenormandApp() {
                   {/* RECHTS: Writing-Positionen */}
                   <div className="writing-notes">
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:4 }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:"#7a6040", textTransform:"uppercase" }}>
+                      <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase" }}>
                         ✍️ Deine Notizen {writingMode === "personen" ? "· 👤 Personen-Matrix" : ""}
                       </div>
                       <button onClick={() => setShowSaveTemplate(v => !v)}
-                        style={{ background:"rgba(200,169,110,0.08)", border:"1px solid rgba(200,169,110,0.25)", color:"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
+                        style={{ background:"rgba(200,169,110,0.08)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"3px 9px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>
                         💾 Speichern unter
                       </button>
                     </div>
@@ -5167,7 +5207,7 @@ export default function LenormandApp() {
                         )}
                         {textTemplates.length > 0 && (
                           <div style={{ marginBottom:8 }}>
-                            <div style={{ fontSize:9, color:"#7a6040", marginBottom:4 }}>Bestehende Vorlage mit dem aktuellen Stand aktualisieren:</div>
+                            <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", marginBottom:4 }}>Bestehende Vorlage mit dem aktuellen Stand aktualisieren:</div>
                             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                               {textTemplates.map(tpl => (
                                 <button key={tpl.id} onClick={async () => { await updateTemplate(tpl); }}
@@ -5178,27 +5218,27 @@ export default function LenormandApp() {
                             </div>
                           </div>
                         )}
-                        <div style={{ fontSize:9, color:"#7a6040", marginBottom:4 }}>Oder als neue Vorlage anlegen:</div>
+                        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", marginBottom:4 }}>Oder als neue Vorlage anlegen:</div>
                         <div style={{ display:"flex", gap:8 }}>
                           <input placeholder="Name für eine NEUE Vorlage" value={newTemplateName} onChange={e => setNewTemplateName(e.target.value)}
                             onKeyDown={e => e.key==="Enter" && saveTemplate()}
-                            style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
+                            style={{ flex:1, padding:"7px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none" }} />
                           <button onClick={saveTemplate} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>✓ Neu</button>
                         </div>
                       </div>
                     )}
 
                     {/* INTRO */}
-                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
+                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:8, padding:"10px 12px 8px" }}>
                       <div onClick={() => setCollapsedFields(c => ({...c, intro: !c.intro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>🎬</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Intro</div>
+                        <div style={{ fontSize:8, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Intro</div>
                         <span onClick={e => { e.stopPropagation(); setWritingView("picking"); setActivePos("intro"); setPickerMode(matrixFreeText["intro"] ? "freitext" : "karte"); }}
                           style={{ fontSize:10, color:gold, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
                           {introCard ? <>{SYMBOLS[introCard]} {CARDS[introCard].name}</> : "🃏 Karte zuordnen"}
                         </span>
                         {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.intro ? "▸" : "▾"}</span>
+                        <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{collapsedFields.intro ? "▸" : "▾"}</span>
                       </div>
                       {!collapsedFields.intro && (<>
                         <AutoTextarea
@@ -5208,7 +5248,7 @@ export default function LenormandApp() {
                           onFocus={() => setActiveWritingPos(null)}
                           onBlur={() => setActiveWritingPos(null)}
                           minRows={2}
-                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                         />
                         <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
                           {(writingNotes["intro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
@@ -5229,10 +5269,10 @@ export default function LenormandApp() {
                       const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
                       const reached = wordCount >= 150;
                       return (
-                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, borderRadius:8, padding:"10px 12px 8px" }}>
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
+                            <div style={{ fontSize:8, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
                             {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
@@ -5242,18 +5282,18 @@ export default function LenormandApp() {
                               <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
                             )}
                             {comboCardNum && (<>
-                              <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
+                              <span style={{ fontSize:10, color:lightMode?"#2a0850":"#5a4a34" }}>+</span>
                               <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
                               <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
                             </>)}
                             {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
+                            <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
                           {!collapsedFields[key] && (<>
                             {(() => {
                               const inspiration = getInspirationText(pos, comboWith, cardNum);
                               return inspiration ? (
-                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
+                                <div style={{ fontSize:10, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
                                   💡 {inspiration}
                                 </div>
                               ) : null;
@@ -5265,7 +5305,7 @@ export default function LenormandApp() {
                               onFocus={() => setActiveWritingPos(pos)}
                               onBlur={() => setActiveWritingPos(null)}
                               minRows={2}
-                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                             />
                             <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
                               {wordCount} / 150
@@ -5285,10 +5325,10 @@ export default function LenormandApp() {
                       const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
                       const reached = wordCount >= 150;
                       return (
-                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, borderRadius:8, padding:"10px 12px 8px" }}>
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
+                            <div style={{ fontSize:8, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
                             {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
@@ -5298,18 +5338,18 @@ export default function LenormandApp() {
                               <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
                             )}
                             {comboCardNum && (<>
-                              <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
+                              <span style={{ fontSize:10, color:lightMode?"#2a0850":"#5a4a34" }}>+</span>
                               <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
                               <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
                             </>)}
                             {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
+                            <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
                           {!collapsedFields[key] && (<>
                             {(() => {
                               const inspiration = getInspirationText(pos, comboWith, cardNum);
                               return inspiration ? (
-                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
+                                <div style={{ fontSize:10, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
                                   💡 {inspiration}
                                 </div>
                               ) : null;
@@ -5321,7 +5361,7 @@ export default function LenormandApp() {
                               onFocus={() => setActiveWritingPos(pos)}
                               onBlur={() => setActiveWritingPos(null)}
                               minRows={2}
-                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                             />
                             <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
                               {wordCount} / 150
@@ -5332,12 +5372,12 @@ export default function LenormandApp() {
                     })}
 
                     {/* Freitext nach "Nahe Zukunft" */}
-                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, borderRadius:8, padding:"10px 12px 8px" }}>
                       <div onClick={() => setCollapsedFields(c => ({...c, nachRatDerEngel: !c.nachRatDerEngel}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>💕</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Subplot</div>
+                        <div style={{ fontSize:8, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Subplot</div>
                         {(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.nachRatDerEngel ? "▸" : "▾"}</span>
+                        <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{collapsedFields.nachRatDerEngel ? "▸" : "▾"}</span>
                       </div>
                       {!collapsedFields.nachRatDerEngel && (<>
                         <AutoTextarea
@@ -5345,7 +5385,7 @@ export default function LenormandApp() {
                           value={writingNotes["nachRatDerEngel"] || ""}
                           onChange={e => { const n = {...writingNotes, nachRatDerEngel: e.target.value}; setWritingNotes(n); saveWritingSession(n, writingProjekt, writingBemerkung); }}
                           minRows={1}
-                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                         />
                         <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
                           {(writingNotes["nachRatDerEngel"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
@@ -5366,10 +5406,10 @@ export default function LenormandApp() {
                       const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
                       const reached = wordCount >= 150;
                       return (
-                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.12)", borderRadius:8, padding:"10px 12px 8px" }}>
+                        <div key={pos} style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, borderRadius:8, padding:"10px 12px 8px" }}>
                           <div onClick={() => setCollapsedFields(c => ({...c, [key]: !c[key]}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                             <span style={{ fontSize:11 }}>{icon}</span>
-                            <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
+                            <div style={{ fontSize:8, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>{writingMode === "personen" ? (PERSONEN_POSITION_LABELS[key] || label) : label}</div>
                             {/* Karte(n) oder freier Text anzeigen */}
                             {cardNum && (<>
                               <span style={{ fontSize:14 }}>{SYMBOLS[cardNum]}</span>
@@ -5379,18 +5419,18 @@ export default function LenormandApp() {
                               <span style={{ fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</span>
                             )}
                             {comboCardNum && (<>
-                              <span style={{ fontSize:10, color:"#5a4a34" }}>+</span>
+                              <span style={{ fontSize:10, color:lightMode?"#2a0850":"#5a4a34" }}>+</span>
                               <span style={{ fontSize:14 }}>{SYMBOLS[comboCardNum]}</span>
                               <span style={{ fontSize:8, color:gold }}>{CARDS[comboCardNum].name}</span>
                             </>)}
                             {reached && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                            <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
+                            <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{collapsedFields[key] ? "▸" : "▾"}</span>
                           </div>
                           {!collapsedFields[key] && (<>
                             {(() => {
                               const inspiration = getInspirationText(pos, comboWith, cardNum);
                               return inspiration ? (
-                                <div style={{ fontSize:10, color:"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
+                                <div style={{ fontSize:10, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", lineHeight:1.5, marginBottom:6, padding:"6px 8px", background:"rgba(200,169,110,0.03)", borderRadius:5 }}>
                                   💡 {inspiration}
                                 </div>
                               ) : null;
@@ -5402,7 +5442,7 @@ export default function LenormandApp() {
                               onFocus={() => setActiveWritingPos(pos)}
                               onBlur={() => setActiveWritingPos(null)}
                               minRows={2}
-                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                              style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                             />
                             <div style={{ textAlign:"right", fontSize:8, color:reached?"#5a9a5a":"#5a4a34", marginTop:1 }}>
                               {wordCount} / 150
@@ -5413,16 +5453,16 @@ export default function LenormandApp() {
                     })}
 
                     {/* OUTRO */}
-                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:8, padding:"10px 12px 8px" }}>
+                    <div style={{ marginBottom:10, background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:8, padding:"10px 12px 8px" }}>
                       <div onClick={() => setCollapsedFields(c => ({...c, outro: !c.outro}))} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, cursor:"pointer" }}>
                         <span style={{ fontSize:11 }}>🎬</span>
-                        <div style={{ fontSize:8, color:"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Outro</div>
+                        <div style={{ fontSize:8, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase", flex:1 }}>Outro</div>
                         <span onClick={e => { e.stopPropagation(); setWritingView("picking"); setActivePos("outro"); setPickerMode(matrixFreeText["outro"] ? "freitext" : "karte"); }}
                           style={{ fontSize:10, color:gold, cursor:"pointer", display:"flex", alignItems:"center", gap:3 }}>
                           {outroCard ? <>{SYMBOLS[outroCard]} {CARDS[outroCard].name}</> : "🃏 Karte zuordnen"}
                         </span>
                         {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length>=150 && <span style={{ fontSize:10, color:"#5a9a5a" }}>✓</span>}
-                        <span style={{ fontSize:9, color:"#5a4a34" }}>{collapsedFields.outro ? "▸" : "▾"}</span>
+                        <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{collapsedFields.outro ? "▸" : "▾"}</span>
                       </div>
                       {!collapsedFields.outro && (<>
                         <AutoTextarea
@@ -5432,7 +5472,7 @@ export default function LenormandApp() {
                           onFocus={() => setActiveWritingPos(null)}
                           onBlur={() => setActiveWritingPos(null)}
                           minRows={2}
-                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
+                          style={{ width:"100%", padding:"6px 8px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box", lineHeight:1.5 }}
                         />
                         <div style={{ textAlign:"right", fontSize:8, color:(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length>=150?"#5a9a5a":"#5a4a34", marginTop:1 }}>
                           {(writingNotes["outro"]||"").trim().split(/\s+/).filter(Boolean).length} / 150
@@ -5441,7 +5481,7 @@ export default function LenormandApp() {
                     </div>
 
                     {/* Drucken */}
-                    <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:12, marginTop:4 }}>
+                    <div style={{ textAlign:"center", borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, paddingTop:12, marginTop:4 }}>
                       <button onClick={() => {
                         const heute = new Date().toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
                         const posLabelsBeforeEngel = [
@@ -5563,7 +5603,7 @@ export default function LenormandApp() {
                         w.document.write(html);
                         w.document.close();
                         w.print();
-                      }} style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                      }} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                         🖨️ Session drucken
                       </button>
                     </div>
@@ -5578,13 +5618,13 @@ export default function LenormandApp() {
         {view === "tagebuch" && dailyMode === "manifest" && (
           <div style={{ paddingBottom:30 }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Zauberzettel</div>
+              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Zauberzettel</div>
               <div style={{ fontSize:10, marginBottom:6, color: manifestSaveStatus==="saved" ? "#5a9a5a" : manifestSaveStatus==="saving" ? "#9a8060" : manifestSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:14 }}>
                 {manifestSaveStatus==="saving" && "Speichert…"}
                 {manifestSaveStatus==="saved" && "✓ Gespeichert"}
                 {manifestSaveStatus==="error" && ("⚠ Nicht gespeichert" + (manifestSaveError ? ": " + manifestSaveError : " — bitte Internetverbindung prüfen"))}
               </div>
-              <div style={{ fontSize:14, color:"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
+              <div style={{ fontSize:14, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
                 Schreibe auf, was du dir wünschst und was du erschaffen willst. Drücke Enter für einen neuen Punkt — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
               </div>
             </div>
@@ -5599,12 +5639,12 @@ export default function LenormandApp() {
                 {key:"irgendwann", icon:"✨", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen\nein Buch schreiben\nam Meer leben…"},
                 {key:"traum",  icon:"💫", label:"Beweise finden für:", sub:"finde Emanuel im Alltag", placeholder:"z.B. ein zufälliger Moment der Leichtigkeit\neine Begegnung zur richtigen Zeit\nein Gefühl von Klarheit, das einfach da war…"},
               ].map(({key, icon, label, sub, placeholder}) => (
-                <div key={key} style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.2)", borderRadius:10, padding:"14px 14px 10px" }}>
+                <div key={key} style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 14px 10px" }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
                     <span style={{ fontSize:16 }}>{icon}</span>
                     <div>
                       <div style={{ fontSize:12, color:gold, letterSpacing:1 }}>{label}</div>
-                      <div style={{ fontSize:9, color:"#5a4a34", fontStyle:"italic" }}>{sub}</div>
+                      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>{sub}</div>
                     </div>
                   </div>
                   <textarea
@@ -5612,11 +5652,11 @@ export default function LenormandApp() {
                     value={manifestData[key]}
                     onChange={e => updateManifest(key, e.target.value)}
                     rows={4}
-                    style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:6, color:"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.7 }}
+                    style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.7 }}
                   />
                   {/* Interaktive Liste */}
                   {manifestData[key] && (
-                    <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid rgba(200,169,110,0.08)" }}>
+                    <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.08)"}` }}>
                       {manifestData[key].split('\n').map(s => s.trim()).filter(Boolean).map((item, i, arr) => {
                         const checkedKey = `_checked_${key}`;
                         const checked = (manifestData[checkedKey] || []).includes(i);
@@ -5651,7 +5691,7 @@ export default function LenormandApp() {
                                 const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
                                 setManifestData(updated);
                                 saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach oben">⬆</button>
+                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#2a0850":"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach oben">⬆</button>
                             )}
                             {/* Innerhalb der Liste nach unten */}
                             {i < arr.length-1 && (
@@ -5668,7 +5708,7 @@ export default function LenormandApp() {
                                 const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
                                 setManifestData(updated);
                                 saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach unten">⬇</button>
+                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#2a0850":"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach unten">⬇</button>
                             )}
 
                             {/* Verschieben zur vorherigen Abteilung (z.B. von "3 Wochen" zu "Heute") */}
@@ -5687,7 +5727,7 @@ export default function LenormandApp() {
                                 };
                                 setManifestData(updated);
                                 saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene früher">↑</button>
+                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#2a0850":"#5a4a34", padding:"0 2px" }} title="Eine Ebene früher">↑</button>
                             )}
                             {/* Verschieben zur nächsten Abteilung (z.B. von "Heute" zu "3 Wochen") */}
                             {keyIdx < fieldKeys.length-1 && (
@@ -5705,7 +5745,7 @@ export default function LenormandApp() {
                                 };
                                 setManifestData(updated);
                                 saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a4a34", padding:"0 2px" }} title="Eine Ebene später">↓</button>
+                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#2a0850":"#5a4a34", padding:"0 2px" }} title="Eine Ebene später">↓</button>
                             )}
                             {/* Löschen */}
                             <button onClick={() => {
@@ -5724,9 +5764,9 @@ export default function LenormandApp() {
               ))}
             </div>
 
-            <div style={{ textAlign:"center", borderTop:"1px solid rgba(200,169,110,0.1)", paddingTop:16 }}>
+            <div style={{ textAlign:"center", borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, paddingTop:16 }}>
               <button onClick={druckeManifest}
-                style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.25)", color:"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                 🖨️ Zauberzettel drucken
               </button>
             </div>
@@ -5737,9 +5777,9 @@ export default function LenormandApp() {
         {view === "tagebuch" && dailyMode === "quest" && (
           <div style={{ paddingBottom:30 }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:"#7a6040", textTransform:"uppercase", marginBottom:10 }}>🎯 Quest</div>
+              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:10 }}>🎯 Quest</div>
             </div>
-            <div style={{ textAlign:"center", padding:"40px 20px", color:"#7a6040" }}>
+            <div style={{ textAlign:"center", padding:"40px 20px", color:lightMode?"#2a0850":"#7a6040" }}>
               <div style={{ fontSize:32, marginBottom:14 }}>🎯</div>
               <div style={{ fontSize:14, color:gold, marginBottom:10 }}>Tägliche Aufgaben kommen bald hierher</div>
               <div style={{ fontSize:12, lineHeight:1.7, maxWidth:340, margin:"0 auto" }}>
@@ -5752,8 +5792,8 @@ export default function LenormandApp() {
         {view === "cards" && (
           <div>
             {cardDetail ? (
-              <div style={{ background:"rgba(200,169,110,0.02)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:10, padding:22 }}>
-                <button onClick={() => setCardDetail(null)} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", marginBottom:12, padding:0 }}>← Übersicht</button>
+              <div style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:10, padding:22 }}>
+                <button onClick={() => setCardDetail(null)} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", marginBottom:12, padding:0 }}>← Übersicht</button>
                 <div style={{ textAlign:"center", marginBottom:16 }}>
                   <div style={{ fontSize:42 }}>{SYMBOLS[cardDetail]}</div>
                   <h2 style={{ color:gold, fontWeight:"normal", margin:"7px 0 4px", fontSize:19 }}>{cardDetail}. {CARDS[cardDetail].name}</h2>
@@ -5761,11 +5801,11 @@ export default function LenormandApp() {
                 </div>
                 {CARD_INTROS[String(cardDetail)] && (
                   <div style={{ marginBottom:20 }}>
-                    <div style={{ fontSize:9, letterSpacing:4, color:"#7a6040", marginBottom:10, textTransform:"uppercase" }}>Über diese Karte</div>
-                    <div style={{ fontSize:13, color:"#c0b090", lineHeight:1.8, whiteSpace:"pre-line", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>
+                    <div style={{ fontSize:9, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", marginBottom:10, textTransform:"uppercase" }}>Über diese Karte</div>
+                    <div style={{ fontSize:13, color:lightMode?"#2a0850":"#c0b090", lineHeight:1.8, whiteSpace:"pre-line", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>
                       {CARD_INTROS[String(cardDetail)]}
                     </div>
-                    <div style={{ borderTop:"1px solid rgba(200,169,110,0.1)", marginTop:16, paddingTop:16 }}/>
+                    <div style={{ borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, marginTop:16, paddingTop:16 }}/>
                   </div>
                 )}
                 <div style={{ marginTop:8 }}>
@@ -5787,7 +5827,7 @@ export default function LenormandApp() {
 
                         {/* Akkordeon-Inhalt */}
                         {isOpen && (
-                          <div style={{ border:"1px solid rgba(200,169,110,0.15)", borderTop:"none", borderRadius:"0 0 6px 6px", padding:"12px 14px", background:"rgba(10,7,18,0.3)" }}>
+                          <div style={{ border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderTop:"none", borderRadius:"0 0 6px 6px", padding:"12px 14px", background:"rgba(10,7,18,0.3)" }}>
 
                             {/* 2er */}
                             {key === "2er" && (
@@ -5809,7 +5849,7 @@ export default function LenormandApp() {
                             {key === "3er" && (() => {
                               const matching = CLUSTERS["3er"].filter(c => c.karten.includes(cardDetail));
                               if (matching.length === 0) return (
-                                <div style={{ fontSize:12, color:"#5a4a34", fontStyle:"italic" }}>
+                                <div style={{ fontSize:12, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>
                                   Keine bekannten 3er-Cluster für diese Karte.
                                 </div>
                               );
@@ -5824,7 +5864,7 @@ export default function LenormandApp() {
                                           </span>
                                         ))}
                                       </div>
-                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
+                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
                                       <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
                                     </div>
                                   ))}
@@ -5836,7 +5876,7 @@ export default function LenormandApp() {
                             {key === "4er" && (() => {
                               const matching = CLUSTERS["4er"].filter(c => c.karten.includes(cardDetail));
                               if (matching.length === 0) return (
-                                <div style={{ fontSize:12, color:"#5a4a34", fontStyle:"italic" }}>
+                                <div style={{ fontSize:12, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>
                                   Keine bekannten 4er-Cluster für diese Karte.
                                 </div>
                               );
@@ -5851,7 +5891,7 @@ export default function LenormandApp() {
                                           </span>
                                         ))}
                                       </div>
-                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:"1px solid rgba(200,169,110,0.25)", borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
+                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
                                       <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
                                     </div>
                                   ))}
@@ -5869,16 +5909,16 @@ export default function LenormandApp() {
             ) : (<>
               <div style={{ marginBottom:12 }}>
                 <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                  style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.15)", borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                  style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
               </div>
               <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(128px,1fr))", gap:8 }}>
                 {filteredCards().map(num => (
                   <button key={num} onClick={() => setCardDetail(num)}
-                    style={{ background:"rgba(200,169,110,0.015)", border:"1px solid rgba(200,169,110,0.1)", borderRadius:8, padding:"12px 8px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif", transition:"all 0.18s" }}
+                    style={{ background:"rgba(200,169,110,0.015)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:8, padding:"12px 8px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif", transition:"all 0.18s" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.3)"; e.currentTarget.style.color=gold; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
                     <div style={{ fontSize:24 }}>{SYMBOLS[num]}</div>
-                    <div style={{ fontSize:9, marginTop:5, color:"#7a6040" }}>{num}.</div>
+                    <div style={{ fontSize:9, marginTop:5, color:lightMode?"#2a0850":"#7a6040" }}>{num}.</div>
                     <div style={{ fontSize:11, marginTop:2, lineHeight:1.3 }}>{CARDS[num].name}</div>
                     <div style={{ fontSize:8, marginTop:4, color:"#4a3a24", lineHeight:1.4 }}>{CARDS[num].kw.split(',').slice(0,2).join(',')}</div>
                   </button>
@@ -5889,41 +5929,41 @@ export default function LenormandApp() {
         )}
       </div>
 
-      <div style={{ textAlign:"center", padding:"14px 20px", borderTop:"1px solid rgba(200,169,110,0.15)" }}>
+      <div style={{ textAlign:"center", padding:"14px 20px", borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}` }}>
         <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:14, flexWrap:"wrap" }}>
           <a href="https://www.annabenoir.de/service-page/deep-dive" target="_blank" rel="noopener noreferrer"
             style={{ background:"rgba(200,169,110,0.12)", border:"1px solid rgba(200,169,110,0.4)", color:"#c8a96e", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             ✨ Frag Anna
           </a>
           <a href="https://www.annabenoir.de/app-fehlermeldungen" target="_blank" rel="noopener noreferrer"
-            style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.2)", color:"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
+            style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             🐞 Fehler melden
           </a>
           {isGuest ? (
             <button onClick={() => setView("forum-login-noetig")}
-              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+              style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
               ↪ Login
             </button>
           ) : (
             <button onClick={handleLogout}
-              style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+              style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
               ↩ Logout
             </button>
           )}
           <button onClick={() => setView("impressum")}
-            style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+            style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
             Impressum
           </button>
           <button onClick={() => setView("agb")}
-            style={{ background:"transparent", border:"1px solid rgba(200,169,110,0.15)", color:"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+            style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
             AGB
           </button>
         </div>
 
-        <div style={{ fontSize:9, color:"#2a1a08", letterSpacing:3, marginBottom:4 }}>
+        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#2a1a08", letterSpacing:3, marginBottom:4 }}>
           ANNA BENOIR · LENORMAND MATRIX · 2014 · ALLE RECHTE VORBEHALTEN
         </div>
-        <div style={{ fontSize:9, color:"#2a1a08", fontStyle:"italic", letterSpacing:1 }}>
+        <div style={{ fontSize:9, color:lightMode?"#2a0850":"#2a1a08", fontStyle:"italic", letterSpacing:1 }}>
           Diese App dient der Inspiration und Unterhaltung. Die Deutungen ersetzen keine professionelle Beratung.
         </div>
       </div>
