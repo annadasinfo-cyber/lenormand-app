@@ -445,7 +445,7 @@ function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoa
   const [password, setPassword] = useState("");
   return (
     <>
-      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:lightMode?"linear-gradient(to bottom, #7020a0, #9040a0)":"linear-gradient(to bottom, #120820, #0a0612)", borderBottom:"none", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:lightMode?"linear-gradient(to bottom, #8030a8 0%, #9848b0 60%, rgba(152,72,176,0) 100%)":"linear-gradient(to bottom, #120820, #0a0612)", borderBottom:"none", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
         <div style={{ color:lightMode?"#2a0850":"#7a6040", letterSpacing:1 }}>
           {isRealAdmin ? "👑 Admin" : "🧪 Test-Account"} · {displayName}
         </div>
@@ -580,7 +580,7 @@ export default function LenormandApp() {
   const [lightMode, setLightMode] = React.useState(() => localStorage.getItem("lenni_theme") !== "dark");
   const toggleTheme = () => setLightMode(m => { localStorage.setItem("lenni_theme", !m ? "light" : "dark"); return !m; });
   const appBg = lightMode
-    ? "linear-gradient(to bottom, #9040a0 0%, #fdf5e0 15%, #e8f0a0 45%, #d8b8e8 70%, #a050b0 100%)"
+    ? "linear-gradient(to bottom, #fdf5e0 0%, #e8f0a0 35%, #d8b8e8 70%, #a050b0 100%)"
     : "linear-gradient(160deg,#080512,#0f0a1a,#0a0810)";
   const appColor = lightMode ? "#2a0850" : "#f0e8d8";
   const [view, setView] = useState(() => sessionStorage.getItem("lenni_view") || "liesmich");
