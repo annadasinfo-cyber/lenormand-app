@@ -779,13 +779,13 @@ export default function LenormandApp() {
       <div style={{ flex:"0 0 min(100%, 400px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 32px", background:"#3a1060" }}>
         <div style={{ width:"100%", maxWidth:360 }}>
           <button onClick={() => { if (view === "forum-login-noetig") { setView("forum"); } else { const freie = ["liesmich","fragmich","forum"]; if (!freie.includes(view)) setView("liesmich"); } }}
-            style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif" }}>
+            style={{ background:"transparent", border:"none", color:"#d4c4a0", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif" }}>
             ← zurück zur App
           </button>
           <div style={{ textAlign:"center", marginBottom:28 }}>
             <div style={{ fontSize:28, marginBottom:6 }}>🐍</div>
-            <div style={{ fontSize:16, color:"#f0e8d8", fontWeight:"normal", marginBottom:2, letterSpacing:1 }}>Willkommen in</div>
-            <div style={{ fontSize:22, color:"#c8a96e", fontWeight:"normal", letterSpacing:6, marginBottom:6 }}>L E N O R M A N D I A</div>
+            <div style={{ fontSize:20, color:"#f0e8d8", fontWeight:"normal", marginBottom:2, letterSpacing:1 }}>Willkommen in</div>
+            <div style={{ fontSize:32, color:"#c8a96e", fontWeight:"normal", letterSpacing:4, marginBottom:6 }}>Lenormandia</div>
             <div style={{ fontSize:11, color:"#d4c4a0", fontStyle:"italic" }}>Melde dich an um fortzufahren</div>
           </div>
 
