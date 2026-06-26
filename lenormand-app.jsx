@@ -577,7 +577,7 @@ function ForumMatrixGrid({ data, gold }) {
 
 export default function LenormandApp() {
   const gold = "#c8a96e";
-  const [lightMode, setLightMode] = React.useState(() => localStorage.getItem("lenni_theme") === "light");
+  const [lightMode, setLightMode] = React.useState(() => localStorage.getItem("lenni_theme") !== "dark");
   const toggleTheme = () => setLightMode(m => { localStorage.setItem("lenni_theme", !m ? "light" : "dark"); return !m; });
   const appBg = lightMode
     ? "linear-gradient(to bottom, #fdf5e0 0%, #e8f0a0 35%, #d8b8e8 70%, #a050b0 100%)"
@@ -770,17 +770,13 @@ export default function LenormandApp() {
     <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:lightMode?"#2a0850":"#f0e8d8", display:"flex", alignItems:"stretch" }}>
 
       {/* Links: Dekorativ */}
-      <div style={{ flex:"1 1 50%", position:"relative", overflow:"hidden", minHeight:"100vh", background:"linear-gradient(135deg,#0a0518,#150a2a,#0a0518)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-        <div style={{ textAlign:"center", padding:40 }}>
-          <div style={{ fontSize:60, marginBottom:20 }}>🐍</div>
-          <div style={{ fontSize:10, letterSpacing:6, color:"rgba(200,169,110,0.6)", textTransform:"uppercase", marginBottom:10 }}>Anna Benoir</div>
-          <div style={{ fontSize:36, color:gold, fontWeight:"normal", letterSpacing:2, marginBottom:8 }}>Lenormandia</div>
-          <div style={{ fontSize:12, color:"rgba(200,169,110,0.4)", fontStyle:"italic" }}>wo Karten Geheimnisse offenbaren — und du nicht allein damit bist</div>
-        </div>
+      <div style={{ flex:"1 1 50%", position:"relative", overflow:"hidden", minHeight:"100vh" }}>
+        <img src="https://static.wixstatic.com/media/3da789_1441028e13414bc39894dc502787a5e4~mv2.jpg"
+          alt="Lenormandia" style={{ width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top" }} />
       </div>
 
       {/* Rechts: Login-Formular */}
-      <div style={{ flex:"0 0 min(100%, 400px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 32px", background:"rgba(8,5,18,0.95)" }}>
+      <div style={{ flex:"0 0 min(100%, 400px)", display:"flex", alignItems:"center", justifyContent:"center", padding:"40px 32px", background:"#3a1060" }}>
         <div style={{ width:"100%", maxWidth:360 }}>
           <button onClick={() => { if (view === "forum-login-noetig") { setView("forum"); } else { const freie = ["liesmich","fragmich","forum"]; if (!freie.includes(view)) setView("liesmich"); } }}
             style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif" }}>
