@@ -342,7 +342,7 @@ function InlinePostEditBox({ initialTitle, initialBody, onSave, onCancel }) {
 
 // Gleiches Prinzip wie InlineEditBox/InlinePostEditBox — eigener lokaler State, damit
 // das Tippen in den Feldern unabhängig von Re-Renders der Hauptkomponente bleibt.
-function CategoryEditBox({ initialName, initialDescription, initialIcon, initialVisibility, initialGuestPost, onSave, onCancel, gold }) {
+function CategoryEditBox({ initialName, initialDescription, initialIcon, initialVisibility, initialGuestPost, onSave, onCancel, gold, lightMode }) {
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
   const [icon, setIcon] = useState(initialIcon);
@@ -382,7 +382,7 @@ function CategoryEditBox({ initialName, initialDescription, initialIcon, initial
 
 // Gleiches Prinzip wie die anderen Edit-Boxen — eigener lokaler State damit Fokus beim
 // Tippen stabil bleibt, unabhängig von Re-Renders der Hauptkomponente.
-function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirthdate, initialGender, saveStatus, onSave, onCancel, gold }) {
+function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirthdate, initialGender, saveStatus, onSave, onCancel, gold, lightMode }) {
   const [name, setName] = useState(initialName);
   const [bio, setBio] = useState(initialBio);
   const [signature, setSignature] = useState(initialSignature);
@@ -445,7 +445,7 @@ function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoa
   const [password, setPassword] = useState("");
   return (
     <>
-      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:lightMode?"linear-gradient(to bottom, #a060b8, #9040a0)":"linear-gradient(to bottom, #120820, #0a0612)", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.2)":"rgba(200,169,110,0.15)"}`, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:lightMode?"linear-gradient(to bottom, #7020a0, #9040a0)":"linear-gradient(to bottom, #120820, #0a0612)", borderBottom:"none", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
         <div style={{ color:lightMode?"#2a0850":"#7a6040", letterSpacing:1 }}>
           {isRealAdmin ? "👑 Admin" : "🧪 Test-Account"} · {displayName}
         </div>
@@ -580,7 +580,7 @@ export default function LenormandApp() {
   const [lightMode, setLightMode] = React.useState(() => localStorage.getItem("lenni_theme") !== "dark");
   const toggleTheme = () => setLightMode(m => { localStorage.setItem("lenni_theme", !m ? "light" : "dark"); return !m; });
   const appBg = lightMode
-    ? "linear-gradient(to bottom, #fdf5e0 0%, #e8f0a0 35%, #d8b8e8 70%, #a050b0 100%)"
+    ? "linear-gradient(to bottom, #9040a0 0%, #fdf5e0 15%, #e8f0a0 45%, #d8b8e8 70%, #a050b0 100%)"
     : "linear-gradient(160deg,#080512,#0f0a1a,#0a0810)";
   const appColor = lightMode ? "#2a0850" : "#f0e8d8";
   const [view, setView] = useState(() => sessionStorage.getItem("lenni_view") || "liesmich");
@@ -3865,6 +3865,7 @@ export default function LenormandApp() {
                     onSave={saveProfile}
                     onCancel={() => setProfileEditing(false)}
                     gold={gold}
+                    lightMode={lightMode}
                   />
                 )}
                 {!profileEditing && <ForumStatsBar />}
@@ -3926,6 +3927,7 @@ export default function LenormandApp() {
                   if (isAdmin && forumEditingCategoryId === cat.id) {
                     return (
                       <CategoryEditBox
+                        lightMode={lightMode}
                         key={cat.id}
                         initialName={cat.name}
                         initialDescription={cat.description || ""}
@@ -4198,6 +4200,7 @@ export default function LenormandApp() {
                     )}
                     {isAdmin && kurseShowNewCat && (
                       <CategoryEditBox
+                        lightMode={lightMode}
                         initialName="" initialDescription="" initialIcon="🎓"
                         initialVisibility="pro" initialGuestPost={false}
                         onSave={(fields) => { createForumCategory("kurse", fields); setKurseShowNewCat(false); }}
