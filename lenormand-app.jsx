@@ -445,7 +445,7 @@ function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoa
   const [password, setPassword] = useState("");
   return (
     <>
-      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:lightMode?"linear-gradient(to bottom, #8030a8 0%, #9848b0 60%, rgba(152,72,176,0) 100%)":"linear-gradient(to bottom, #120820, #0a0612)", borderBottom:"none", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:lightMode?"#c8a8e0":"linear-gradient(to bottom, #120820, #0a0612)", borderBottom:`1px solid ${lightMode?"rgba(150,100,200,0.3)":"rgba(200,169,110,0.15)"}`, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
         <div style={{ color:lightMode?"#2a0850":"#7a6040", letterSpacing:1 }}>
           {isRealAdmin ? "👑 Admin" : "🧪 Test-Account"} · {displayName}
         </div>
