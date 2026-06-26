@@ -3338,6 +3338,20 @@ export default function LenormandApp() {
         </div>
       </div>
 
+      {/* Banner unter Navigation */}
+      <div style={{ maxWidth:1100, margin:"0 auto", padding:"10px 24px 0" }}>
+        <a href="https://www.amazon.de/s?k=lenormand+karten+bedeutung+lernen+anna+benoir" target="_blank" rel="noopener noreferrer" style={{ display:"block", textDecoration:"none" }}>
+          <div style={{ width:"100%", height:90, borderRadius:8, overflow:"hidden", border:`1px solid ${lightMode?"rgba(100,50,140,0.2)":"rgba(200,169,110,0.15)"}`, background: lightMode?"linear-gradient(to right, #e8d8f8, #d0b8e8, #c8a8e0)":"linear-gradient(to right, #1a0a2a, #2a1040, #1a0a2a)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 24px", gap:16 }}>
+            <div style={{ fontSize:22 }}>📚🐍✨</div>
+            <div style={{ flex:1, textAlign:"center" }}>
+              <div style={{ fontSize:13, color:lightMode?"#3a1060":"#c8a96e", fontFamily:"Georgia,serif", letterSpacing:1, marginBottom:3 }}>Lenormand Karten Bedeutung Lernen</div>
+              <div style={{ fontSize:10, color:lightMode?"#6a3a8a":"#9a8060", letterSpacing:2, textTransform:"uppercase" }}>Ausmalen & Lernen · Jetzt bei Amazon</div>
+            </div>
+            <div style={{ fontSize:11, color:lightMode?"#3a1060":"#c8a96e", fontFamily:"Georgia,serif", whiteSpace:"nowrap" }}>→ Amazon</div>
+          </div>
+        </a>
+      </div>
+
       <div style={{ maxWidth:1100, margin:"0 auto", padding:"24px 24px 60px" }}>
 
         {/* ── KOMBINATIONEN ── */}
