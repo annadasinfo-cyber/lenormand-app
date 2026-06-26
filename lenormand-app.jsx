@@ -445,7 +445,7 @@ function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoa
   const [password, setPassword] = useState("");
   return (
     <>
-      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:lightMode?"#9040a0":"#0a0612", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, zIndex:2000, background:lightMode?"linear-gradient(to bottom, #a060b8, #9040a0)":"linear-gradient(to bottom, #120820, #0a0612)", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.2)":"rgba(200,169,110,0.15)"}`, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"6px 14px", fontSize:11, fontFamily:"Georgia,serif" }}>
         <div style={{ color:lightMode?"#2a0850":"#7a6040", letterSpacing:1 }}>
           {isRealAdmin ? "👑 Admin" : "🧪 Test-Account"} · {displayName}
         </div>
@@ -3377,7 +3377,7 @@ export default function LenormandApp() {
           {comboView === "2er" && (<>
             <div style={{ display:"flex", gap:12, justifyContent:"center", alignItems:"center", marginBottom:18, minHeight:80 }}>
               {[0,1].map(i => (
-                <div key={i} style={{ width:92, height:126, border:`1.5px solid ${selected[i]?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:selected[i]?"rgba(200,169,110,0.04)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
+                <div key={i} style={{ width:92, height:126, border:`1.5px solid ${selected[i]?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:selected[i]?"rgba(200,169,110,0.04)":lightMode?"rgba(100,50,140,0.06)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
                   {selected[i] ? (<>
                     <div style={{ fontSize:26 }}>{SYMBOLS[selected[i]]}</div>
                     <div style={{ fontSize:9, color:gold, textAlign:"center", padding:"3px 4px", lineHeight:1.3 }}>{selected[i]}. {CARDS[selected[i]].name}</div>
@@ -3444,7 +3444,7 @@ export default function LenormandApp() {
                 {Array.from({length:maxCards}).map((_,i) => {
                   const num = comboSelected[i];
                   return (
-                    <div key={i} style={{ width:80, height:112, border:`1.5px solid ${num?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:num?"rgba(200,169,110,0.04)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
+                    <div key={i} style={{ width:80, height:112, border:`1.5px solid ${num?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:num?"rgba(200,169,110,0.04)":lightMode?"rgba(100,50,140,0.06)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
                       {num ? (<>
                         <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
                         <div style={{ fontSize:8, color:gold, textAlign:"center", padding:"2px 3px", lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
@@ -4393,9 +4393,9 @@ export default function LenormandApp() {
                   {/* V.I.P. */}
                   <div className="shop-tier" style={{ background:"rgba(200,169,110,0.09)", border:`1.5px solid ${gold}`, borderRadius:12, padding:"20px 22px", boxShadow:"0 0 20px rgba(200,169,110,0.12)" }}>
                     <div style={{ fontSize:14, color:gold, marginBottom:2 }}>✨ V.I.P.</div>
-                    <div style={{ fontSize:11, color:"#9a7a40", marginBottom:14, fontStyle:"italic" }}>Einmalig 85 € — und Lenormandia gehört für immer auch dir</div>
+                    <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a7a40", marginBottom:14, fontStyle:"italic" }}>Einmalig 85 € — und Lenormandia gehört für immer auch dir</div>
                     {["Alles aus Mitglied, und der ganze Schatz dazu", "Alle Kombinationen & alle 36 Karten im Detail", "Situations- & Personen-Matrix vollständig", "Zauberzettel & Writing-Werkzeug", "Kurse-Bereich mit allen Lektionen", "Vorrangige Beantwortung deiner Fragen durch Anna Benoir oder geprüfte Berater"].map((f,i) => (
-                      <div key={i} style={{ fontSize:12, color:"#e0d0a8", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
+                      <div key={i} style={{ fontSize:12, color:lightMode?"#2a0850":"#e0d0a8", marginBottom:6, display:"flex", gap:6 }}><span>·</span><span>{f}</span></div>
                     ))}
                     <a href="https://www.annabenoir.de/_paylink/AZ7k5c0S" target="_blank" rel="noopener noreferrer"
                       style={{ display:"block", textAlign:"center", marginTop:"auto", paddingTop:16, textDecoration:"none" }}>
@@ -4921,7 +4921,7 @@ export default function LenormandApp() {
                     setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
                     setWritingProjectId(null);
                     setWritingView("writing");
-                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:lightMode?"#2a0850":gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     🎲 Würfeln →
                   </button>
                   <button onClick={() => {
@@ -4931,7 +4931,7 @@ export default function LenormandApp() {
                     setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
                     setWritingProjectId(null);
                     setWritingView("writing");
-                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:lightMode?"#2a0850":gold, padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     👤 Personen →
                   </button>
                   <button onClick={() => {
@@ -4944,7 +4944,7 @@ export default function LenormandApp() {
                     setWritingNotes(selectedTemplate ? {...(selectedTemplate.notes || {})} : {});
                     setWritingProjectId(null);
                     setWritingView("picking");
-                  }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.4)`, color:"#c8a96e", padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  }} style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.4)`, color:lightMode?"#2a0850":"#c8a96e", padding:"10px 20px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                     🃏 Karten wählen →
                   </button>
                 </div>
@@ -5614,15 +5614,29 @@ export default function LenormandApp() {
         {/* ── MANIFEST ── */}
         {view === "tagebuch" && dailyMode === "manifest" && (
           <div style={{ paddingBottom:30 }}>
+            <div style={{ textAlign:"center", padding:"60px 20px", color:lightMode?"#2a0850":"#7a6040" }}>
+              <div style={{ fontSize:48, marginBottom:16 }}>🕯️</div>
+              <div style={{ fontSize:18, color:gold, marginBottom:12, fontFamily:"Georgia,serif" }}>Zauberzettel</div>
+              <div style={{ fontSize:13, lineHeight:1.8, maxWidth:380, margin:"0 auto", fontStyle:"italic", color:lightMode?"#5a3a6a":"#9a8060" }}>
+                Schreibe deine Wünsche auf — und schicke sie ins Universum.<br/>
+                <span style={{ fontSize:11, color:lightMode?"#8a6a9a":"#6a5040" }}>✨ Diese Funktion entsteht gerade — Flammen inklusive.</span>
+              </div>
+            </div>
+          </div>
+        )}}
+
+        {/* ── QUEST (Platzhalter) ── */}
+        {view === "tagebuch" && dailyMode === "quest" && (
+          <div style={{ paddingBottom:30 }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:10 }}>✨ Zauberzettel</div>
+              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:10 }}>🎯 Quest</div>
               <div style={{ fontSize:10, marginBottom:6, color: manifestSaveStatus==="saved" ? "#5a9a5a" : manifestSaveStatus==="saving" ? "#9a8060" : manifestSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:14 }}>
                 {manifestSaveStatus==="saving" && "Speichert…"}
                 {manifestSaveStatus==="saved" && "✓ Gespeichert"}
                 {manifestSaveStatus==="error" && ("⚠ Nicht gespeichert" + (manifestSaveError ? ": " + manifestSaveError : " — bitte Internetverbindung prüfen"))}
               </div>
               <div style={{ fontSize:14, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
-                Schreibe auf, was du dir wünschst und was du erschaffen willst. Drücke Enter für einen neuen Punkt — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
+                Schreibe auf, was du dir wünschst und was du erschaffen willst. Trenne deine Wünsche mit einem Komma — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
               </div>
             </div>
 
@@ -5766,22 +5780,6 @@ export default function LenormandApp() {
                 style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                 🖨️ Zauberzettel drucken
               </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── QUEST (Platzhalter) ── */}
-        {view === "tagebuch" && dailyMode === "quest" && (
-          <div style={{ paddingBottom:30 }}>
-            <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:10 }}>🎯 Quest</div>
-            </div>
-            <div style={{ textAlign:"center", padding:"40px 20px", color:lightMode?"#2a0850":"#7a6040" }}>
-              <div style={{ fontSize:32, marginBottom:14 }}>🎯</div>
-              <div style={{ fontSize:14, color:gold, marginBottom:10 }}>Tägliche Aufgaben kommen bald hierher</div>
-              <div style={{ fontSize:12, lineHeight:1.7, maxWidth:340, margin:"0 auto" }}>
-                Kleine Quests für jeden Tag — Lenormand Schritt für Schritt im eigenen Tempo erleben.
-              </div>
             </div>
           </div>
         )}
