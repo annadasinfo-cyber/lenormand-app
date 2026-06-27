@@ -3454,23 +3454,20 @@ export default function LenormandApp() {
           </>)}
 
           {/* ── 3er / 4er Picker ── */}
-          {(comboView === "3er" || comboView === "4er") && (
+          {(comboView === "3er" || comboView === "4er") && (() => {
             const maxCards = comboView === "3er" ? 3 : 4;
             const needed = maxCards - comboSelected.length;
-            // Find matching cluster
             const cluster = CLUSTERS[comboView].find(c =>
               comboSelected.length === maxCards &&
               c.karten.every(k => comboSelected.includes(k)) &&
               comboSelected.every(k => c.karten.includes(k))
             );
-            // Fallback: 2er combo of first two selected cards
             const fallback2er = comboSelected.length >= 2 ? (() => {
               const [a,b] = comboSelected;
               const lo = Math.min(a,b), hi = Math.max(a,b);
               return COMBOS[`${lo}-${hi}`] || null;
             })() : null;
-
-            (<>
+            return (<>
               {/* Kartenslots */}
               <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", marginBottom:18, flexWrap:"wrap" }}>
                 {Array.from({length:maxCards}).map((_,i) => {
@@ -3543,7 +3540,7 @@ export default function LenormandApp() {
                 </div>
               </>)}
             </>);
-          )}
+          })()}
         </>)}
 
         {/* ── MATRIX ── */}
