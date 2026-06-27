@@ -3840,7 +3840,7 @@ export default function LenormandApp() {
           const rank = forumRankForPostCount(p?.postCount || 0);
           const initial = (viewedProfileName || "?").trim().charAt(0).toUpperCase() || "?";
           const age = ageFromBirthdate(p?.birthdate);
-          (
+          return (
             <div style={{ maxWidth:420, margin:"0 auto", padding:"20px 0", textAlign:"center" }}>
               <button onClick={() => { setViewedProfileId(null); setViewedProfileName(""); }}
                 style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück zum Forum</button>
@@ -3854,7 +3854,8 @@ export default function LenormandApp() {
               {p?.bio && <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.6, marginTop:14, whiteSpace:"pre-wrap", textAlign:"left", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"14px 16px" }}>{p.bio}</div>}
               <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag oder Antwort" : "Beiträge &amp; Antworten"} im Forum</div>
             </div>
-        )}
+          );
+        })()}
 
         {view === "forum" && !viewedProfileId && (
           <div style={{ maxWidth:700, margin:"0 auto" }}>
@@ -4125,7 +4126,7 @@ export default function LenormandApp() {
                           return sig ? (
                             <div style={{ marginTop:10, paddingTop:8, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{sig}</div>
                           ) : null;
-                        )}
+                        })()}
                         <button onClick={() => toggleForumPostLike(forumActivePost.id)}
                           style={{ marginTop:10, background:"transparent", border:"none", color:forumMyPostLike?gold:"#9a8060", cursor:"pointer", fontSize:12, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:5 }}>
                           {forumMyPostLike ? "★" : "☆"} {forumPostLikeCount}
@@ -5325,7 +5326,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            )}
+                            })()}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5381,7 +5382,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            )}
+                            })()}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5462,7 +5463,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            )}
+                            })()}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5654,7 +5655,7 @@ export default function LenormandApp() {
               </div>
             </div>
           </div>
-        )}}
+        )}
 
         {/* ── QUEST (Platzhalter) ── */}
         {view === "tagebuch" && dailyMode === "quest" && (
@@ -5879,7 +5880,7 @@ export default function LenormandApp() {
                                   Keine bekannten 3er-Cluster für diese Karte.
                                 </div>
                               );
-                              (
+                              return (
                                 <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                                   {matching.map((c, i) => (
                                     <div key={i} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:10 }}>
@@ -5895,7 +5896,8 @@ export default function LenormandApp() {
                                     </div>
                                   ))}
                                 </div>
-                            )}
+                              );
+                            })()}
 
                             {/* 4er */}
                             {key === "4er" && (() => {
@@ -5905,7 +5907,7 @@ export default function LenormandApp() {
                                   Keine bekannten 4er-Cluster für diese Karte.
                                 </div>
                               );
-                              (
+                              return (
                                 <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                                   {matching.map((c, i) => (
                                     <div key={i} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:10 }}>
@@ -5921,7 +5923,8 @@ export default function LenormandApp() {
                                     </div>
                                   ))}
                                 </div>
-                            )}
+                              );
+                            })()}
 
                           </div>
                         )}
