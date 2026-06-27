@@ -452,7 +452,6 @@ function ComboMultiPicker({ comboView, comboSelected, setComboSelected, gold, li
     return COMBOS[`${lo}-${hi}`] || null;
   })() : null;
 
-  return (<>
     <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", marginBottom:18, flexWrap:"wrap" }}>
       {Array.from({length:maxCards}).map((_,i) => {
         const num = comboSelected[i];
@@ -3177,7 +3176,7 @@ export default function LenormandApp() {
                   return sig ? (
                     <div style={{ marginBottom:6, paddingTop:6, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.08)"}`, fontSize:10, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{sig}</div>
                   ) : null;
-                })()}
+                })}
                 <div style={{ display:"flex", gap:14, alignItems:"center" }}>
                   <button onClick={() => toggleForumReplyLike(reply.id)}
                     style={{ background:"transparent", border:"none", color:forumMyLikes[reply.id]?gold:"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:4 }}>
@@ -3824,7 +3823,7 @@ export default function LenormandApp() {
         </>)}
 
         {/* ── FORUM / COMMUNITY ── */}
-        {view === "forum" && viewedProfileId && (() => {
+        {view === "forum" && viewedProfileId && (
           const p = forumProfiles[viewedProfileId];
           const rank = forumRankForPostCount(p?.postCount || 0);
           const initial = (viewedProfileName || "?").trim().charAt(0).toUpperCase() || "?";
@@ -3844,7 +3843,7 @@ export default function LenormandApp() {
               <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag oder Antwort" : "Beiträge &amp; Antworten"} im Forum</div>
             </div>
           );
-        })()}
+        })}
 
         {view === "forum" && !viewedProfileId && (
           <div style={{ maxWidth:700, margin:"0 auto" }}>
@@ -4115,7 +4114,7 @@ export default function LenormandApp() {
                           return sig ? (
                             <div style={{ marginTop:10, paddingTop:8, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{sig}</div>
                           ) : null;
-                        })()}
+                        })}
                         <button onClick={() => toggleForumPostLike(forumActivePost.id)}
                           style={{ marginTop:10, background:"transparent", border:"none", color:forumMyPostLike?gold:"#9a8060", cursor:"pointer", fontSize:12, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:5 }}>
                           {forumMyPostLike ? "★" : "☆"} {forumPostLikeCount}
@@ -4171,7 +4170,7 @@ export default function LenormandApp() {
                       </div>
                     )}
                   </>);
-                })()}
+                })}
 
                 <div style={{ marginTop:14 }}>
                   {forumReplyToId && (
@@ -5315,7 +5314,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            })()}
+                            })}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5371,7 +5370,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            })()}
+                            })}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5452,7 +5451,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            })()}
+                            })}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5862,7 +5861,7 @@ export default function LenormandApp() {
                             )}
 
                             {/* 3er */}
-                            {key === "3er" && (() => {
+                            {key === "3er" && (
                               const matching = CLUSTERS["3er"].filter(c => c.karten.includes(cardDetail));
                               if (matching.length === 0) return (
                                 <div style={{ fontSize:12, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>
@@ -5886,10 +5885,10 @@ export default function LenormandApp() {
                                   ))}
                                 </div>
                               );
-                            })()}
+                            })}
 
                             {/* 4er */}
-                            {key === "4er" && (() => {
+                            {key === "4er" && (
                               const matching = CLUSTERS["4er"].filter(c => c.karten.includes(cardDetail));
                               if (matching.length === 0) return (
                                 <div style={{ fontSize:12, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>
@@ -5913,7 +5912,7 @@ export default function LenormandApp() {
                                   ))}
                                 </div>
                               );
-                            })()}
+                            })}
 
                           </div>
                         )}
