@@ -3136,15 +3136,15 @@ export default function LenormandApp() {
   };
   if (session && !isPro && proGatedView()) {
     return (
-      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:lightMode?"#2a0850":"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
-        <div style={{ maxWidth:440, textAlign:"center", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"40px 32px" }}>
+      <div style={{ minHeight:"100vh", background:appBg, fontFamily:"Georgia,serif", color:appColor, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+        <div style={{ maxWidth:440, textAlign:"center", background:lightMode?"rgba(100,50,140,0.06)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"40px 32px" }}>
           <div style={{ fontSize:32, marginBottom:14 }}>🔒</div>
-          <div style={{ fontSize:18, color:gold, marginBottom:12 }}>Dieser Bereich ist PRO</div>
+          <div style={{ fontSize:18, color:lightMode?"#2a0850":gold, marginBottom:12 }}>Dieser Bereich ist PRO</div>
           <div style={{ fontSize:13, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.7, marginBottom:24 }}>
             Dieser Inhalt gehört zu den Kernkapiteln der Lenormand Matrix und ist daher Teil des PRO-Zugangs, genau wie im Buch.
           </div>
           <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
-            style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 26px", borderRadius:6, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
+            style={{ display:"inline-block", background:lightMode?"rgba(100,50,140,0.12)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#6a2a8a":gold}`, color:lightMode?"#2a0850":gold, padding:"10px 26px", borderRadius:6, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
             Jetzt freischalten →
           </a>
           <div style={{ marginTop:18 }}>
