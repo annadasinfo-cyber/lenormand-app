@@ -467,7 +467,7 @@ function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoa
       <div style={{ height:30 }} />
 
       {open && (
-        <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"flex-start", justifyContent:"center", zIndex:2100, padding:"60px 20px 20px" }}
+        <div style={{ position:"fixed", inset:0, background:lightMode?"rgba(80,30,120,0.4)":"rgba(8,5,18,0.85)", display:"flex", alignItems:"flex-start", justifyContent:"center", zIndex:2100, padding:"60px 20px 20px" }}
           onClick={onClose}>
           <div onClick={e => e.stopPropagation()}
             style={{ background:lightMode?"#f5eef8":"#0f0a1a", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:12, padding:"22px 20px", maxWidth:380, width:"100%", maxHeight:"80vh", overflowY:"auto" }}>
@@ -886,16 +886,21 @@ export default function LenormandApp() {
   const getDailyCard = (klientSeed, dateKey) => {
     const d = dateKey ? new Date(dateKey + "T12:00:00") : new Date();
     const dateSeed = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
-    // User-spezifischer Seed: User-ID statt Device-ID
     let userSeed;
     if (klientSeed !== undefined) {
       userSeed = klientSeed;
     } else {
-      const uid = getUserId();
-      if (uid) {
-        // Hash der User-ID als Zahl
-        userSeed = uid.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 137;
-      } else {
+      // Direkt aus session lesen
+      try {
+        const s = JSON.parse(localStorage.getItem("sb_session")||"null");
+        if (s && s.access_token) {
+          const payload = JSON.parse(atob(s.access_token.split('.')[1]));
+          const uid = payload.sub || "";
+          userSeed = uid.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 137;
+        } else {
+          userSeed = getDeviceId();
+        }
+      } catch {
         userSeed = getDeviceId();
       }
     }
@@ -4752,10 +4757,10 @@ export default function LenormandApp() {
                 </div>
 
                 {shareTageskarteOpen && (
-                  <div style={{ position:"fixed", inset:0, background:"rgba(8,5,18,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:20 }}
+                  <div style={{ position:"fixed", inset:0, background:lightMode?"rgba(80,30,120,0.4)":"rgba(8,5,18,0.85)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1500, padding:20 }}
                     onClick={() => { if (shareTageskarteStatus !== "sharing") { setShareTageskarteOpen(false); setShareTageskarteStatus(""); } }}>
                     <div onClick={e => e.stopPropagation()}
-                      style={{ background:lightMode?"#f5eef8":"#0f0a1a", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:12, padding:"24px 22px", maxWidth:340, width:"100%", textAlign:"center" }}>
+                      style={{ background:lightMode?"#f0e8f8":"#0f0a1a", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:12, padding:"24px 22px", maxWidth:340, width:"100%", textAlign:"center" }}>
                       {shareTageskarteStatus === "done" ? (
                         <div style={{ color:gold, fontSize:14 }}>✨ Geteilt! Du findest deinen Beitrag unter „Tageskarten" im Forum.</div>
                       ) : shareTageskarteStatus === "error" ? (
