@@ -3835,7 +3835,7 @@ export default function LenormandApp() {
         </>)}
 
         {/* ── FORUM / COMMUNITY ── */}
-        {view === "forum" && viewedProfileId && (
+        {view === "forum" && viewedProfileId && (() => {
           const p = forumProfiles[viewedProfileId];
           const rank = forumRankForPostCount(p?.postCount || 0);
           const initial = (viewedProfileName || "?").trim().charAt(0).toUpperCase() || "?";
@@ -4181,7 +4181,7 @@ export default function LenormandApp() {
                       </div>
                     )}
                   </>);
-                )}
+                })()}
 
                 <div style={{ marginTop:14 }}>
                   {forumReplyToId && (
@@ -5872,7 +5872,7 @@ export default function LenormandApp() {
                             )}
 
                             {/* 3er */}
-                            {key === "3er" && (
+                            {key === "3er" && (() => {
                               const matching = CLUSTERS["3er"].filter(c => c.karten.includes(cardDetail));
                               if (matching.length === 0) return (
                                 <div style={{ fontSize:12, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>
@@ -5898,7 +5898,7 @@ export default function LenormandApp() {
                             )}
 
                             {/* 4er */}
-                            {key === "4er" && (
+                            {key === "4er" && (() => {
                               const matching = CLUSTERS["4er"].filter(c => c.karten.includes(cardDetail));
                               if (matching.length === 0) return (
                                 <div style={{ fontSize:12, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>
