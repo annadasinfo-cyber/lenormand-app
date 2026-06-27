@@ -3192,14 +3192,6 @@ export default function LenormandApp() {
               0%,100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
               50% { transform: translate(-50%,-50%) scale(1.08); opacity:0.9; }
             }
-            .light-theme, .light-theme div, .light-theme span, .light-theme p,
-            .light-theme h1, .light-theme h2, .light-theme h3, .light-theme button,
-            .light-theme input, .light-theme textarea, .light-theme a, .light-theme label {
-              color: #2a0850 !important;
-            }
-            .light-theme input, .light-theme textarea {
-              background: rgba(100,50,140,0.06) !important;
-            }
           `}</style>
           <div style={{
             position:"fixed",
