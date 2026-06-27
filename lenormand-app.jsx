@@ -438,6 +438,88 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirt
 // Account-Switcher: zwischen gemerkten Test-Accounts wechseln, ohne sich jedes Mal
 // neu einzuloggen. Die Liste liegt server-seitig, erscheint also auf jedem Gerät
 // gleich, auf dem man sich als Admin einloggt.
+function ComboMultiPicker({ comboView, comboSelected, setComboSelected, gold, lightMode, search, setSearch, filteredCards, SYMBOLS, CARDS, COMBOS, CLUSTERS }) {
+  const maxCards = comboView === "3er" ? 3 : 4;
+  const needed = maxCards - comboSelected.length;
+  const cluster = CLUSTERS[comboView].find(c =>
+    comboSelected.length === maxCards &&
+    c.karten.every(k => comboSelected.includes(k)) &&
+    comboSelected.every(k => c.karten.includes(k))
+  );
+  const fallback2er = comboSelected.length >= 2 ? (() => {
+    const [a,b] = comboSelected;
+    const lo = Math.min(a,b), hi = Math.max(a,b);
+    return COMBOS[`${lo}-${hi}`] || null;
+  })() : null;
+
+  return (<>
+    <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", marginBottom:18, flexWrap:"wrap" }}>
+      {Array.from({length:maxCards}).map((_,i) => {
+        const num = comboSelected[i];
+        return (
+          <div key={i} style={{ width:80, height:112, border:`1.5px solid ${num?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:num?"rgba(200,169,110,0.04)":lightMode?"rgba(100,50,140,0.06)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
+            {num ? (<>
+              <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
+              <div style={{ fontSize:8, color:gold, textAlign:"center", padding:"2px 3px", lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
+              <button onClick={() => setComboSelected(prev => prev.filter(k => k !== num))}
+                style={{ position:"absolute", top:2, right:2, background:"rgba(200,169,110,0.08)", border:"none", color:gold, cursor:"pointer", borderRadius:"50%", width:14, height:14, fontSize:8, lineHeight:"14px", padding:0 }}>✕</button>
+            </>) : <div style={{ color:"#3a2a0a", fontSize:8 }}>Karte {i+1}</div>}
+          </div>
+        );
+      })}
+    </div>
+    {comboSelected.length === maxCards && (
+      <div style={{ marginBottom:16 }}>
+        {cluster ? (
+          <div style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:10, padding:"16px 20px" }}>
+            <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:8 }}>{comboView} · Erweiterte Bedeutung</div>
+            <div style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:4, padding:"2px 8px", fontSize:9, color:gold, marginBottom:10, letterSpacing:0.5 }}>{cluster.label}</div>
+            <div style={{ fontSize:16, lineHeight:1.9, color:lightMode?"#2a0850":"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:14 }}>{cluster.text}</div>
+          </div>
+        ) : (
+          <div style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:10, padding:"14px 18px" }}>
+            <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:12, lineHeight:1.6 }}>
+              ✦ Diese Konstellation hat keine eigene Bedeutungsebene — doch die Karten sprechen trotzdem. Die ersten zwei Karten erzählen:
+            </div>
+            {fallback2er ? (
+              <div style={{ fontSize:15, lineHeight:1.9, color:lightMode?"#2a0850":"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>{fallback2er}</div>
+            ) : (
+              <div style={{ fontSize:13, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Keine 2er-Kombination gefunden.</div>
+            )}
+          </div>
+        )}
+        <button onClick={() => setComboSelected([])} style={{ marginTop:10, background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
+      </div>
+    )}
+    {comboSelected.length < maxCards && comboSelected.length > 0 && (
+      <div style={{ textAlign:"center", marginBottom:10, color:lightMode?"#2a0850":"#5a4a34", fontSize:11, fontStyle:"italic" }}>
+        Noch {needed} Karte{needed>1?"n":""} wählen…
+      </div>
+    )}
+    {comboSelected.length < maxCards && (<>
+      <div style={{ marginBottom:12 }}>
+        <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
+          style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
+        {filteredCards().map(num => {
+          const isSel = comboSelected.includes(num);
+          return (
+            <button key={num} onClick={() => {
+              if (isSel) setComboSelected(prev => prev.filter(k => k !== num));
+              else if (comboSelected.length < maxCards) setComboSelected(prev => [...prev, num]);
+            }}
+              style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
+              <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
+              <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
+            </button>
+          );
+        })}
+      </div>
+    </>)}
+  </>);
+}
+
 function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoading, onOpen, open, onClose,
                      onSwitch, switching, onForget, addOpen, onAddOpen, onAddCancel,
                      onAddSubmit, addMsg, isRealAdmin, onBackToAdmin, switchingBack }) {
@@ -3432,96 +3514,22 @@ export default function LenormandApp() {
           </>)}
 
           {/* ── 3er / 4er Picker ── */}
-          {(comboView === "3er" || comboView === "4er") && (() => {
-            const maxCards = comboView === "3er" ? 3 : 4;
-            const needed = maxCards - comboSelected.length;
-            // Find matching cluster
-            const cluster = CLUSTERS[comboView].find(c =>
-              comboSelected.length === maxCards &&
-              c.karten.every(k => comboSelected.includes(k)) &&
-              comboSelected.every(k => c.karten.includes(k))
-            );
-            // Fallback: 2er combo of first two selected cards
-            const fallback2er = comboSelected.length >= 2 ? (() => {
-              const [a,b] = comboSelected;
-              const lo = Math.min(a,b), hi = Math.max(a,b);
-              return COMBOS[`${lo}-${hi}`] || null;
-            })() : null;
-
-            return (<>
-              {/* Kartenslots */}
-              <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", marginBottom:18, flexWrap:"wrap" }}>
-                {Array.from({length:maxCards}).map((_,i) => {
-                  const num = comboSelected[i];
-                  return (
-                    <div key={i} style={{ width:80, height:112, border:`1.5px solid ${num?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:num?"rgba(200,169,110,0.04)":lightMode?"rgba(100,50,140,0.06)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
-                      {num ? (<>
-                        <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
-                        <div style={{ fontSize:8, color:gold, textAlign:"center", padding:"2px 3px", lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
-                        <button onClick={() => setComboSelected(prev => prev.filter(k => k !== num))}
-                          style={{ position:"absolute", top:2, right:2, background:"rgba(200,169,110,0.08)", border:"none", color:gold, cursor:"pointer", borderRadius:"50%", width:14, height:14, fontSize:8, lineHeight:"14px", padding:0 }}>✕</button>
-                      </>) : <div style={{ color:"#3a2a0a", fontSize:8 }}>Karte {i+1}</div>}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Ergebnis wenn alle Karten gewählt */}
-              {comboSelected.length === maxCards && (
-                <div style={{ marginBottom:16 }}>
-                  {cluster ? (
-                    <div style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:10, padding:"16px 20px" }}>
-                      <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:8 }}>{comboView} · Erweiterte Bedeutung</div>
-                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:4, padding:"2px 8px", fontSize:9, color:gold, marginBottom:10, letterSpacing:0.5 }}>{cluster.label}</div>
-                      <div style={{ fontSize:16, lineHeight:1.9, color:lightMode?"#2a0850":"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:14 }}>{cluster.text}</div>
-                    </div>
-                  ) : (
-                    <div style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:10, padding:"14px 18px" }}>
-                      <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:12, lineHeight:1.6 }}>
-                        ✦ Diese Konstellation hat keine eigene Bedeutungsebene — doch die Karten sprechen trotzdem. Die ersten zwei Karten erzählen:
-                      </div>
-                      {fallback2er ? (
-                        <div style={{ fontSize:15, lineHeight:1.9, color:lightMode?"#2a0850":"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>{fallback2er}</div>
-                      ) : (
-                        <div style={{ fontSize:13, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Keine 2er-Kombination gefunden.</div>
-                      )}
-                    </div>
-                  )}
-                  <button onClick={() => setComboSelected([])} style={{ marginTop:10, background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
-                </div>
-              )}
-
-              {/* Hinweis wie viele noch fehlen */}
-              {comboSelected.length < maxCards && comboSelected.length > 0 && (
-                <div style={{ textAlign:"center", marginBottom:10, color:lightMode?"#2a0850":"#5a4a34", fontSize:11, fontStyle:"italic" }}>
-                  Noch {needed} Karte{needed>1?"n":""} wählen…
-                </div>
-              )}
-
-              {/* Kartengitter */}
-              {comboSelected.length < maxCards && (<>
-                <div style={{ marginBottom:12 }}>
-                  <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-                    style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
-                </div>
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
-                  {filteredCards().map(num => {
-                    const isSel = comboSelected.includes(num);
-                    return (
-                      <button key={num} onClick={() => {
-                        if (isSel) setComboSelected(prev => prev.filter(k => k !== num));
-                        else if (comboSelected.length < maxCards) setComboSelected(prev => [...prev, num]);
-                      }}
-                        style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
-                        <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                        <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>)}
-            </>);
-          })()}
+          {(comboView === "3er" || comboView === "4er") && (
+            <ComboMultiPicker
+              comboView={comboView}
+              comboSelected={comboSelected}
+              setComboSelected={setComboSelected}
+              gold={gold}
+              lightMode={lightMode}
+              search={search}
+              setSearch={setSearch}
+              filteredCards={filteredCards}
+              SYMBOLS={SYMBOLS}
+              CARDS={CARDS}
+              COMBOS={COMBOS}
+              CLUSTERS={CLUSTERS}
+            />
+          )}
         </>)}
 
         {/* ── MATRIX ── */}
