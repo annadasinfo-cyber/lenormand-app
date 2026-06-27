@@ -2356,7 +2356,7 @@ export default function LenormandApp() {
   const todayKey = getTodayKey();
   // Navigation: welcher Tag wird gerade angezeigt? Standard: heute.
   const [selectedDateKey, setSelectedDateKey] = React.useState(todayKey);
-  const selectedCard = getDailyCard(getKlientSeed(), selectedDateKey);
+  const selectedCard = getDailyCard(getKlientSeed() ?? userSeed, selectedDateKey);
   const selectedEntry = tagebuchData[selectedDateKey] || {gedanken:"", reflexionen:"", resumee:""};
   const isToday = selectedDateKey === todayKey;
 
