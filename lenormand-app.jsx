@@ -886,25 +886,8 @@ export default function LenormandApp() {
   const getDailyCard = (klientSeed, dateKey) => {
     const d = dateKey ? new Date(dateKey + "T12:00:00") : new Date();
     const dateSeed = d.getFullYear()*10000 + (d.getMonth()+1)*100 + d.getDate();
-    let userSeed;
-    if (klientSeed !== undefined) {
-      userSeed = klientSeed;
-    } else {
-      // Direkt aus session lesen
-      try {
-        const s = JSON.parse(localStorage.getItem("sb_session")||"null");
-        if (s && s.access_token) {
-          const payload = JSON.parse(atob(s.access_token.split('.')[1]));
-          const uid = payload.sub || "";
-          userSeed = uid.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 137;
-        } else {
-          userSeed = getDeviceId();
-        }
-      } catch {
-        userSeed = getDeviceId();
-      }
-    }
-    const seed = dateSeed + userSeed;
+    const baseSeed = klientSeed !== undefined ? klientSeed : (userSeed || getDeviceId());
+    const seed = dateSeed + baseSeed;
     const keys = Object.keys(CARDS);
     const c1 = parseInt(keys[seed % keys.length]);
     const c2 = parseInt(keys[(seed * 7 + 13) % keys.length]);
@@ -992,7 +975,19 @@ export default function LenormandApp() {
   }, [session]);
 
   // ===== FORUM =====
-  const [userRole, setUserRole] = React.useState(null); // null solange nicht geladen / nicht eingeloggt
+  const [userRole, setUserRole] = React.useState(null);
+  const [userSeed, setUserSeed] = React.useState(() => {
+    // Sofort aus localStorage lesen falls Session schon da
+    try {
+      const s = JSON.parse(localStorage.getItem("sb_session")||"null");
+      if (s && s.access_token) {
+        const payload = JSON.parse(atob(s.access_token.split('.')[1]));
+        const uid = payload.sub || "";
+        return uid.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 137;
+      }
+    } catch {}
+    return null;
+  });
   const [userDisplayName, setUserDisplayName] = React.useState("");
   const [userBio, setUserBio] = React.useState("");
   const [userSignature, setUserSignature] = React.useState("");
@@ -1075,7 +1070,9 @@ export default function LenormandApp() {
   React.useEffect(() => {
     const loadRole = async () => {
       const uid = getUserId();
-      if (!uid) { setUserRole(null); setUserDisplayName(""); setUserBio(""); setUserSignature(""); setUserBirthdate(""); setUserGender(""); setProTrialDaysLeft(null); setTagebuchData({}); return; }
+      if (!uid) { setUserRole(null); setUserSeed(null); setUserDisplayName(""); setUserBio(""); setUserSignature(""); setUserBirthdate(""); setUserGender(""); setProTrialDaysLeft(null); setTagebuchData({}); return; }
+      // User-spezifischer Seed für Tageskarten
+      setUserSeed(uid.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 137);
       try {
         const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${uid}&select=role,display_name,bio,signature,birthdate,gender,pro_trial_until`, {headers: dbHeaders()});
         const data = await r.json();
