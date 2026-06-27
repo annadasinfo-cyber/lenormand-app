@@ -3109,7 +3109,7 @@ export default function LenormandApp() {
                   return sig ? (
                     <div style={{ marginBottom:6, paddingTop:6, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.08)"}`, fontSize:10, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{sig}</div>
                   ) : null;
-                )}
+                })()}
                 <div style={{ display:"flex", gap:14, alignItems:"center" }}>
                   <button onClick={() => toggleForumReplyLike(reply.id)}
                     style={{ background:"transparent", border:"none", color:forumMyLikes[reply.id]?gold:"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:4 }}>
