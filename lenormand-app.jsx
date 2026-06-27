@@ -438,87 +438,6 @@ function ProfileEditBox({ initialName, initialBio, initialSignature, initialBirt
 // Account-Switcher: zwischen gemerkten Test-Accounts wechseln, ohne sich jedes Mal
 // neu einzuloggen. Die Liste liegt server-seitig, erscheint also auf jedem Gerät
 // gleich, auf dem man sich als Admin einloggt.
-function ComboMultiPicker({ comboView, comboSelected, setComboSelected, gold, lightMode, search, setSearch, filteredCards, SYMBOLS, CARDS, COMBOS, CLUSTERS }) {
-  const maxCards = comboView === "3er" ? 3 : 4;
-  const needed = maxCards - comboSelected.length;
-  const cluster = CLUSTERS[comboView].find(c =>
-    comboSelected.length === maxCards &&
-    c.karten.every(k => comboSelected.includes(k)) &&
-    comboSelected.every(k => c.karten.includes(k))
-  );
-  const fallback2er = comboSelected.length >= 2 ? (() => {
-    const [a,b] = comboSelected;
-    const lo = Math.min(a,b), hi = Math.max(a,b);
-    return COMBOS[`${lo}-${hi}`] || null;
-  })() : null;
-
-    <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", marginBottom:18, flexWrap:"wrap" }}>
-      {Array.from({length:maxCards}).map((_,i) => {
-        const num = comboSelected[i];
-        return (
-          <div key={i} style={{ width:80, height:112, border:`1.5px solid ${num?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:num?"rgba(200,169,110,0.04)":lightMode?"rgba(100,50,140,0.06)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
-            {num ? (<>
-              <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
-              <div style={{ fontSize:8, color:gold, textAlign:"center", padding:"2px 3px", lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
-              <button onClick={() => setComboSelected(prev => prev.filter(k => k !== num))}
-                style={{ position:"absolute", top:2, right:2, background:"rgba(200,169,110,0.08)", border:"none", color:gold, cursor:"pointer", borderRadius:"50%", width:14, height:14, fontSize:8, lineHeight:"14px", padding:0 }}>✕</button>
-            </>) : <div style={{ color:"#3a2a0a", fontSize:8 }}>Karte {i+1}</div>}
-          </div>
-        );
-      })}
-    </div>
-    {comboSelected.length === maxCards && (
-      <div style={{ marginBottom:16 }}>
-        {cluster ? (
-          <div style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:10, padding:"16px 20px" }}>
-            <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:8 }}>{comboView} · Erweiterte Bedeutung</div>
-            <div style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:4, padding:"2px 8px", fontSize:9, color:gold, marginBottom:10, letterSpacing:0.5 }}>{cluster.label}</div>
-            <div style={{ fontSize:16, lineHeight:1.9, color:lightMode?"#2a0850":"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:14 }}>{cluster.text}</div>
-          </div>
-        ) : (
-          <div style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:10, padding:"14px 18px" }}>
-            <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:12, lineHeight:1.6 }}>
-              ✦ Diese Konstellation hat keine eigene Bedeutungsebene — doch die Karten sprechen trotzdem. Die ersten zwei Karten erzählen:
-            </div>
-            {fallback2er ? (
-              <div style={{ fontSize:15, lineHeight:1.9, color:lightMode?"#2a0850":"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>{fallback2er}</div>
-            ) : (
-              <div style={{ fontSize:13, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Keine 2er-Kombination gefunden.</div>
-            )}
-          </div>
-        )}
-        <button onClick={() => setComboSelected([])} style={{ marginTop:10, background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
-      </div>
-    )}
-    {comboSelected.length < maxCards && comboSelected.length > 0 && (
-      <div style={{ textAlign:"center", marginBottom:10, color:lightMode?"#2a0850":"#5a4a34", fontSize:11, fontStyle:"italic" }}>
-        Noch {needed} Karte{needed>1?"n":""} wählen…
-      </div>
-    )}
-    {comboSelected.length < maxCards && (<>
-      <div style={{ marginBottom:12 }}>
-        <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
-          style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
-        {filteredCards().map(num => {
-          const isSel = comboSelected.includes(num);
-          return (
-            <button key={num} onClick={() => {
-              if (isSel) setComboSelected(prev => prev.filter(k => k !== num));
-              else if (comboSelected.length < maxCards) setComboSelected(prev => [...prev, num]);
-            }}
-              style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
-              <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-              <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
-            </button>
-          );
-        })}
-      </div>
-    </>)}
-  </>);
-}
-
 function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoading, onOpen, open, onClose,
                      onSwitch, switching, onForget, addOpen, onAddOpen, onAddCancel,
                      onAddSubmit, addMsg, isRealAdmin, onBackToAdmin, switchingBack }) {
@@ -3176,7 +3095,7 @@ export default function LenormandApp() {
                   return sig ? (
                     <div style={{ marginBottom:6, paddingTop:6, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.08)"}`, fontSize:10, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{sig}</div>
                   ) : null;
-                })}
+                )}
                 <div style={{ display:"flex", gap:14, alignItems:"center" }}>
                   <button onClick={() => toggleForumReplyLike(reply.id)}
                     style={{ background:"transparent", border:"none", color:forumMyLikes[reply.id]?gold:"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:4 }}>
@@ -3217,15 +3136,15 @@ export default function LenormandApp() {
   };
   if (session && !isPro && proGatedView()) {
     return (
-      <div style={{ minHeight:"100vh", background:appBg, fontFamily:"Georgia,serif", color:appColor, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
-        <div style={{ maxWidth:440, textAlign:"center", background:lightMode?"rgba(100,50,140,0.06)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"40px 32px" }}>
+      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:lightMode?"#2a0850":"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+        <div style={{ maxWidth:440, textAlign:"center", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"40px 32px" }}>
           <div style={{ fontSize:32, marginBottom:14 }}>🔒</div>
-          <div style={{ fontSize:18, color:lightMode?"#2a0850":gold, marginBottom:12 }}>Dieser Bereich ist PRO</div>
+          <div style={{ fontSize:18, color:gold, marginBottom:12 }}>Dieser Bereich ist PRO</div>
           <div style={{ fontSize:13, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.7, marginBottom:24 }}>
             Dieser Inhalt gehört zu den Kernkapiteln der Lenormand Matrix und ist daher Teil des PRO-Zugangs, genau wie im Buch.
           </div>
           <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
-            style={{ display:"inline-block", background:lightMode?"rgba(100,50,140,0.12)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#6a2a8a":gold}`, color:lightMode?"#2a0850":gold, padding:"10px 26px", borderRadius:6, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
+            style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"10px 26px", borderRadius:6, textDecoration:"none", fontSize:13, letterSpacing:1 }}>
             Jetzt freischalten →
           </a>
           <div style={{ marginTop:18 }}>
@@ -3272,6 +3191,14 @@ export default function LenormandApp() {
             @keyframes recordPulse {
               0%,100% { transform: translate(-50%,-50%) scale(1); opacity:1; }
               50% { transform: translate(-50%,-50%) scale(1.08); opacity:0.9; }
+            }
+            .light-theme, .light-theme div, .light-theme span, .light-theme p,
+            .light-theme h1, .light-theme h2, .light-theme h3, .light-theme button,
+            .light-theme input, .light-theme textarea, .light-theme a, .light-theme label {
+              color: #2a0850 !important;
+            }
+            .light-theme input, .light-theme textarea {
+              background: rgba(100,50,140,0.06) !important;
             }
           `}</style>
           <div style={{
@@ -3514,20 +3441,94 @@ export default function LenormandApp() {
 
           {/* ── 3er / 4er Picker ── */}
           {(comboView === "3er" || comboView === "4er") && (
-            <ComboMultiPicker
-              comboView={comboView}
-              comboSelected={comboSelected}
-              setComboSelected={setComboSelected}
-              gold={gold}
-              lightMode={lightMode}
-              search={search}
-              setSearch={setSearch}
-              filteredCards={filteredCards}
-              SYMBOLS={SYMBOLS}
-              CARDS={CARDS}
-              COMBOS={COMBOS}
-              CLUSTERS={CLUSTERS}
-            />
+            const maxCards = comboView === "3er" ? 3 : 4;
+            const needed = maxCards - comboSelected.length;
+            // Find matching cluster
+            const cluster = CLUSTERS[comboView].find(c =>
+              comboSelected.length === maxCards &&
+              c.karten.every(k => comboSelected.includes(k)) &&
+              comboSelected.every(k => c.karten.includes(k))
+            );
+            // Fallback: 2er combo of first two selected cards
+            const fallback2er = comboSelected.length >= 2 ? (() => {
+              const [a,b] = comboSelected;
+              const lo = Math.min(a,b), hi = Math.max(a,b);
+              return COMBOS[`${lo}-${hi}`] || null;
+            })() : null;
+
+            (<>
+              {/* Kartenslots */}
+              <div style={{ display:"flex", gap:8, justifyContent:"center", alignItems:"center", marginBottom:18, flexWrap:"wrap" }}>
+                {Array.from({length:maxCards}).map((_,i) => {
+                  const num = comboSelected[i];
+                  return (
+                    <div key={i} style={{ width:80, height:112, border:`1.5px solid ${num?gold:"rgba(200,169,110,0.12)"}`, borderRadius:8, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:num?"rgba(200,169,110,0.04)":lightMode?"rgba(100,50,140,0.06)":"rgba(10,7,18,0.4)", transition:"all 0.3s", position:"relative" }}>
+                      {num ? (<>
+                        <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
+                        <div style={{ fontSize:8, color:gold, textAlign:"center", padding:"2px 3px", lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
+                        <button onClick={() => setComboSelected(prev => prev.filter(k => k !== num))}
+                          style={{ position:"absolute", top:2, right:2, background:"rgba(200,169,110,0.08)", border:"none", color:gold, cursor:"pointer", borderRadius:"50%", width:14, height:14, fontSize:8, lineHeight:"14px", padding:0 }}>✕</button>
+                      </>) : <div style={{ color:"#3a2a0a", fontSize:8 }}>Karte {i+1}</div>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Ergebnis wenn alle Karten gewählt */}
+              {comboSelected.length === maxCards && (
+                <div style={{ marginBottom:16 }}>
+                  {cluster ? (
+                    <div style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:10, padding:"16px 20px" }}>
+                      <div style={{ fontSize:9, letterSpacing:3, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:8 }}>{comboView} · Erweiterte Bedeutung</div>
+                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.3)"}`, borderRadius:4, padding:"2px 8px", fontSize:9, color:gold, marginBottom:10, letterSpacing:0.5 }}>{cluster.label}</div>
+                      <div style={{ fontSize:16, lineHeight:1.9, color:lightMode?"#2a0850":"#e0d0b0", borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:14 }}>{cluster.text}</div>
+                    </div>
+                  ) : (
+                    <div style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:10, padding:"14px 18px" }}>
+                      <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:12, lineHeight:1.6 }}>
+                        ✦ Diese Konstellation hat keine eigene Bedeutungsebene — doch die Karten sprechen trotzdem. Die ersten zwei Karten erzählen:
+                      </div>
+                      {fallback2er ? (
+                        <div style={{ fontSize:15, lineHeight:1.9, color:lightMode?"#2a0850":"#d4c4a0", borderLeft:"2px solid rgba(200,169,110,0.2)", paddingLeft:14 }}>{fallback2er}</div>
+                      ) : (
+                        <div style={{ fontSize:13, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>Keine 2er-Kombination gefunden.</div>
+                      )}
+                    </div>
+                  )}
+                  <button onClick={() => setComboSelected([])} style={{ marginTop:10, background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 12px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>↩ Neu</button>
+                </div>
+              )}
+
+              {/* Hinweis wie viele noch fehlen */}
+              {comboSelected.length < maxCards && comboSelected.length > 0 && (
+                <div style={{ textAlign:"center", marginBottom:10, color:lightMode?"#2a0850":"#5a4a34", fontSize:11, fontStyle:"italic" }}>
+                  Noch {needed} Karte{needed>1?"n":""} wählen…
+                </div>
+              )}
+
+              {/* Kartengitter */}
+              {comboSelected.length < maxCards && (<>
+                <div style={{ marginBottom:12 }}>
+                  <input placeholder="Karte suchen…" value={search} onChange={e => setSearch(e.target.value)}
+                    style={{ width:"100%", padding:"6px 12px", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:5, color:gold, fontFamily:"Georgia,serif", fontSize:11, outline:"none", boxSizing:"border-box" }} />
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
+                  {filteredCards().map(num => {
+                    const isSel = comboSelected.includes(num);
+                    return (
+                      <button key={num} onClick={() => {
+                        if (isSel) setComboSelected(prev => prev.filter(k => k !== num));
+                        else if (comboSelected.length < maxCards) setComboSelected(prev => [...prev, num]);
+                      }}
+                        style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
+                        <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
+                        <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>)}
+            </>);
           )}
         </>)}
 
@@ -3828,7 +3829,7 @@ export default function LenormandApp() {
           const rank = forumRankForPostCount(p?.postCount || 0);
           const initial = (viewedProfileName || "?").trim().charAt(0).toUpperCase() || "?";
           const age = ageFromBirthdate(p?.birthdate);
-          return (
+          (
             <div style={{ maxWidth:420, margin:"0 auto", padding:"20px 0", textAlign:"center" }}>
               <button onClick={() => { setViewedProfileId(null); setViewedProfileName(""); }}
                 style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück zum Forum</button>
@@ -3842,8 +3843,7 @@ export default function LenormandApp() {
               {p?.bio && <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.6, marginTop:14, whiteSpace:"pre-wrap", textAlign:"left", background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"14px 16px" }}>{p.bio}</div>}
               <div style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", marginTop:18 }}>{p?.postCount || 0} {p?.postCount === 1 ? "Beitrag oder Antwort" : "Beiträge &amp; Antworten"} im Forum</div>
             </div>
-          );
-        })}
+        )}
 
         {view === "forum" && !viewedProfileId && (
           <div style={{ maxWidth:700, margin:"0 auto" }}>
@@ -4114,7 +4114,7 @@ export default function LenormandApp() {
                           return sig ? (
                             <div style={{ marginTop:10, paddingTop:8, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{sig}</div>
                           ) : null;
-                        })}
+                        )}
                         <button onClick={() => toggleForumPostLike(forumActivePost.id)}
                           style={{ marginTop:10, background:"transparent", border:"none", color:forumMyPostLike?gold:"#9a8060", cursor:"pointer", fontSize:12, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:5 }}>
                           {forumMyPostLike ? "★" : "☆"} {forumPostLikeCount}
@@ -4170,7 +4170,7 @@ export default function LenormandApp() {
                       </div>
                     )}
                   </>);
-                })}
+                )}
 
                 <div style={{ marginTop:14 }}>
                   {forumReplyToId && (
@@ -5314,7 +5314,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            })}
+                            )}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5370,7 +5370,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            })}
+                            )}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5451,7 +5451,7 @@ export default function LenormandApp() {
                                   💡 {inspiration}
                                 </div>
                               ) : null;
-                            })}
+                            )}
                             <AutoTextarea
                               placeholder={cardNum ? "Was zeigt " + CARDS[cardNum].name + (comboCardNum ? " + " + CARDS[comboCardNum].name : "") + " hier?" : matrixFreeText[pos] ? "Was bedeutet \"" + matrixFreeText[pos] + "\" hier?" : "Notizen…"}
                               value={text}
@@ -5868,7 +5868,7 @@ export default function LenormandApp() {
                                   Keine bekannten 3er-Cluster für diese Karte.
                                 </div>
                               );
-                              return (
+                              (
                                 <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                                   {matching.map((c, i) => (
                                     <div key={i} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:10 }}>
@@ -5884,8 +5884,7 @@ export default function LenormandApp() {
                                     </div>
                                   ))}
                                 </div>
-                              );
-                            })}
+                            )}
 
                             {/* 4er */}
                             {key === "4er" && (
@@ -5895,7 +5894,7 @@ export default function LenormandApp() {
                                   Keine bekannten 4er-Cluster für diese Karte.
                                 </div>
                               );
-                              return (
+                              (
                                 <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                                   {matching.map((c, i) => (
                                     <div key={i} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:10 }}>
@@ -5911,8 +5910,7 @@ export default function LenormandApp() {
                                     </div>
                                   ))}
                                 </div>
-                              );
-                            })}
+                            )}
 
                           </div>
                         )}
