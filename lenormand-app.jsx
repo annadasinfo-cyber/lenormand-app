@@ -314,7 +314,7 @@ function InlineEditBox({ initialValue, onSave, onCancel, rows, fontSize }) {
       <textarea value={value} onChange={e => setValue(e.target.value)} rows={rows || 3} autoFocus
         style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:fontSize || 12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
       <div style={{ display:"flex", gap:8 }}>
-        <button onClick={() => onSave(value)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Speichern</button>
+        <button onClick={() => onSave(value)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:lightMode?"#5a1080":"#c8a96e", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Speichern</button>
         <button onClick={onCancel} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"5px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Abbrechen</button>
       </div>
     </div>
@@ -329,11 +329,11 @@ function InlinePostEditBox({ initialTitle, initialBody, onSave, onCancel }) {
   return (
     <div>
       <input type="text" value={title} onChange={e => setTitle(e.target.value)} autoFocus
-        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:"#c8a96e", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
+        style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#5a1080":"#c8a96e", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
       <textarea value={body} onChange={e => setBody(e.target.value)} rows={4}
         style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
       <div style={{ display:"flex", gap:8 }}>
-        <button onClick={() => onSave(title, body)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:"#c8a96e", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
+        <button onClick={() => onSave(title, body)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:lightMode?"#5a1080":"#c8a96e", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
         <button onClick={onCancel} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
       </div>
     </div>
@@ -767,7 +767,7 @@ export default function LenormandApp() {
   // (das war die Ursache des leeren Bildschirms nach dem Einloggen, der erst durch
   // Neuladen der Seite verschwand).
   const loginScreen = (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:lightMode?"#2a0850":"#f0e8d8", display:"flex", alignItems:"stretch" }}>
+    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"stretch" }}>
 
       {/* Links: Dekorativ */}
       <div style={{ flex:"1 1 50%", position:"relative", overflow:"hidden", minHeight:"100vh" }}>
@@ -3150,11 +3150,11 @@ export default function LenormandApp() {
   };
   if (session && !isPro && proGatedView()) {
     return (
-      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:lightMode?"#2a0850":"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
+      <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
         <div style={{ maxWidth:440, textAlign:"center", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"40px 32px" }}>
           <div style={{ fontSize:32, marginBottom:14 }}>🔒</div>
           <div style={{ fontSize:18, color:gold, marginBottom:12 }}>Dieser Bereich ist PRO</div>
-          <div style={{ fontSize:13, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.7, marginBottom:24 }}>
+          <div style={{ fontSize:13, color:"#9a8060", lineHeight:1.7, marginBottom:24 }}>
             Dieser Inhalt gehört zu den Kernkapiteln der Lenormand Matrix und ist daher Teil des PRO-Zugangs, genau wie im Buch.
           </div>
           <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer"
@@ -3162,7 +3162,7 @@ export default function LenormandApp() {
             Jetzt freischalten →
           </a>
           <div style={{ marginTop:18 }}>
-            <button onClick={() => { setView("liesmich"); }} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#7a6040", cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>← Zurück zur Übersicht</button>
+            <button onClick={() => { setView("liesmich"); }} style={{ background:"transparent", border:"none", color:"#7a6040", cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>← Zurück zur Übersicht</button>
           </div>
         </div>
       </div>
@@ -3231,7 +3231,7 @@ export default function LenormandApp() {
             <div style={{ fontSize:22, color:"#c8a96e", fontFamily:"Georgia,serif", letterSpacing:2, marginBottom:4 }}>
               NEUER REKORD!
             </div>
-            <div style={{ fontSize:13, color:lightMode?"#2a0850":"#a09070", fontFamily:"Georgia,serif" }}>
+            <div style={{ fontSize:13, color:"#a09070", fontFamily:"Georgia,serif" }}>
               {quizMode === "kombis" ? "Kombinationen" : quizMode === "zeit" ? "Zeitrahmen" : "Personen"}
             </div>
           </div>
@@ -3275,7 +3275,7 @@ export default function LenormandApp() {
         <div style={{ position:"fixed", inset:0, background:"linear-gradient(160deg,#080512,#0f0a1a)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", zIndex:1000, padding:24 }}>
           <div style={{ fontSize:40, marginBottom:16 }}>🔐</div>
           <h2 style={{ color:"#c8a96e", fontWeight:"normal", fontSize:22, marginBottom:8, textAlign:"center" }}>Lenormandia</h2>
-          <p style={{ color:lightMode?"#2a0850":"#7a6040", fontSize:13, marginBottom:24, textAlign:"center", maxWidth:320 }}>
+          <p style={{ color:"#7a6040", fontSize:13, marginBottom:24, textAlign:"center", maxWidth:320 }}>
             Deine 14-tägige Probezeit ist abgelaufen.<br/>Gib dein Passwort ein um weiterzumachen.
           </p>
           <input type="password" placeholder="Passwort eingeben…" value={pwInput}
@@ -3288,7 +3288,7 @@ export default function LenormandApp() {
             Freischalten
           </button>
           <a href="https://www.annabenoir.de" target="_blank" rel="noopener noreferrer"
-            style={{ fontSize:11, color:lightMode?"#2a0850":"#5a4a34", textDecoration:"none" }}>
+            style={{ fontSize:11, color:"#5a4a34", textDecoration:"none" }}>
             Passwort kaufen → www.AnnaBenoir.de
           </a>
         </div>
@@ -3297,7 +3297,7 @@ export default function LenormandApp() {
       {access === "trial" && (
         <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, padding:"8px 16px", textAlign:"center", fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>
           ✦ Probezeit: noch {getDaysLeft()} Tage kostenlos &nbsp;·&nbsp;
-          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
+          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:lightMode?"#5a1080":"#c8a96e", textDecoration:"none" }}>
             Jetzt freischalten →
           </a>
         </div>
@@ -3306,7 +3306,7 @@ export default function LenormandApp() {
       {access !== "trial" && proTrialDaysLeft !== null && (
         <div style={{ background:"rgba(200,169,110,0.08)", borderBottom:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, padding:"8px 16px", textAlign:"center", fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>
           ✦ Pro-Testphase: noch {proTrialDaysLeft} {proTrialDaysLeft === 1 ? "Tag" : "Tage"} kostenlos &nbsp;·&nbsp;
-          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:"#c8a96e", textDecoration:"none" }}>
+          <a href="https://www.annabenoir.de/product-page/lenormand-matrix-app" target="_blank" rel="noopener noreferrer" style={{ color:lightMode?"#5a1080":"#c8a96e", textDecoration:"none" }}>
             Jetzt freischalten →
           </a>
         </div>
@@ -3562,7 +3562,7 @@ export default function LenormandApp() {
             <div style={{ display:"flex", justifyContent:"center", gap:10, marginTop:16, flexWrap:"wrap" }}>
               {mode === "personen" && (
                 <button onClick={() => { fullRandom(); }}
-                  style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.35)`, color:"#c8a96e", padding:"10px 22px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.35)`, color:lightMode?"#5a1080":"#c8a96e", padding:"10px 22px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                   🎲 Zufällig mischen
                 </button>
               )}
@@ -3806,14 +3806,14 @@ export default function LenormandApp() {
                       </div>
                     )}
                     {isSignifikator && (
-                      <div style={{ fontSize:9, color:"#9a8a72", lineHeight:1.6 }}>
+                      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.6 }}>
                         {mode === "personen"
                           ? (PERSON_MATRIX[String(signifikator)]?.signifikator || CARDS[signifikator].kw)
                           : CARDS[signifikator].kw}
                       </div>
                     )}
                     {isKombi && comboText && (
-                      <div style={{ fontSize:13, color:"#d8c8a0", lineHeight:1.75 }}>{comboText}</div>
+                      <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d8c8a0", lineHeight:1.75 }}>{comboText}</div>
                     )}
                     {isKombi && !card && (
                       <div style={{ fontSize:9, color:lightMode?"#2a0850":"#3a2a18", fontStyle:"italic" }}>–</div>
@@ -3904,7 +3904,7 @@ export default function LenormandApp() {
             {/* FORUM */}
             {communityMode === "forum" && (<>
             {forumError && (
-              <div style={{ background:"rgba(180,80,60,0.1)", border:"1px solid rgba(180,80,60,0.3)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:"#d09080", fontSize:12 }}>
+              <div style={{ background:"rgba(180,80,60,0.1)", border:"1px solid rgba(180,80,60,0.3)", borderRadius:8, padding:"10px 14px", marginBottom:16, color:lightMode?"#9a2a1a":"#d09080", fontSize:12 }}>
                 {forumError}
               </div>
             )}
@@ -4482,7 +4482,7 @@ export default function LenormandApp() {
               </div>
                 <div style={{ fontSize:12, color:lightMode?"#2a0850":"#5a4a34", marginBottom:12 }}>
                 ✓ {quizScore.right} richtig &nbsp;·&nbsp; ✗ {quizScore.wrong} falsch
-                {currentStreak >= 2 && <span style={{color:"#d4b878"}}> &nbsp;·&nbsp; 🔥 {currentStreak} in Folge</span>}
+                {currentStreak >= 2 && <span style={{color:lightMode?"#5a1080":"#d4b878"}}> &nbsp;·&nbsp; 🔥 {currentStreak} in Folge</span>}
               </div>
               {/* Stats Übersicht */}
               <div style={{ display:"flex", justifyContent:"center", gap:10, flexWrap:"wrap", marginBottom:8 }}>
@@ -4494,7 +4494,7 @@ export default function LenormandApp() {
                   <div key={label} style={{ background:"rgba(200,169,110,0.05)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 16px", textAlign:"center", minWidth:90 }}>
                     <div style={{ fontSize:18 }}>{icon}</div>
                     <div style={{ fontSize:9, color:lightMode?"#2a0850":"#7a6040", letterSpacing:2, textTransform:"uppercase", marginTop:3 }}>{label}</div>
-                    <div style={{ fontSize:13, color:"#c8a96e", marginTop:2 }}>{val}</div>
+                    <div style={{ fontSize:13, color:lightMode?"#5a1080":"#c8a96e", marginTop:2 }}>{val}</div>
                   </div>
                 ))}
               </div>
@@ -4660,9 +4660,9 @@ export default function LenormandApp() {
                         <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:8, padding:"12px 16px", marginBottom:16, fontSize:13, color:lightMode?"#2a0850":"#c0b090", textAlign:"left", lineHeight:1.6 }}>
                           <div style={{ fontSize:9, color:"#c87a6a", letterSpacing:3, textTransform:"uppercase", marginBottom:6 }}>Deine Antwort war:</div>
                           {quizCards.selectedWrongCombo && (
-                            <div style={{ fontSize:10, color:"#c8a96e", marginBottom:6 }}>{quizCards.selectedWrongCombo}</div>
+                            <div style={{ fontSize:10, color:lightMode?"#5a1080":"#c8a96e", marginBottom:6 }}>{quizCards.selectedWrongCombo}</div>
                           )}
-                          <div style={{ fontSize:12, color:"#9a8a72" }}>{quizCards.selectedWrong || "–"}</div>
+                          <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8a72" }}>{quizCards.selectedWrong || "–"}</div>
                         </div>
                       )}
                       <button onClick={startCurrentQuiz}
@@ -5165,7 +5165,7 @@ export default function LenormandApp() {
                       {" · "}{writingMode === "personen" ? "Personen-Matrix" : "Situations-Matrix"}
                     </div>
                     {writingHook && (
-                      <div style={{ marginBottom:10, fontSize:10, color:"#c8a96e", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:8 }}>
+                      <div style={{ marginBottom:10, fontSize:10, color:lightMode?"#5a1080":"#c8a96e", fontStyle:"italic", lineHeight:1.5, borderLeft:"2px solid rgba(200,169,110,0.3)", paddingLeft:8 }}>
                         🎯 {writingHook}
                       </div>
                     )}
@@ -5201,7 +5201,7 @@ export default function LenormandApp() {
                             {!card && matrixFreeText[pos] && (
                               <div style={{ marginBottom:4, fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</div>
                             )}
-                            {isSignifikator && signifikator && <div style={{ fontSize:8, color:"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
+                            {isSignifikator && signifikator && <div style={{ fontSize:8, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
                             {fixedText && <div style={{ fontSize:9, color: isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
                             {!isSignifikator && !fixedText && (card || matrixFreeText[pos]) && <div style={{ fontSize:8, color:lightMode?"#2a0850":"#3a2a18" }}>–</div>}
                           </div>
@@ -5865,7 +5865,7 @@ export default function LenormandApp() {
                                   return (
                                     <div key={n} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:9 }}>
                                       <div style={{ fontSize:11, color:gold, marginBottom:3 }}>{SYMBOLS[n]} {n}. {CARDS[n].name}</div>
-                                      <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{combo}</div>
+                                      <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.7 }}>{combo}</div>
                                     </div>
                                   );
                                 })}
@@ -5892,7 +5892,7 @@ export default function LenormandApp() {
                                         ))}
                                       </div>
                                       <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
-                                      <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
+                                      <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
                                     </div>
                                   ))}
                                 </div>
@@ -5919,7 +5919,7 @@ export default function LenormandApp() {
                                         ))}
                                       </div>
                                       <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
-                                      <div style={{ fontSize:12, color:"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
+                                      <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
                                     </div>
                                   ))}
                                 </div>
@@ -5959,7 +5959,7 @@ export default function LenormandApp() {
       <div style={{ textAlign:"center", padding:"14px 20px", borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}` }}>
         <div style={{ display:"flex", justifyContent:"center", gap:10, marginBottom:14, flexWrap:"wrap" }}>
           <a href="https://www.annabenoir.de/service-page/deep-dive" target="_blank" rel="noopener noreferrer"
-            style={{ background:"rgba(200,169,110,0.12)", border:"1px solid rgba(200,169,110,0.4)", color:"#c8a96e", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
+            style={{ background:"rgba(200,169,110,0.12)", border:"1px solid rgba(200,169,110,0.4)", color:lightMode?"#5a1080":"#c8a96e", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             ✨ Frag Anna
           </a>
           <a href="https://www.annabenoir.de/app-fehlermeldungen" target="_blank" rel="noopener noreferrer"
