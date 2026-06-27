@@ -4589,11 +4589,11 @@ export default function LenormandApp() {
                       const isCorrect = opt === quizCards.correct;
                       const isSelected = quizAnswer !== null;
                       let bg = "rgba(200,169,110,0.03)";
-                      let border = "rgba(200,169,110,0.15)";
+                      let border = lightMode ? "#7a3a9a" : "rgba(200,169,110,0.5)";
                       let color = lightMode ? "#2a0850" : "#c0b090";
                       if (isSelected && isCorrect && quizAnswer === "correct") { bg = "rgba(80,160,80,0.12)"; border = "#5a9a5a"; color = lightMode ? "#1a6a1a" : "#90d090"; }
                       else if (isSelected && isCorrect && quizAnswer === "wrong") { bg = "rgba(200,169,110,0.08)"; border = "#d4b878"; color = lightMode ? "#7a5408" : "#d4b878"; }
-                      else if (isSelected && !isCorrect) { bg = "rgba(200,169,110,0.03)"; border = "rgba(200,169,110,0.1)"; color = "#6a5a44"; }
+                      else if (isSelected && !isCorrect) { bg = "rgba(200,169,110,0.03)"; border = lightMode ? "rgba(122,58,154,0.4)" : "rgba(200,169,110,0.18)"; color = "#6a5a44"; }
                       return (
                         <button key={i} onClick={() => {
                           if (quizAnswer) return;
@@ -4643,7 +4643,7 @@ export default function LenormandApp() {
                             });
                           }
                         }}
-                          style={{ background:bg, border:`1px solid ${border}`, borderRadius:8, padding:"12px 16px", cursor:quizAnswer?"default":"pointer", color, fontFamily:"Georgia,serif", fontSize:13, textAlign:"left", lineHeight:1.6, transition:"all 0.3s" }}>
+                          style={{ background:bg, border:`1.5px solid ${border}`, borderRadius:8, padding:"12px 16px", cursor:quizAnswer?"default":"pointer", color, fontFamily:"Georgia,serif", fontSize:13, textAlign:"left", lineHeight:1.6, transition:"all 0.3s" }}>
                           {isSelected && isCorrect && "✓ "}{opt}
                         </button>
                       );
