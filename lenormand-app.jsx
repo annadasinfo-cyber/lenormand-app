@@ -4590,9 +4590,9 @@ export default function LenormandApp() {
                       const isSelected = quizAnswer !== null;
                       let bg = "rgba(200,169,110,0.03)";
                       let border = "rgba(200,169,110,0.15)";
-                      let color = "#c0b090";
-                      if (isSelected && isCorrect && quizAnswer === "correct") { bg = "rgba(80,160,80,0.12)"; border = "#5a9a5a"; color = "#90d090"; }
-                      else if (isSelected && isCorrect && quizAnswer === "wrong") { bg = "rgba(200,169,110,0.08)"; border = "#d4b878"; color = "#d4b878"; }
+                      let color = lightMode ? "#2a0850" : "#c0b090";
+                      if (isSelected && isCorrect && quizAnswer === "correct") { bg = "rgba(80,160,80,0.12)"; border = "#5a9a5a"; color = lightMode ? "#1a6a1a" : "#90d090"; }
+                      else if (isSelected && isCorrect && quizAnswer === "wrong") { bg = "rgba(200,169,110,0.08)"; border = "#d4b878"; color = lightMode ? "#7a5408" : "#d4b878"; }
                       else if (isSelected && !isCorrect) { bg = "rgba(200,169,110,0.03)"; border = "rgba(200,169,110,0.1)"; color = "#6a5a44"; }
                       return (
                         <button key={i} onClick={() => {
