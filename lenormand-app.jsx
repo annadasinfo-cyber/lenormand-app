@@ -2298,6 +2298,95 @@ export default function LenormandApp() {
     const newChecked = wasChecked ? [...shiftedChecked, insertAt] : shiftedChecked;
     return { text: items.join('\n'), checked: newChecked };
   };
+
+  // ─────────────────────────────────────────────────────────────
+  // Zauberzettel "Brief verbrennen" — Checklisten-Notiz + 3-Wochen-Archiv
+  // Schreibe Wünsche (Enter = neue Checkbox), verbrenne sie, und nach
+  // 3 Wochen öffnet sich das Siegel und du siehst, was sich erfüllt hat.
+  // ─────────────────────────────────────────────────────────────
+  const ZETTEL_LOCK_DAYS = 21; // 3 Wochen
+  const [zettelItems, setZettelItems] = React.useState([{ text:"", done:false }]);
+  const [zettelArchiv, setZettelArchiv] = React.useState([]);
+  const [zettelBurning, setZettelBurning] = React.useState(false);
+  const [zettelFocus, setZettelFocus] = React.useState(null);
+  const zettelInputRefs = React.useRef({});
+
+  // Archiv laden
+  const loadZettelArchiv = async () => {
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv?user_id=eq.${uid}&order=burned_at.desc`, {headers: dbHeaders()});
+      const data = await r.json();
+      if (Array.isArray(data)) setZettelArchiv(data);
+    } catch {}
+  };
+  React.useEffect(() => { loadZettelArchiv(); }, [session]);
+
+  // Fokus auf neu erzeugte Checkbox-Zeile setzen
+  React.useEffect(() => {
+    if (zettelFocus != null && zettelInputRefs.current[zettelFocus]) {
+      zettelInputRefs.current[zettelFocus].focus();
+      setZettelFocus(null);
+    }
+  }, [zettelFocus, zettelItems]);
+
+  const setZettelText = (i, val) => setZettelItems(prev => prev.map((it, idx) => idx === i ? {...it, text: val} : it));
+  const toggleZettelDone = (i) => setZettelItems(prev => prev.map((it, idx) => idx === i ? {...it, done: !it.done} : it));
+  const removeZettelItem = (i) => setZettelItems(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
+  const zettelKeyDown = (e, i) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setZettelItems(prev => { const next = [...prev]; next.splice(i+1, 0, {text:"", done:false}); return next; });
+      setZettelFocus(i+1);
+    } else if (e.key === "Backspace" && zettelItems[i].text === "" && zettelItems.length > 1) {
+      e.preventDefault();
+      setZettelItems(prev => prev.filter((_, idx) => idx !== i));
+      setZettelFocus(Math.max(0, i-1));
+    }
+  };
+
+  // Verbrennen: Animation läuft, danach wird die Notiz versiegelt ins Archiv gelegt
+  const verbrenneZettel = async () => {
+    const items = zettelItems.map(it => ({ text:(it.text||"").trim(), done: !!it.done })).filter(it => it.text);
+    if (items.length === 0 || zettelBurning) return;
+    setZettelBurning(true);
+    const uid = getUserId();
+    const burnedAt = new Date();
+    const unlockAt = new Date(burnedAt.getTime() + ZETTEL_LOCK_DAYS*24*60*60*1000);
+    setTimeout(async () => {
+      const entry = { user_id: uid, items, burned_at: burnedAt.toISOString(), unlock_at: unlockAt.toISOString() };
+      let ok = false;
+      if (uid) {
+        try {
+          const res = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv`, {
+            method:"POST", headers: dbHeaders(), body: JSON.stringify(entry)
+          });
+          ok = res.ok;
+        } catch {}
+      }
+      if (ok) { await loadZettelArchiv(); }
+      else { setZettelArchiv(prev => [{...entry, id:"local_"+burnedAt.getTime()}, ...prev]); }
+      setZettelItems([{ text:"", done:false }]);
+      setZettelBurning(false);
+    }, 2300); // Dauer der Flammen-Animation
+  };
+
+  // Im entsiegelten Archiv einen Wunsch als "erfüllt" markieren
+  const toggleArchivItem = async (entryIdx, itemIdx) => {
+    const entry = zettelArchiv[entryIdx];
+    if (!entry) return;
+    const newItems = entry.items.map((it, i) => i === itemIdx ? {...it, done: !it.done} : it);
+    setZettelArchiv(prev => prev.map((e, i) => i === entryIdx ? {...e, items: newItems} : e));
+    if (entry.id && !String(entry.id).startsWith("local_")) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv?id=eq.${entry.id}`, {
+          method:"PATCH", headers: dbHeaders(), body: JSON.stringify({ items: newItems })
+        });
+      } catch {}
+    }
+  };
+
   const druckeManifest = () => {
     const heute = new Date();
     const datumStr = heute.toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'numeric'});
@@ -5643,17 +5732,130 @@ export default function LenormandApp() {
           </div>
         )}
 
-        {/* ── MANIFEST ── */}
+        {/* ── ZAUBERZETTEL: Brief verbrennen ── */}
         {view === "tagebuch" && dailyMode === "manifest" && (
-          <div style={{ paddingBottom:30 }}>
-            <div style={{ textAlign:"center", padding:"60px 20px", color:lightMode?"#2a0850":"#7a6040" }}>
-              <div style={{ fontSize:48, marginBottom:16 }}>🕯️</div>
-              <div style={{ fontSize:18, color:gold, marginBottom:12, fontFamily:"Georgia,serif" }}>Zauberzettel</div>
-              <div style={{ fontSize:13, lineHeight:1.8, maxWidth:380, margin:"0 auto", fontStyle:"italic", color:lightMode?"#5a3a6a":"#9a8060" }}>
-                Schreibe deine Wünsche auf — und schicke sie ins Universum.<br/>
-                <span style={{ fontSize:11, color:lightMode?"#8a6a9a":"#6a5040" }}>✨ Diese Funktion entsteht gerade — Flammen inklusive.</span>
+          <div style={{ paddingBottom:40, maxWidth:560, margin:"0 auto" }}>
+            <style>{`
+              @keyframes zettelEmber {
+                0% { transform: translateY(0) translateX(0) scale(1); opacity:0; }
+                12% { opacity:1; }
+                100% { transform: translateY(-260px) translateX(var(--drift,0px)) scale(0.2); opacity:0; }
+              }
+              @keyframes zettelBurnAway {
+                0% { opacity:1; filter:brightness(1) sepia(0); transform:scale(1); }
+                45% { opacity:1; filter:brightness(1.25) sepia(0.5); }
+                100% { opacity:0; filter:brightness(2) sepia(1); transform:scale(0.96) translateY(8px); }
+              }
+              @keyframes zettelGlow {
+                0%,100% { box-shadow:0 0 0 rgba(255,150,40,0); }
+                50% { box-shadow:0 -6px 50px rgba(255,140,40,0.55), 0 0 30px rgba(255,90,20,0.4); }
+              }
+            `}</style>
+
+            {/* Kopf */}
+            <div style={{ textAlign:"center", marginBottom:18 }}>
+              <div style={{ fontSize:42, marginBottom:8 }}>🕯️</div>
+              <div style={{ fontSize:19, color:lightMode?"#5a1080":gold, fontFamily:"Georgia,serif", letterSpacing:1, marginBottom:8 }}>Zauberzettel</div>
+              <div style={{ fontSize:12.5, lineHeight:1.8, maxWidth:400, margin:"0 auto", fontStyle:"italic", color:lightMode?"#5a3a6a":"#9a8060" }}>
+                Schreib auf, was sich erfüllen soll — jeder Wunsch eine Zeile.<br/>
+                Dann verbrenne den Zettel und gib ihn Emanuel. In 3 Wochen öffnet sich das Siegel.
               </div>
             </div>
+
+            {/* Der Zettel (Checklisten-Eingabe) */}
+            {!zettelBurning && (
+              <div style={{ background:lightMode?"rgba(100,50,140,0.04)":"rgba(200,169,110,0.04)", border:`1.5px solid ${lightMode?"#7a3a9a":"rgba(200,169,110,0.4)"}`, borderRadius:12, padding:"18px 16px", marginBottom:14 }}>
+                {zettelItems.map((it, i) => (
+                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                    <button onClick={()=>toggleZettelDone(i)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, padding:0, lineHeight:1, color: it.done?"#5a9a5a":(lightMode?"#7a3a9a":"#9a8060") }}>{it.done?"☑️":"☐"}</button>
+                    <input
+                      ref={el => { zettelInputRefs.current[i] = el; }}
+                      value={it.text}
+                      onChange={e=>setZettelText(i, e.target.value)}
+                      onKeyDown={e=>zettelKeyDown(e, i)}
+                      placeholder={i===0 ? "z.B. Ich finde die passende Wohnung…" : "noch ein Wunsch…"}
+                      style={{ flex:1, background:"transparent", border:"none", borderBottom:`1px solid ${lightMode?"rgba(122,58,154,0.25)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13.5, padding:"4px 2px", outline:"none", textDecoration: it.done?"line-through":"none", opacity: it.done?0.6:1 }}
+                    />
+                    {zettelItems.length>1 && (
+                      <button onClick={()=>removeZettelItem(i)} title="entfernen" style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, color:"#9a6050", padding:"0 2px" }}>✕</button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ fontSize:10, color:lightMode?"#8a6a9a":"#6a5040", fontStyle:"italic", marginTop:6, paddingLeft:24 }}>↵ Enter für den nächsten Wunsch</div>
+              </div>
+            )}
+
+            {/* Brennender Zettel */}
+            {zettelBurning && (
+              <div style={{ position:"relative", marginBottom:14 }}>
+                <div style={{ background:lightMode?"rgba(100,50,140,0.04)":"rgba(200,169,110,0.04)", border:`1.5px solid ${lightMode?"#7a3a9a":"rgba(200,169,110,0.4)"}`, borderRadius:12, padding:"18px 16px", animation:"zettelBurnAway 2.3s ease-in forwards, zettelGlow 1.2s ease-in-out infinite" }}>
+                  {zettelItems.filter(it=>it.text.trim()).map((it,i)=>(
+                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13.5 }}>
+                      <span>{it.done?"☑️":"☐"}</span><span>{it.text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ position:"absolute", inset:0, overflow:"visible", pointerEvents:"none" }}>
+                  {[...Array(30)].map((_,i)=>{
+                    const left = (Math.random()*100).toFixed(1);
+                    const delay = (Math.random()*1.4).toFixed(2);
+                    const dur = (1.2 + Math.random()*1.3).toFixed(2);
+                    const size = Math.round(3 + Math.random()*5);
+                    const drift = (Math.random()*60-30).toFixed(0)+"px";
+                    return <span key={i} style={{ position:"absolute", bottom:"22%", left:left+"%", width:size, height:size, borderRadius:"50%", background:"radial-gradient(circle, #ffd27a, #ff7a1a)", boxShadow:"0 0 6px #ff9030", "--drift":drift, animation:`zettelEmber ${dur}s ease-out ${delay}s infinite` }}/>;
+                  })}
+                </div>
+                <div style={{ textAlign:"center", marginTop:14, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
+              </div>
+            )}
+
+            {/* Verbrennen-Knopf */}
+            {!zettelBurning && (
+              <button onClick={verbrenneZettel} disabled={!zettelItems.some(it=>it.text.trim())} style={{ display:"block", width:"100%", padding:"13px", background: zettelItems.some(it=>it.text.trim()) ? "linear-gradient(135deg,#c8551a,#e87a2a)" : (lightMode?"rgba(122,58,154,0.12)":"rgba(200,169,110,0.08)"), border:"none", borderRadius:10, color: zettelItems.some(it=>it.text.trim())?"#fff":(lightMode?"#9a7aaa":"#6a5a44"), fontFamily:"Georgia,serif", fontSize:15, letterSpacing:1, cursor: zettelItems.some(it=>it.text.trim())?"pointer":"default", marginBottom:30, boxShadow: zettelItems.some(it=>it.text.trim())?"0 4px 20px rgba(220,90,20,0.35)":"none" }}>🔥 Zettel verbrennen</button>
+            )}
+
+            {/* ── ARCHIV ── */}
+            {zettelArchiv.length>0 && (
+              <div>
+                <div style={{ textAlign:"center", fontSize:10, letterSpacing:3, textTransform:"uppercase", color:lightMode?"#5a1080":"#7a6040", marginBottom:14 }}>📜 Dein Archiv</div>
+                {zettelArchiv.map((entry, ei) => {
+                  const unlock = new Date(entry.unlock_at);
+                  const now = new Date();
+                  const locked = unlock > now;
+                  const burnedStr = new Date(entry.burned_at).toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'});
+                  const tageRest = Math.ceil((unlock - now)/(1000*60*60*24));
+                  const erfuellt = (entry.items||[]).filter(it=>it.done).length;
+                  return (
+                    <div key={entry.id||ei} style={{ background:lightMode?"rgba(100,50,140,0.04)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(122,58,154,0.3)":"rgba(200,169,110,0.18)"}`, borderRadius:10, padding:"14px 16px", marginBottom:12 }}>
+                      {locked ? (
+                        <div style={{ textAlign:"center", padding:"6px 0" }}>
+                          <div style={{ fontSize:30, marginBottom:6 }}>🔒</div>
+                          <div style={{ fontSize:13, color:lightMode?"#5a1080":gold, fontFamily:"Georgia,serif", marginBottom:4 }}>Versiegelt</div>
+                          <div style={{ fontSize:11, color:lightMode?"#5a3a6a":"#9a8060", fontStyle:"italic", lineHeight:1.6 }}>
+                            {(entry.items||[]).length} {(entry.items||[]).length===1?"Wunsch reist":"Wünsche reisen"} gerade durchs Universum.<br/>
+                            Öffnet sich in {tageRest} {tageRest===1?"Tag":"Tagen"} — am {unlock.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'})}.
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:10 }}>
+                            <span style={{ fontSize:11, color:lightMode?"#5a1080":gold, fontFamily:"Georgia,serif" }}>🕯️ verbrannt am {burnedStr}</span>
+                            <span style={{ fontSize:10, color:"#5a9a5a" }}>{erfuellt}/{(entry.items||[]).length} erfüllt ✨</span>
+                          </div>
+                          {(entry.items||[]).map((it, ii) => (
+                            <div key={ii} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, padding:"3px 6px", borderRadius:4, background: it.done?"rgba(90,154,90,0.08)":"transparent" }}>
+                              <button onClick={()=>toggleArchivItem(ei, ii)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:15, padding:0, color: it.done?"#5a9a5a":(lightMode?"#7a3a9a":"#9a8060") }}>{it.done?"☑️":"☐"}</button>
+                              <span style={{ flex:1, fontSize:12.5, fontFamily:"Georgia,serif", color: it.done?(lightMode?"#3a6a3a":"#5a7a5a"):(lightMode?"#2a0850":"#9a8060"), textDecoration: it.done?"line-through":"none" }}>{it.text}</span>
+                            </div>
+                          ))}
+                          <div style={{ fontSize:10, color:lightMode?"#8a6a9a":"#6a5040", fontStyle:"italic", marginTop:8, textAlign:"center" }}>Hake ab, was sich erfüllt hat — und sieh, wie viel Emanuel schon bewegt hat. 💛</div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
