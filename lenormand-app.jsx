@@ -5739,16 +5739,21 @@ export default function LenormandApp() {
               @keyframes zettelEmber {
                 0% { transform: translateY(0) translateX(0) scale(1); opacity:0; }
                 12% { opacity:1; }
-                100% { transform: translateY(-260px) translateX(var(--drift,0px)) scale(0.2); opacity:0; }
+                100% { transform: translateY(-180px) translateX(var(--drift,0px)) scale(0.15); opacity:0; }
               }
-              @keyframes zettelBurnAway {
-                0% { opacity:1; filter:brightness(1) sepia(0); transform:scale(1); }
-                45% { opacity:1; filter:brightness(1.25) sepia(0.5); }
-                100% { opacity:0; filter:brightness(2) sepia(1); transform:scale(0.96) translateY(8px); }
+              @keyframes zettelPaperBurn {
+                0% { clip-path: inset(0 0 0% 0); }
+                100% { clip-path: inset(0 0 103% 0); }
               }
-              @keyframes zettelGlow {
-                0%,100% { box-shadow:0 0 0 rgba(255,150,40,0); }
-                50% { box-shadow:0 -6px 50px rgba(255,140,40,0.55), 0 0 30px rgba(255,90,20,0.4); }
+              @keyframes zettelFireLine {
+                0% { bottom:-4%; opacity:0; }
+                7% { opacity:1; }
+                93% { opacity:1; }
+                100% { bottom:101%; opacity:0; }
+              }
+              @keyframes zettelFlicker {
+                0%,100% { opacity:0.82; filter:blur(1px) brightness(1); }
+                50% { opacity:1; filter:blur(1.5px) brightness(1.35); }
               }
             `}</style>
 
@@ -5785,27 +5790,38 @@ export default function LenormandApp() {
               </div>
             )}
 
-            {/* Brennender Zettel */}
+            {/* Brennender Zettel — verbrennt von unten nach oben */}
             {zettelBurning && (
-              <div style={{ position:"relative", marginBottom:14 }}>
-                <div style={{ background:lightMode?"rgba(100,50,140,0.04)":"rgba(200,169,110,0.04)", border:`1.5px solid ${lightMode?"#7a3a9a":"rgba(200,169,110,0.4)"}`, borderRadius:12, padding:"18px 16px", animation:"zettelBurnAway 2.3s ease-in forwards, zettelGlow 1.2s ease-in-out infinite" }}>
-                  {zettelItems.filter(it=>it.text.trim()).map((it,i)=>(
-                    <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13.5 }}>
-                      <span>{it.done?"☑️":"☐"}</span><span>{it.text}</span>
-                    </div>
-                  ))}
+              <div style={{ marginBottom:14 }}>
+                <div style={{ position:"relative", overflow:"visible" }}>
+                  {/* Das Papier, das von unten weggebrannt wird */}
+                  <div style={{ position:"relative", zIndex:1, background:lightMode?"rgba(100,50,140,0.04)":"rgba(200,169,110,0.04)", border:`1.5px solid ${lightMode?"#7a3a9a":"rgba(200,169,110,0.4)"}`, borderRadius:12, padding:"18px 16px", animation:"zettelPaperBurn 2.3s ease-in forwards" }}>
+                    {zettelItems.filter(it=>it.text.trim()).map((it,i)=>(
+                      <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13.5 }}>
+                        <span>{it.done?"☑️":"☐"}</span><span>{it.text}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Glühende Brandkante, die synchron nach oben wandert */}
+                  <div style={{ position:"absolute", left:-6, right:-6, height:34, bottom:0, transform:"translateY(50%)", zIndex:2, pointerEvents:"none", animation:"zettelFireLine 2.3s ease-in forwards" }}>
+                    {/* verkohlter Rand */}
+                    <div style={{ position:"absolute", left:0, right:0, top:7, height:7, background:"linear-gradient(to top, #3a1606, transparent)", filter:"blur(1px)" }}/>
+                    {/* Flamme / Glut */}
+                    <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(255,150,40,0) 0%, #ff7a1a 30%, #ffd27a 48%, #ffb040 60%, #7a2a08 74%, rgba(40,10,0,0) 82%)", boxShadow:"0 -8px 40px rgba(255,120,30,0.55), 0 0 24px rgba(255,90,20,0.5)", animation:"zettelFlicker 0.18s ease-in-out infinite" }}/>
+                    {/* aufsteigende Funken */}
+                    {[...Array(22)].map((_,i)=>{
+                      const left = (Math.random()*100).toFixed(1);
+                      const delay = (Math.random()*0.9).toFixed(2);
+                      const dur = (0.9 + Math.random()*1.0).toFixed(2);
+                      const size = Math.round(2 + Math.random()*4);
+                      const drift = (Math.random()*50-25).toFixed(0)+"px";
+                      return <span key={i} style={{ position:"absolute", bottom:7, left:left+"%", width:size, height:size, borderRadius:"50%", background:"radial-gradient(circle, #ffe6a0, #ff7a1a)", boxShadow:"0 0 6px #ff9030", "--drift":drift, animation:`zettelEmber ${dur}s ease-out ${delay}s infinite` }}/>;
+                    })}
+                  </div>
                 </div>
-                <div style={{ position:"absolute", inset:0, overflow:"visible", pointerEvents:"none" }}>
-                  {[...Array(30)].map((_,i)=>{
-                    const left = (Math.random()*100).toFixed(1);
-                    const delay = (Math.random()*1.4).toFixed(2);
-                    const dur = (1.2 + Math.random()*1.3).toFixed(2);
-                    const size = Math.round(3 + Math.random()*5);
-                    const drift = (Math.random()*60-30).toFixed(0)+"px";
-                    return <span key={i} style={{ position:"absolute", bottom:"22%", left:left+"%", width:size, height:size, borderRadius:"50%", background:"radial-gradient(circle, #ffd27a, #ff7a1a)", boxShadow:"0 0 6px #ff9030", "--drift":drift, animation:`zettelEmber ${dur}s ease-out ${delay}s infinite` }}/>;
-                  })}
-                </div>
-                <div style={{ textAlign:"center", marginTop:14, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
+
+                <div style={{ textAlign:"center", marginTop:18, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
 
