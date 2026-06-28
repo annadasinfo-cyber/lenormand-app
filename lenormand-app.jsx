@@ -5755,6 +5755,10 @@ export default function LenormandApp() {
                 0%,100% { opacity:0.82; filter:blur(1px) brightness(1); }
                 50% { opacity:1; filter:blur(1.5px) brightness(1.35); }
               }
+              @keyframes zettelFlame {
+                0% { transform: scaleY(0.85) scaleX(1) translateY(0); opacity:0.65; }
+                100% { transform: scaleY(1.3) scaleX(0.8) translateY(-7px); opacity:1; }
+              }
             `}</style>
 
             {/* Kopf */}
@@ -5803,20 +5807,53 @@ export default function LenormandApp() {
                     ))}
                   </div>
 
-                  {/* Glühende Brandkante, die synchron nach oben wandert */}
-                  <div style={{ position:"absolute", left:-6, right:-6, height:34, bottom:0, transform:"translateY(50%)", zIndex:2, pointerEvents:"none", animation:"zettelFireLine 2.3s ease-in forwards" }}>
-                    {/* verkohlter Rand */}
-                    <div style={{ position:"absolute", left:0, right:0, top:7, height:7, background:"linear-gradient(to top, #3a1606, transparent)", filter:"blur(1px)" }}/>
-                    {/* Flamme / Glut */}
-                    <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(255,150,40,0) 0%, #ff7a1a 30%, #ffd27a 48%, #ffb040 60%, #7a2a08 74%, rgba(40,10,0,0) 82%)", boxShadow:"0 -8px 40px rgba(255,120,30,0.55), 0 0 24px rgba(255,90,20,0.5)", animation:"zettelFlicker 0.18s ease-in-out infinite" }}/>
+                  {/* Verkohlte, zerrissene Brandkante mit Flammen — wandert synchron nach oben */}
+                  <div style={{ position:"absolute", left:-12, right:-12, height:66, bottom:0, transform:"translateY(45%)", zIndex:2, pointerEvents:"none", animation:"zettelFireLine 2.3s ease-in forwards" }}>
+                    {/* SVG: zerfranste Kohle + Scorch + Glut */}
+                    <svg viewBox="0 0 600 80" preserveAspectRatio="none" style={{ position:"absolute", inset:0, width:"100%", height:"100%", overflow:"visible" }}>
+                      <defs>
+                        <filter id="zettelChar" x="-25%" y="-40%" width="150%" height="200%">
+                          <feTurbulence type="fractalNoise" baseFrequency="0.014 0.05" numOctaves="2" seed="7" result="n">
+                            <animate attributeName="baseFrequency" dur="0.7s" values="0.014 0.05;0.02 0.07;0.014 0.05" repeatCount="indefinite"/>
+                          </feTurbulence>
+                          <feDisplacementMap in="SourceGraphic" in2="n" scale="30" xChannelSelector="R" yChannelSelector="G"/>
+                        </filter>
+                        <linearGradient id="zettelGlowG" x1="0" y1="1" x2="0" y2="0">
+                          <stop offset="0" stopColor="#ff6a12" stopOpacity="0.9"/>
+                          <stop offset="0.5" stopColor="#ff9a30" stopOpacity="0.45"/>
+                          <stop offset="1" stopColor="#ff9a30" stopOpacity="0"/>
+                        </linearGradient>
+                        <linearGradient id="zettelScorch" x1="0" y1="1" x2="0" y2="0">
+                          <stop offset="0" stopColor="#1a0c04" stopOpacity="1"/>
+                          <stop offset="0.45" stopColor="#3a1c0a" stopOpacity="0.9"/>
+                          <stop offset="0.78" stopColor="#7a4a24" stopOpacity="0.35"/>
+                          <stop offset="1" stopColor="#7a4a24" stopOpacity="0"/>
+                        </linearGradient>
+                      </defs>
+                      {/* Glut/Schein unter der Kante */}
+                      <rect x="-30" y="36" width="660" height="60" fill="url(#zettelGlowG)" filter="url(#zettelChar)" opacity="0.85"/>
+                      {/* Scorch-Band (angesengtes Papier, oben zerfranst) */}
+                      <rect x="-30" y="30" width="660" height="74" fill="url(#zettelScorch)" filter="url(#zettelChar)"/>
+                      {/* schwarze Kohlekruste direkt an der Kante */}
+                      <rect x="-30" y="27" width="660" height="16" fill="#0e0602" filter="url(#zettelChar)"/>
+                    </svg>
+                    {/* lodernde Flammen */}
+                    {[...Array(7)].map((_,i)=>{
+                      const left = (i*14 + Math.random()*5).toFixed(0);
+                      const h = Math.round(38 + Math.random()*42);
+                      const w = Math.round(14 + Math.random()*10);
+                      const delay = (Math.random()*0.4).toFixed(2);
+                      const dur = (0.5 + Math.random()*0.4).toFixed(2);
+                      return <div key={"f"+i} style={{ position:"absolute", bottom:20, left:left+"%", width:w, height:h, background:"radial-gradient(ellipse at 50% 100%, #ffe27a 0%, #ffac30 35%, #ff6a14 60%, rgba(255,80,16,0) 78%)", borderRadius:"50% 50% 48% 48% / 65% 65% 38% 38%", filter:"blur(1px)", transformOrigin:"bottom center", animation:`zettelFlame ${dur}s ease-in-out ${delay}s infinite alternate` }}/>;
+                    })}
                     {/* aufsteigende Funken */}
-                    {[...Array(22)].map((_,i)=>{
+                    {[...Array(20)].map((_,i)=>{
                       const left = (Math.random()*100).toFixed(1);
                       const delay = (Math.random()*0.9).toFixed(2);
                       const dur = (0.9 + Math.random()*1.0).toFixed(2);
                       const size = Math.round(2 + Math.random()*4);
                       const drift = (Math.random()*50-25).toFixed(0)+"px";
-                      return <span key={i} style={{ position:"absolute", bottom:7, left:left+"%", width:size, height:size, borderRadius:"50%", background:"radial-gradient(circle, #ffe6a0, #ff7a1a)", boxShadow:"0 0 6px #ff9030", "--drift":drift, animation:`zettelEmber ${dur}s ease-out ${delay}s infinite` }}/>;
+                      return <span key={"e"+i} style={{ position:"absolute", bottom:14, left:left+"%", width:size, height:size, borderRadius:"50%", background:"radial-gradient(circle, #ffe6a0, #ff7a1a)", boxShadow:"0 0 6px #ff9030", "--drift":drift, animation:`zettelEmber ${dur}s ease-out ${delay}s infinite` }}/>;
                     })}
                   </div>
                 </div>
