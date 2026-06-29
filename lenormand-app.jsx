@@ -4497,9 +4497,9 @@ export default function LenormandApp() {
                   const w = window.open("","_blank");
                   w.document.write(html);
                   w.document.close();
-                }} style={{ background:"rgba(200,169,110,0.1)", border:`1px solid rgba(200,169,110,0.3)`, color:gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>🖨 Drucken</button>
+                }} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"#c8a8e0":"rgba(200,169,110,0.3)"}`, color:gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>🖨 Drucken</button>
                 <button onClick={shareFrageToForum} disabled={shareFrageStatus==="sharing"}
-                  style={{ background:"rgba(200,169,110,0.1)", border:`1px solid rgba(200,169,110,0.3)`, color: shareFrageStatus==="done" ? "#5a9a5a" : gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif", opacity: shareFrageStatus==="sharing"?0.6:1 }}>
+                  style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"#c8a8e0":"rgba(200,169,110,0.3)"}`, color: shareFrageStatus==="done" ? "#5a9a5a" : gold, padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif", opacity: shareFrageStatus==="sharing"?0.6:1 }}>
                   {shareFrageStatus==="sharing" ? "Teilt…" : shareFrageStatus==="done" ? "✓ Geteilt" : shareFrageStatus==="error" ? "✕ Fehler" : "💬 Im Forum teilen"}
                 </button>
                 <button onClick={reset} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#5a4a34", padding:"4px 10px", borderRadius:4, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>✕ Neu</button>
