@@ -6447,9 +6447,9 @@ export default function LenormandApp() {
                     return (
                       <button key={d.key} onClick={()=>setZettelDuration(d.key)}
                         style={{ flex:1, padding:"9px 0", borderRadius:8, cursor:"pointer", fontFamily:"Georgia,serif", fontSize:12, letterSpacing:0.5,
-                          background: active ? "linear-gradient(135deg,#7a3a9a,#a85ac8)" : (lightMode?"rgba(122,58,154,0.06)":"rgba(200,169,110,0.05)"),
-                          border:`1px solid ${active ? (lightMode?"#7a3a9a":gold) : (lightMode?"rgba(122,58,154,0.3)":"rgba(200,169,110,0.2)")}`,
-                          color: active ? "#fff" : (lightMode?"#5a1080":"#9a8060") }}>
+                          background: active ? (lightMode?"#c8a8e0":"linear-gradient(135deg,#7a3a9a,#a85ac8)") : (lightMode?"rgba(122,58,154,0.06)":"rgba(200,169,110,0.05)"),
+                          border:`1px solid ${active ? (lightMode?"#c8a8e0":gold) : (lightMode?"rgba(122,58,154,0.3)":"rgba(200,169,110,0.2)")}`,
+                          color: active ? (lightMode?"#2a0850":"#fff") : (lightMode?"#5a1080":"#9a8060") }}>
                         {d.label}
                       </button>
                     );
@@ -6505,9 +6505,9 @@ export default function LenormandApp() {
                                 {ZETTEL_DURATIONS.map(d => (
                                   <button key={d.key} onClick={()=>reSealEntry(ei, d.key)}
                                     style={{ flex:1, padding:"6px 0", borderRadius:6, cursor:"pointer", fontFamily:"Georgia,serif", fontSize:11,
-                                      background:lightMode?"rgba(122,58,154,0.06)":"rgba(200,169,110,0.05)",
-                                      border:`1px solid ${lightMode?"rgba(122,58,154,0.3)":"rgba(200,169,110,0.25)"}`,
-                                      color:lightMode?"#5a1080":gold }}>
+                                      background:lightMode?"#c8a8e0":"rgba(200,169,110,0.05)",
+                                      border:`1px solid ${lightMode?"#c8a8e0":"rgba(200,169,110,0.25)"}`,
+                                      color:lightMode?"#2a0850":gold }}>
                                     🔒 {d.label}
                                   </button>
                                 ))}
