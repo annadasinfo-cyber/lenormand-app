@@ -576,8 +576,9 @@ function ForumMatrixGrid({ data, gold }) {
 }
 
 // ============================================================
-// Notizzettel in Flammen — V2, portiert aus Claude Design.
-// Kamera fest (Papier bewegt sich nicht), transparent, fotorealistische Kohlekante.
+// Notizzettel in Flammen — V3, portiert aus Claude Design.
+// Kamera fest, transparent. Brandkante mit echten SVG-feGaussianBlur-
+// Filtern (Safari rendert CSS-filter:blur auf SVG-Pfaden nicht weich).
 // ============================================================
 const ZettelBurn = (() => {
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -789,36 +790,76 @@ const ZettelBurn = (() => {
   }
 
   // ── glowing char / ember rim that follows the burn front ───────────────────
+  // Three stacked bands, bottom→top, matching a real burning-paper edge:
+  //   1) bright flickering EMBER line (white-hot core → orange → red)
+  //   2) dense BLACK CARBONIZED band right behind it
+  //   3) translucent LIGHT-BROWN SCORCH fading up into the intact paper
   function EmberRim({ t }) {
     const front = burnFront(t);
     if (front < -96 || front > PH + 40) return null;
     const env = flameEnv(t);
     if (env < 0.04) return null; // no rim before the flame actually ignites
-    const N = 64;
-    // edge line, plus two bands offset ABOVE it (into the remaining paper)
-    let d = `M 0 ${edgeYr(0, t).toFixed(1)}`;
-    let dc = `M 0 ${(edgeYr(0, t) - 11).toFixed(1)}`;
-    let ds = `M 0 ${(edgeYr(0, t) - 30).toFixed(1)}`;
-    for (let i = 1; i <= N; i++) {
-      const u = i / N, x = (u * PW).toFixed(1);
-      d += ` L ${x} ${edgeYr(u, t).toFixed(1)}`;
-      dc += ` L ${x} ${(edgeYr(u, t) - 11).toFixed(1)}`;
-      ds += ` L ${x} ${(edgeYr(u, t) - 30).toFixed(1)}`;
+    const cl = clamp;
+    const N = 80;
+
+    // build the offset polylines once
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      pts.push({ u, x: u * PW, y: edgeYr(u, t) });
     }
+    const path = (dy) => {
+      let s = `M ${pts[0].x.toFixed(1)} ${(pts[0].y + dy).toFixed(1)}`;
+      for (let i = 1; i <= N; i++) s += ` L ${pts[i].x.toFixed(1)} ${(pts[i].y + dy).toFixed(1)}`;
+      return s;
+    };
+    const dEdge = path(0);
+    const dChar = path(-13);
+    const dScorch = path(-40);
+    const dScorch2 = path(-66);
     const cap = { strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' };
+    const eo = 0.5 + 0.5 * env; // ember opacity follows ignite/burnout
+
+    // tiny individual embers that brighten and wink out along the burn line
+    const embers = [];
+    for (let i = 2; i <= N - 2; i += 1) {
+      const p = pts[i];
+      const tw = Math.sin(t * (7 + (i % 6) * 1.7) + i * 1.3);
+      const on = cl(tw, -0.2, 1);
+      if (on <= 0.02) continue;
+      const r = 1.6 + 2.8 * on;
+      embers.push(
+        <circle key={'e' + i} cx={p.x.toFixed(1)} cy={(p.y - 1).toFixed(1)} r={r.toFixed(1)}
+          fill={i % 3 ? '#ffd98a' : '#fff'} opacity={(0.5 + 0.5 * on) * eo}
+          filter="url(#zbblur0_5)" style={{ mixBlendMode: 'screen' }} />
+      );
+    }
+
     return (
       <svg width={PW} height={PH} viewBox={`0 0 ${PW} ${PH}`}
         style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
-        {/* charred-brown scorch fading up into the remaining paper */}
-        <path d={ds} stroke="#5a3a18" strokeWidth="40" opacity={0.5} style={{ filter: 'blur(15px)' }} {...cap} />
-        {/* dark charred-paper band just above the burn line */}
-        <path d={dc} stroke="#241405" strokeWidth="30" opacity={0.82} style={{ filter: 'blur(5px)' }} {...cap} />
-        {/* blackened char right at the edge */}
-        <path d={d} stroke="#140b04" strokeWidth="14" opacity={0.95} style={{ filter: 'blur(1.5px)' }} {...cap} />
-        {/* ember outer */}
-        <path d={d} stroke="#ff4d00" strokeWidth="9" opacity={0.95 * (0.45 + 0.55 * env)} style={{ filter: 'blur(3.5px)', mixBlendMode: 'screen' }} {...cap} />
-        {/* ember hot core */}
-        <path d={d} stroke="#ffd778" strokeWidth="3.2" opacity={0.95 * (0.45 + 0.55 * env)} style={{ filter: 'blur(1px)', mixBlendMode: 'screen' }} {...cap} />
+        <defs>
+          {[16, 8, 5, 1.6, 0.6, 7, 3, 1.4, 0.5].map((sd) => (
+            <filter key={sd} id={`zbblur${String(sd).replace('.', '_')}`}
+              filterUnits="userSpaceOnUse" x="-80" y="-160" width={PW + 160} height={PH + 320}>
+              <feGaussianBlur stdDeviation={sd} />
+            </filter>
+          ))}
+        </defs>
+        {/* 3 — light translucent scorch, feathering up into the paper */}
+        <path d={dScorch2} stroke="#9a6a38" strokeWidth="46" opacity={0.42} filter="url(#zbblur16)" {...cap} />
+        <path d={dScorch} stroke="#5e3a18" strokeWidth="36" opacity={0.7} filter="url(#zbblur8)" {...cap} />
+        {/* 2 — dense black carbonized band right behind the ember line */}
+        <path d={dChar} stroke="#241204" strokeWidth="34" opacity={0.92} filter="url(#zbblur5)" {...cap} />
+        <path d={dChar} stroke="#0a0502" strokeWidth="22" opacity={0.98} filter="url(#zbblur1_6)" {...cap} />
+        {/* crisp blackened lip exactly at the burn edge */}
+        <path d={dEdge} stroke="#070301" strokeWidth="10" opacity={1} filter="url(#zbblur0_6)" {...cap} />
+        {/* 1 — bright ember line: red halo → orange → white-hot core */}
+        <path d={dEdge} stroke="#ff2200" strokeWidth="16" opacity={0.85 * eo} filter="url(#zbblur7)" style={{ mixBlendMode: 'screen' }} {...cap} />
+        <path d={dEdge} stroke="#ff6a12" strokeWidth="9" opacity={0.95 * eo} filter="url(#zbblur3)" style={{ mixBlendMode: 'screen' }} {...cap} />
+        <path d={dEdge} stroke="#ffb43c" strokeWidth="4.5" opacity={0.98 * eo} filter="url(#zbblur1_4)" style={{ mixBlendMode: 'screen' }} {...cap} />
+        <path d={dEdge} stroke="#fff0c0" strokeWidth="1.8" opacity={0.95 * eo} filter="url(#zbblur0_5)" style={{ mixBlendMode: 'screen' }} {...cap} />
+        {embers}
       </svg>
     );
   }
@@ -1004,6 +1045,7 @@ const ZettelBurn = (() => {
   }
   return ZettelBurn;
 })();
+
 
 
 export default function LenormandApp() {
@@ -6291,7 +6333,9 @@ export default function LenormandApp() {
             {/* Brennender Zettel — deine Claude-Design-Animation */}
             {zettelBurning && (
               <div style={{ marginBottom:18 }}>
-                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
+                <div style={{ position:"relative", borderRadius:16, overflow:"hidden", background:"radial-gradient(circle at 50% 22%, #160d20, #0a0712 72%)" }}>
+                  <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
+                </div>
                 <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
