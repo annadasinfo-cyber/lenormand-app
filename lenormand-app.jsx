@@ -5927,25 +5927,25 @@ export default function LenormandApp() {
                         const posLabel = writingMode === "personen" ? (PERSONEN_POSITION_LABELS[String(pos)] || WRITING_POSITION_LABELS[pos]) : WRITING_POSITION_LABELS[pos];
                         return (
                           <div key={pos} style={{
-                            background: isActive ? "rgba(200,169,110,0.12)" : isSignifikator ? "rgba(200,169,110,0.08)" : isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)",
-                            border: `1.5px solid ${isActive ? gold : isSignifikator ? gold : isKombi ? "rgba(200,169,110,0.2)" : "rgba(200,169,110,0.1)"}`,
+                            background: lightMode ? (isActive ? "rgba(200,168,224,0.30)" : isSignifikator ? "rgba(200,168,224,0.22)" : isKombi ? "rgba(200,168,224,0.13)" : "rgba(200,168,224,0.07)") : (isActive ? "rgba(200,169,110,0.12)" : isSignifikator ? "rgba(200,169,110,0.08)" : isKombi ? "rgba(200,169,110,0.04)" : "rgba(200,169,110,0.02)"),
+                            border: `1.5px solid ${lightMode ? (isActive ? "#c8a8e0" : isSignifikator ? "#c8a8e0" : isKombi ? "rgba(200,168,224,0.5)" : "rgba(200,168,224,0.3)") : (isActive ? gold : isSignifikator ? gold : isKombi ? "rgba(200,169,110,0.2)" : "rgba(200,169,110,0.1)")}`,
                             borderRadius:7, padding:"8px 6px",
                             transition:"all 0.2s"
                           }}>
-                            <div style={{ fontSize:8, letterSpacing:2, color: isKombi ? "rgba(212,184,120,0.8)" : "#8a7050", textTransform:"uppercase", marginBottom:4 }}>
+                            <div style={{ fontSize:8, letterSpacing:2, color: lightMode ? "#2a0850" : (isKombi ? "rgba(212,184,120,0.8)" : "#8a7050"), textTransform:"uppercase", marginBottom:4 }}>
                               {posLabel}{isKombi ? " ✦" : ""}
                             </div>
                             {card && (
                               <div style={{ marginBottom:4, display:"flex", alignItems:"center", gap:3 }}>
                                 <span style={{fontSize:12}}>{SYMBOLS[card]}</span>
-                                <span style={{fontSize:7, color:gold}}>{CARDS[card].name}</span>
+                                <span style={{fontSize:7, color:lightMode?"#2a0850":gold}}>{CARDS[card].name}</span>
                               </div>
                             )}
                             {!card && matrixFreeText[pos] && (
-                              <div style={{ marginBottom:4, fontSize:9, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</div>
+                              <div style={{ marginBottom:4, fontSize:9, color:lightMode?"#2a0850":gold, fontStyle:"italic" }}>✍️ {matrixFreeText[pos]}</div>
                             )}
                             {isSignifikator && signifikator && <div style={{ fontSize:8, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.5 }}>{CARDS[signifikator].kw}</div>}
-                            {fixedText && <div style={{ fontSize:9, color: isKombi ? "#d8c8a0" : "#c0b090", lineHeight:1.6 }}>{fixedText}</div>}
+                            {fixedText && <div style={{ fontSize:9, color: lightMode?"#2a0850":(isKombi ? "#d8c8a0" : "#c0b090"), lineHeight:1.6 }}>{fixedText}</div>}
                             {!isSignifikator && !fixedText && (card || matrixFreeText[pos]) && <div style={{ fontSize:8, color:lightMode?"#2a0850":"#3a2a18" }}>–</div>}
                           </div>
                         );
