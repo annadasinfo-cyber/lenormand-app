@@ -2808,6 +2808,9 @@ export default function LenormandApp() {
   const [zettelBurning, setZettelBurning] = React.useState(false);
   const [zettelBurnSnapshot, setZettelBurnSnapshot] = React.useState([]);
   const ZETTEL_SHOW_WISHES = true; // Wünsche aufs brennende Papier? (false = nur stilvoller Zettel)
+  // Vorschau: auf true setzen, um ALLE Archiv-Einträge sofort zu entsiegeln
+  // (zum Anschauen/Testen). Auf false lassen für den echten 3-Wochen-Zauber.
+  const ZETTEL_UNLOCK_ALL = false;
   const [zettelFocus, setZettelFocus] = React.useState(null);
   const zettelInputRefs = React.useRef({});
   // Optik: gealtertes Notizpapier (in beiden Modi cremefarben — Papier ist Papier)
@@ -2897,6 +2900,37 @@ export default function LenormandApp() {
       try {
         await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv?id=eq.${entry.id}`, {
           method:"PATCH", headers: dbHeaders(), body: JSON.stringify({ items: newItems })
+        });
+      } catch {}
+    }
+  };
+
+  // Einen erfüllten (oder beliebigen) Wunsch aus einem entsiegelten Eintrag löschen.
+  // War es der letzte Wunsch, verschwindet der ganze Eintrag.
+  const deleteArchivItem = async (entryIdx, itemIdx) => {
+    const entry = zettelArchiv[entryIdx];
+    if (!entry) return;
+    const newItems = (entry.items||[]).filter((_, i) => i !== itemIdx);
+    if (newItems.length === 0) { await deleteArchivEntry(entryIdx); return; }
+    setZettelArchiv(prev => prev.map((e, i) => i === entryIdx ? {...e, items: newItems} : e));
+    if (entry.id && !String(entry.id).startsWith("local_")) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv?id=eq.${entry.id}`, {
+          method:"PATCH", headers: dbHeaders(), body: JSON.stringify({ items: newItems })
+        });
+      } catch {}
+    }
+  };
+
+  // Einen ganzen Archiv-Eintrag löschen
+  const deleteArchivEntry = async (entryIdx) => {
+    const entry = zettelArchiv[entryIdx];
+    if (!entry) return;
+    setZettelArchiv(prev => prev.filter((_, i) => i !== entryIdx));
+    if (entry.id && !String(entry.id).startsWith("local_")) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv?id=eq.${entry.id}`, {
+          method:"DELETE", headers: dbHeaders()
         });
       } catch {}
     }
@@ -6341,7 +6375,7 @@ export default function LenormandApp() {
                 {zettelArchiv.map((entry, ei) => {
                   const unlock = new Date(entry.unlock_at);
                   const now = new Date();
-                  const locked = unlock > now;
+                  const locked = !ZETTEL_UNLOCK_ALL && unlock > now;
                   const burnedStr = new Date(entry.burned_at).toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'});
                   const tageRest = Math.ceil((unlock - now)/(1000*60*60*24));
                   const erfuellt = (entry.items||[]).filter(it=>it.done).length;
@@ -6366,9 +6400,13 @@ export default function LenormandApp() {
                             <div key={ii} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, padding:"3px 6px", borderRadius:4, background: it.done?"rgba(90,154,90,0.08)":"transparent" }}>
                               <button onClick={()=>toggleArchivItem(ei, ii)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:15, padding:0, color: it.done?"#5a9a5a":(lightMode?"#7a3a9a":"#9a8060") }}>{it.done?"☑️":"☐"}</button>
                               <span style={{ flex:1, fontSize:12.5, fontFamily:"Georgia,serif", color: it.done?(lightMode?"#3a6a3a":"#5a7a5a"):(lightMode?"#2a0850":"#9a8060"), textDecoration: it.done?"line-through":"none" }}>{it.text}</span>
+                              <button onClick={()=>deleteArchivItem(ei, ii)} title="Diesen Wunsch löschen" style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:"0 2px", opacity: it.done?0.85:0.4, color:lightMode?"#a05a5a":"#9a7060" }}>🗑</button>
                             </div>
                           ))}
-                          <div style={{ fontSize:10, color:lightMode?"#8a6a9a":"#6a5040", fontStyle:"italic", marginTop:8, textAlign:"center" }}>Hake ab, was sich erfüllt hat — und sieh, wie viel Emanuel schon bewegt hat. 💛</div>
+                          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, gap:8 }}>
+                            <span style={{ fontSize:10, color:lightMode?"#8a6a9a":"#6a5040", fontStyle:"italic" }}>Hake ab, was sich erfüllt hat — und lösche es, wenn du magst. 💛</span>
+                            <button onClick={()=>{ if (window.confirm("Diesen ganzen Eintrag aus dem Archiv löschen?")) deleteArchivEntry(ei); }} style={{ background:"none", border:`1px solid ${lightMode?"rgba(160,90,90,0.3)":"rgba(154,112,96,0.3)"}`, borderRadius:6, cursor:"pointer", fontSize:10, padding:"3px 8px", color:lightMode?"#a05a5a":"#9a7060", whiteSpace:"nowrap" }}>Eintrag löschen</button>
+                          </div>
                         </div>
                       )}
                     </div>
