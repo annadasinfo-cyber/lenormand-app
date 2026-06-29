@@ -6391,7 +6391,7 @@ export default function LenormandApp() {
               <div style={{ fontSize:19, color:lightMode?"#5a1080":gold, fontFamily:"Georgia,serif", letterSpacing:1, marginBottom:8 }}>Zauberzettel</div>
               <div style={{ fontSize:12.5, lineHeight:1.8, maxWidth:400, margin:"0 auto", fontStyle:"italic", color:lightMode?"#5a3a6a":"#9a8060" }}>
                 Schreib auf, was sich erfüllen soll — jeder Wunsch eine Zeile.<br/>
-                Dann verbrenne den Zettel und gib ihn Emanuel. In 3 Wochen öffnet sich das Siegel.
+                Dann verbrenne den Zettel und übergib ihn den himmlischen Mächten zur Bearbeitung. Wenn sich das Siegel öffnet, kannst du nachschauen.
               </div>
             </div>
 
