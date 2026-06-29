@@ -738,7 +738,7 @@ const ZettelBurn = (() => {
           fontFamily: '"Caveat", cursive', color: ink,
         }}>
           <div style={{ fontSize: 31, opacity: 0.6, letterSpacing: '0.04em' }}>
-            Vollmond&nbsp;&nbsp;✦
+            Vollmond&nbsp;✦&nbsp;Neumond&nbsp;✦&nbsp;Zaubermond
           </div>
 
           <div style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.0, marginTop: 6 }}>
@@ -953,7 +953,7 @@ const ZettelBurn = (() => {
     return <div style={{ position: 'absolute', inset: 0 }}>{out}</div>;
   }
 
-  function Scene({ t, items, showWishes }) {
+  function Scene({ t, items, showWishes, transparent }) {
     const cl = clamp;
     const interp = interpolate;
     const env = flameEnv(t);
@@ -970,12 +970,14 @@ const ZettelBurn = (() => {
     const shadowOp = 0.5 * remain;
 
     return (
-      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#0a0705' }}>
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: transparent ? 'transparent' : '#0a0705' }}>
         {/* base ambient + vignette */}
+        {!transparent && (
         <div style={{
           position: 'absolute', inset: 0,
           background: 'radial-gradient(135% 115% at 50% 36%, #1b130b 0%, #0c0805 54%, #060403 100%)',
         }} />
+        )}
         {/* warm candle pre-glow (establishing) */}
         <div style={{
           position: 'absolute', inset: 0, mixBlendMode: 'screen',
@@ -1026,7 +1028,7 @@ const ZettelBurn = (() => {
   }
 
 
-  function ZettelBurn({ items, showWishes = true, onDone, duration = 8.4 }) {
+  function ZettelBurn({ items, showWishes = true, onDone, duration = 8.4, transparent = false }) {
     const [t, setT] = React.useState(0);
     const wrapRef = React.useRef(null);
     const [scale, setScale] = React.useState(0.32);
@@ -1047,9 +1049,9 @@ const ZettelBurn = (() => {
       fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
     }, []);
     return (
-      <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}`, borderRadius: 14, overflow: 'hidden', background: '#0a0705', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
+      <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}`, borderRadius: transparent ? 0 : 14, overflow: 'hidden', background: transparent ? 'transparent' : '#0a0705', boxShadow: transparent ? 'none' : '0 10px 40px rgba(0,0,0,0.5)' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          <Scene t={t} items={items} showWishes={showWishes} />
+          <Scene t={t} items={items} showWishes={showWishes} transparent={transparent} />
         </div>
       </div>
     );
@@ -6274,12 +6276,12 @@ export default function LenormandApp() {
             {/* Der Zettel — gealtertes Notizpapier wie im Design (Caveat-Handschrift) */}
             {!zettelBurning && (
               <div style={{ position:"relative", transform:"rotate(-0.9deg)", marginBottom:18 }}>
-                <div style={{ position:"relative", borderRadius:"5px 8px 6px 7px", padding:"30px 28px 26px", overflow:"hidden",
+                <div style={{ position:"relative", borderRadius:"5px 8px 6px 7px", padding:"30px 28px 26px", overflow:"hidden", aspectRatio:"664 / 912", display:"flex", flexDirection:"column",
                   background:"radial-gradient(120% 95% at 28% 18%, rgba(255,250,235,0.18), rgba(120,92,52,0) 42%), radial-gradient(58% 46% at 76% 66%, rgba(146,104,56,0.26), transparent 62%), radial-gradient(42% 30% at 18% 82%, rgba(112,80,42,0.30), transparent 60%), radial-gradient(30% 24% at 84% 22%, rgba(120,86,46,0.22), transparent 60%), linear-gradient(176deg, #ecdcb6 0%, #e1cd9f 46%, #d3bb88 100%)",
                   boxShadow:"0 10px 30px rgba(0,0,0,0.4), inset 0 0 44px rgba(86,58,26,0.34), inset 0 -22px 50px rgba(70,44,18,0.22)" }}>
                   <div style={{ position:"absolute", inset:0, backgroundImage: zettelGrain, backgroundSize:"160px 160px", opacity:0.07, mixBlendMode:"multiply", pointerEvents:"none" }}/>
                   <div style={{ position:"relative", fontFamily:"'Caveat', cursive", color:"#43301c" }}>
-                    <div style={{ fontSize:16, opacity:0.6, letterSpacing:"0.04em" }}>Vollmond&nbsp;&nbsp;✦</div>
+                    <div style={{ fontSize:16, opacity:0.6, letterSpacing:"0.04em" }}>Vollmond&nbsp;✦&nbsp;Neumond&nbsp;✦&nbsp;Zaubermond</div>
                     <div style={{ fontSize:34, fontWeight:700, lineHeight:1.0, marginTop:2, marginBottom:2 }}>Was ich mir wünsche</div>
                     <div style={{ width:170, height:3, marginBottom:16, transform:"rotate(-0.7deg)", background:"linear-gradient(90deg, rgba(67,48,28,0.85), rgba(67,48,28,0.2))", borderRadius:3 }} />
                     {zettelItems.map((it, i) => (
@@ -6308,7 +6310,7 @@ export default function LenormandApp() {
             {/* Brennender Zettel — deine Claude-Design-Animation */}
             {zettelBurning && (
               <div style={{ marginBottom:18 }}>
-                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
+                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} transparent={true} onDone={handleBurnDone} />
                 <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
