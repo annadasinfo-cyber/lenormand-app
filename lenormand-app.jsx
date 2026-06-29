@@ -3580,6 +3580,15 @@ export default function LenormandApp() {
     return m ? m[1] : null;
   };
 
+  // Erkennt Instagram-Reels (und normale Posts/IGTV) und liefert Typ + Kürzel, damit
+  // sie als eingebettetes Video statt als roher Link erscheinen. "reels" wird auf "reel"
+  // normalisiert; der Typ bleibt erhalten, damit die Embed-URL passt (reel/p/tv).
+  const extractInstagram = (url) => {
+    const m = url.match(/instagram\.com\/(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/);
+    if (!m) return null;
+    return { type: m[1] === "reels" ? "reel" : m[1], code: m[2] };
+  };
+
   // Zerlegt einen Beitrags-/Antworttext in normale Textabschnitte und YouTube-Links,
   // und rendert Letztere als großes eingebettetes Video (gleiche Optik wie auf der Willkommensseite).
   // Erkennt GIF-Links (auch mit Query-Parametern dahinter, wie bei Tenor/Giphy-Links üblich)
@@ -3605,6 +3614,22 @@ export default function LenormandApp() {
               title="Video"
               style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", border:"none" }}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        );
+      }
+      // Instagram-Reels (und Posts/IGTV) direkt einbetten — hochkant, mittig, wie ein Reel.
+      const ig = isUrl ? extractInstagram(part) : null;
+      if (ig) {
+        return (
+          <div key={i} style={{ display:"flex", justifyContent:"center", margin:"10px 0" }}>
+            <iframe
+              src={`https://www.instagram.com/${ig.type}/${ig.code}/embed`}
+              title="Reel"
+              scrolling="no"
+              style={{ width:"100%", maxWidth:400, height:580, border:"none", borderRadius:10, background:"#000" }}
+              allow="encrypted-media; clipboard-write; picture-in-picture"
               allowFullScreen
             />
           </div>
@@ -6833,7 +6858,7 @@ export default function LenormandApp() {
             style={{ background:"rgba(200,169,110,0.12)", border:"1px solid rgba(200,169,110,0.4)", color:lightMode?"#5a1080":"#c8a96e", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             ✨ Frag Anna
           </a>
-          <a href="https://www.annabenoir.de/app-fehlermeldungen" target="_blank" rel="noopener noreferrer"
+          <a href="https://lenormand-app-tau.vercel.app/#post-46b6002c-33b5-4fde-b9d9-ba920d8b55f3" target="_blank" rel="noopener noreferrer"
             style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             🐞 Fehler melden
           </a>
