@@ -839,9 +839,11 @@ const ZettelBurn = (() => {
       <svg width={PW} height={PH} viewBox={`0 0 ${PW} ${PH}`}
         style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
         <defs>
+          {/* Filterfläche folgt der Brandkante (schmales Band) statt der ganzen Zettelhöhe.
+              Spart auf Safari/Intel viel Rechenzeit — die Glut ist ja nur ein schmaler Streifen. */}
           {[16, 8, 5, 1.6, 0.6, 7, 3, 1.4, 0.5].map((sd) => (
             <filter key={sd} id={`zbblur${String(sd).replace('.', '_')}`}
-              filterUnits="userSpaceOnUse" x="-80" y="-160" width={PW + 160} height={PH + 320}>
+              filterUnits="userSpaceOnUse" x="-80" y={front - 250} width={PW + 160} height={520}>
               <feGaussianBlur stdDeviation={sd} />
             </filter>
           ))}
