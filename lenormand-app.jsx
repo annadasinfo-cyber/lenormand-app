@@ -4061,7 +4061,7 @@ export default function LenormandApp() {
                 else if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
               }}
-              style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
+              style={{ background:view===v?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", border:`1px solid ${view===v?(lightMode?"#c8a8e0":"rgba(200,169,110,0.4)"):"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
               {l}
             </button>
           ))}
@@ -4075,7 +4075,7 @@ export default function LenormandApp() {
                 else if(v==="forum") { setView(v); setCommunityMode("forum"); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
                 else { if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); } else { setView(v); if(v!==view) reset(); } }
               }}
-              style={{ background:view===v?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${view===v?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
+              style={{ background:view===v?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", border:`1px solid ${view===v?(lightMode?"#c8a8e0":"rgba(200,169,110,0.4)"):"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
               {l}
             </button>
           ))}
@@ -4113,7 +4113,7 @@ export default function LenormandApp() {
                 allowFullScreen
               />
             </div>
-            <div style={{ background:"rgba(200,169,110,0.03)", border:"1px solid rgba(200,169,110,0.18)", borderRadius:12, padding:"28px 32px", marginBottom:24 }}>
+            <div style={{ background:lightMode?"rgba(200,168,224,0.12)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"#c8a8e0":"rgba(200,169,110,0.18)"}`, borderRadius:12, padding:"28px 32px", marginBottom:24 }}>
               <div style={{ fontSize:9, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:16 }}>Einleitung</div>
               {("Willkommen in der Welt der Mlle Lenormand.\n\nPassend zum 10-jährigen Jubiläum der Lenormand Matrix gehen wir mit der Zeit — und verwandeln das Buch in ein Erlebnis.\n\nDas Lenormand ist eine sehr alte, ehrliche und vor allem alltagstaugliche Sprache der Symbole. Sie spricht nicht immer das aus, was wir hören wollen. Aber sie sagt immer das, was wir brauchen.\n\nWas mich an den Lenormand-Karten am meisten gewurmt hat, war dass sie auf der einen Seite so viele Informationen zu bieten haben — man aber die Hälfte mindestens übersieht, wenn man sie nicht alle auswendig kann. Ich wollte mich nicht geschlagen geben. Nicht von diesen Karten!\n\nAlso habe ich mich durch die Massen an Informationen gewühlt, sortiert — und sie in einer Matrix zusammengeschrieben, damit du mit ihr sicher, sanft und sehr, sehr schnell arbeiten kannst.\n\nIn dieser App findest du alle 1260 Kombinationen, die Situations-Matrix und die Personen-Matrix — und ein Quiz, damit du die Karten wirklich lernst. Nicht auswendig. Sondern mit dem Herzen.\n\nIn einem magischen Universum wird nichts dem Zufall überlassen. Auch nicht, dass du hier gelandet bist.\n\nMein Name ist Anna Benoir — und ich lege die Karten. 🎴").split("\n\n").map((para, i) => (
                 <p key={i} style={{ fontSize:15, lineHeight:1.9, color:lightMode?"#2a0850":"#d4c4a0", marginBottom:16, fontFamily:"Georgia,serif" }}>
