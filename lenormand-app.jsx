@@ -2811,7 +2811,23 @@ export default function LenormandApp() {
   // Schreibe Wünsche (Enter = neue Checkbox), verbrenne sie, und nach
   // 3 Wochen öffnet sich das Siegel und du siehst, was sich erfüllt hat.
   // ─────────────────────────────────────────────────────────────
-  const ZETTEL_LOCK_DAYS = 21; // 3 Wochen
+  const ZETTEL_LOCK_DAYS = 21; // 3 Wochen (Standard-Rückfall)
+  // Drei wählbare Versiegelungs-Zeiten (3-3-3, aus der Spirit-Szene). Monate/Jahre
+  // kalendergenau gerechnet, nicht in groben Tagen.
+  const ZETTEL_DURATIONS = [
+    { key:"3w", label:"3 Wochen", add:(d)=>{ const x=new Date(d); x.setDate(x.getDate()+21); return x; } },
+    { key:"3m", label:"3 Monate", add:(d)=>{ const x=new Date(d); x.setMonth(x.getMonth()+3); return x; } },
+    { key:"3y", label:"3 Jahre",  add:(d)=>{ const x=new Date(d); x.setFullYear(x.getFullYear()+3); return x; } },
+  ];
+  const [zettelDuration, setZettelDuration] = React.useState("3w");
+  const zettelDurAdd = (key, base) => (ZETTEL_DURATIONS.find(d=>d.key===key) || ZETTEL_DURATIONS[0]).add(base);
+  // Label aus der Spanne burned→unlock ableiten (kein neues DB-Feld nötig)
+  const zettelLockLabel = (burned, unlock) => {
+    const days = (new Date(unlock) - new Date(burned)) / 86400000;
+    if (days < 40) return "3 Wochen";
+    if (days < 200) return "3 Monate";
+    return "3 Jahre";
+  };
   const [zettelItems, setZettelItems] = React.useState([{ text:"", done:false }]);
   const [zettelArchiv, setZettelArchiv] = React.useState([]);
   const [zettelBurning, setZettelBurning] = React.useState(false);
@@ -2878,7 +2894,7 @@ export default function LenormandApp() {
     setZettelBurning(true);
     const uid = getUserId();
     const burnedAt = new Date();
-    const unlockAt = new Date(burnedAt.getTime() + ZETTEL_LOCK_DAYS*24*60*60*1000);
+    const unlockAt = zettelDurAdd(zettelDuration, burnedAt);
     const entry = { user_id: uid, items, burned_at: burnedAt.toISOString(), unlock_at: unlockAt.toISOString() };
     if (uid) {
       try {
@@ -2942,6 +2958,39 @@ export default function LenormandApp() {
           method:"DELETE", headers: dbHeaders()
         });
       } catch {}
+    }
+  };
+
+  // Offene (noch nicht erfüllte) Wünsche eines entsiegelten Eintrags frisch versiegeln:
+  // sie wandern in einen NEUEN Eintrag mit neuer, gewählter Laufzeit; im alten bleiben
+  // nur die bereits erfüllten (ist keiner erfüllt, verschwindet der alte Eintrag).
+  const reSealEntry = async (entryIdx, durationKey) => {
+    const entry = zettelArchiv[entryIdx];
+    if (!entry) return;
+    const offen = (entry.items||[]).filter(it => !it.done).map(it => ({ text: it.text, done: false }));
+    if (offen.length === 0) return;
+    const erfuellt = (entry.items||[]).filter(it => it.done);
+    const uid = getUserId();
+    const burnedAt = new Date();
+    const unlockAt = zettelDurAdd(durationKey, burnedAt);
+    const neu = { user_id: uid, items: offen, burned_at: burnedAt.toISOString(), unlock_at: unlockAt.toISOString() };
+    if (uid) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv`, { method:"POST", headers: dbHeaders(), body: JSON.stringify(neu) });
+        if (entry.id && !String(entry.id).startsWith("local_")) {
+          if (erfuellt.length === 0) {
+            await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv?id=eq.${entry.id}`, { method:"DELETE", headers: dbHeaders() });
+          } else {
+            await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv?id=eq.${entry.id}`, { method:"PATCH", headers: dbHeaders(), body: JSON.stringify({ items: erfuellt }) });
+          }
+        }
+      } catch {}
+      await loadZettelArchiv();
+    } else {
+      setZettelArchiv(prev => {
+        const rest = prev.map((e,i) => i===entryIdx ? {...e, items: erfuellt} : e).filter(e => (e.items||[]).length>0);
+        return [{...neu, id:"local_"+burnedAt.getTime()}, ...rest];
+      });
     }
   };
 
@@ -6388,6 +6437,27 @@ export default function LenormandApp() {
               </div>
             )}
 
+            {/* Versiegelungs-Dauer wählen (erscheint, sobald ein Wunsch dasteht) */}
+            {!zettelBurning && zettelItems.some(it=>it.text.trim()) && (
+              <div style={{ marginBottom:14 }}>
+                <div style={{ textAlign:"center", fontSize:11, color:lightMode?"#5a1080":"#9a8060", fontStyle:"italic", marginBottom:8 }}>Wie lange darf dein Wunsch durchs Universum reisen?</div>
+                <div style={{ display:"flex", gap:8 }}>
+                  {ZETTEL_DURATIONS.map(d => {
+                    const active = zettelDuration === d.key;
+                    return (
+                      <button key={d.key} onClick={()=>setZettelDuration(d.key)}
+                        style={{ flex:1, padding:"9px 0", borderRadius:8, cursor:"pointer", fontFamily:"Georgia,serif", fontSize:12, letterSpacing:0.5,
+                          background: active ? "linear-gradient(135deg,#7a3a9a,#a85ac8)" : (lightMode?"rgba(122,58,154,0.06)":"rgba(200,169,110,0.05)"),
+                          border:`1px solid ${active ? (lightMode?"#7a3a9a":gold) : (lightMode?"rgba(122,58,154,0.3)":"rgba(200,169,110,0.2)")}`,
+                          color: active ? "#fff" : (lightMode?"#5a1080":"#9a8060") }}>
+                        {d.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Verbrennen-Knopf */}
             {!zettelBurning && (
               <button onClick={verbrenneZettel} disabled={!zettelItems.some(it=>it.text.trim())} style={{ display:"block", width:"100%", padding:"13px", background: zettelItems.some(it=>it.text.trim()) ? "linear-gradient(135deg,#c8551a,#e87a2a)" : (lightMode?"rgba(122,58,154,0.12)":"rgba(200,169,110,0.08)"), border:"none", borderRadius:10, color: zettelItems.some(it=>it.text.trim())?"#fff":(lightMode?"#9a7aaa":"#6a5a44"), fontFamily:"Georgia,serif", fontSize:15, letterSpacing:1, cursor: zettelItems.some(it=>it.text.trim())?"pointer":"default", marginBottom:30, boxShadow: zettelItems.some(it=>it.text.trim())?"0 4px 20px rgba(220,90,20,0.35)":"none" }}>🔥 Zettel verbrennen</button>
@@ -6409,7 +6479,7 @@ export default function LenormandApp() {
                       {locked ? (
                         <div style={{ textAlign:"center", padding:"6px 0" }}>
                           <div style={{ fontSize:30, marginBottom:6 }}>🔒</div>
-                          <div style={{ fontSize:13, color:lightMode?"#5a1080":gold, fontFamily:"Georgia,serif", marginBottom:4 }}>Versiegelt</div>
+                          <div style={{ fontSize:13, color:lightMode?"#5a1080":gold, fontFamily:"Georgia,serif", marginBottom:4 }}>Versiegelt für {zettelLockLabel(entry.burned_at, entry.unlock_at)}</div>
                           <div style={{ fontSize:11, color:lightMode?"#5a3a6a":"#9a8060", fontStyle:"italic", lineHeight:1.6 }}>
                             {(entry.items||[]).length} {(entry.items||[]).length===1?"Wunsch reist":"Wünsche reisen"} gerade durchs Universum.<br/>
                             Öffnet sich in {tageRest} {tageRest===1?"Tag":"Tagen"} — am {unlock.toLocaleDateString('de-DE',{day:'2-digit',month:'long',year:'numeric'})}.
@@ -6428,6 +6498,22 @@ export default function LenormandApp() {
                               <button onClick={()=>deleteArchivItem(ei, ii)} title="Diesen Wunsch löschen" style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:"0 2px", opacity: it.done?0.85:0.4, color:lightMode?"#a05a5a":"#9a7060" }}>🗑</button>
                             </div>
                           ))}
+                          {(entry.items||[]).some(it=>!it.done) && (
+                            <div style={{ marginTop:10, paddingTop:10, borderTop:`1px dashed ${lightMode?"rgba(122,58,154,0.25)":"rgba(200,169,110,0.18)"}` }}>
+                              <div style={{ fontSize:10.5, color:lightMode?"#7a3a9a":"#9a8060", fontStyle:"italic", marginBottom:6 }}>Noch offen? Schick sie nochmal auf die Reise — du wählst, wie lange:</div>
+                              <div style={{ display:"flex", gap:6 }}>
+                                {ZETTEL_DURATIONS.map(d => (
+                                  <button key={d.key} onClick={()=>reSealEntry(ei, d.key)}
+                                    style={{ flex:1, padding:"6px 0", borderRadius:6, cursor:"pointer", fontFamily:"Georgia,serif", fontSize:11,
+                                      background:lightMode?"rgba(122,58,154,0.06)":"rgba(200,169,110,0.05)",
+                                      border:`1px solid ${lightMode?"rgba(122,58,154,0.3)":"rgba(200,169,110,0.25)"}`,
+                                      color:lightMode?"#5a1080":gold }}>
+                                    🔒 {d.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:8, gap:8 }}>
                             <span style={{ fontSize:10, color:lightMode?"#8a6a9a":"#6a5040", fontStyle:"italic" }}>Hake ab, was sich erfüllt hat — und lösche es, wenn du magst. 💛</span>
                             <button onClick={()=>{ if (window.confirm("Diesen ganzen Eintrag aus dem Archiv löschen?")) deleteArchivEntry(ei); }} style={{ background:"none", border:`1px solid ${lightMode?"rgba(160,90,90,0.3)":"rgba(154,112,96,0.3)"}`, borderRadius:6, cursor:"pointer", fontSize:10, padding:"3px 8px", color:lightMode?"#a05a5a":"#9a7060", whiteSpace:"nowrap" }}>Eintrag löschen</button>
