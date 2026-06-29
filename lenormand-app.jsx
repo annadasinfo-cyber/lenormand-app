@@ -4407,8 +4407,8 @@ export default function LenormandApp() {
                 {filteredCards(usedCards).map(num => (
                   <button key={num} onClick={() => { placeCard(num); setSearch(""); }}
                     style={{ background:"rgba(200,169,110,0.015)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:6, padding:"6px 3px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.4)"; e.currentTarget.style.color=gold; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
+                    onMouseEnter={e => { e.currentTarget.style.borderColor=lightMode?"#c8a8e0":"rgba(200,169,110,0.4)"; e.currentTarget.style.color=gold; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor=lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
                     <div style={{ fontSize:16 }}>{SYMBOLS[num]}</div>
                     <div style={{ fontSize:7, marginTop:2 }}>{num}. {CARDS[num].name}</div>
                   </button>
@@ -6762,7 +6762,7 @@ export default function LenormandApp() {
                                   if (!combo) return null;
                                   return (
                                     <div key={n} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:9 }}>
-                                      <div style={{ fontSize:11, color:gold, marginBottom:3 }}>{SYMBOLS[n]} {n}. {CARDS[n].name}</div>
+                                      <div style={{ fontSize:11, color:lightMode?"#2a0850":gold, marginBottom:3 }}>{SYMBOLS[n]} {n}. {CARDS[n].name}</div>
                                       <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.7 }}>{combo}</div>
                                     </div>
                                   );
@@ -6784,12 +6784,12 @@ export default function LenormandApp() {
                                     <div key={i} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:10 }}>
                                       <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
                                         {c.karten.map((k, ki) => (
-                                          <span key={ki} style={{ fontSize:10, color: k === cardDetail ? gold : "#9a8a72" }}>
+                                          <span key={ki} style={{ fontSize:10, color: k === cardDetail ? (lightMode?"#2a0850":gold) : (lightMode?"#2a0850":"#9a8a72") }}>
                                             {SYMBOLS[k]} {CARDS[k].name}{ki < c.karten.length-1 ? " ·" : ""}
                                           </span>
                                         ))}
                                       </div>
-                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
+                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:3, padding:"1px 6px", fontSize:8.5, color:lightMode?"#2a0850":gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
                                       <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
                                     </div>
                                   ))}
@@ -6811,12 +6811,12 @@ export default function LenormandApp() {
                                     <div key={i} style={{ borderBottom:"1px solid rgba(200,169,110,0.06)", paddingBottom:10 }}>
                                       <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:4, flexWrap:"wrap" }}>
                                         {c.karten.map((k, ki) => (
-                                          <span key={ki} style={{ fontSize:10, color: k === cardDetail ? gold : "#9a8a72" }}>
+                                          <span key={ki} style={{ fontSize:10, color: k === cardDetail ? (lightMode?"#2a0850":gold) : (lightMode?"#2a0850":"#9a8a72") }}>
                                             {SYMBOLS[k]} {CARDS[k].name}{ki < c.karten.length-1 ? " ·" : ""}
                                           </span>
                                         ))}
                                       </div>
-                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:3, padding:"1px 6px", fontSize:8.5, color:gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
+                                      <div style={{ display:"inline-block", background:"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:3, padding:"1px 6px", fontSize:8.5, color:lightMode?"#2a0850":gold, marginBottom:5, letterSpacing:0.5 }}>{c.label}</div>
                                       <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8a72", lineHeight:1.7 }}>{c.text}</div>
                                     </div>
                                   ))}
@@ -6840,8 +6840,8 @@ export default function LenormandApp() {
                 {filteredCards().map(num => (
                   <button key={num} onClick={() => setCardDetail(num)}
                     style={{ background:"rgba(200,169,110,0.015)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:8, padding:"12px 8px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif", transition:"all 0.18s" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.3)"; e.currentTarget.style.color=gold; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor="rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
+                    onMouseEnter={e => { e.currentTarget.style.borderColor=lightMode?"#c8a8e0":"rgba(200,169,110,0.3)"; e.currentTarget.style.color=gold; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor=lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
                     <div style={{ fontSize:24 }}>{SYMBOLS[num]}</div>
                     <div style={{ fontSize:9, marginTop:5, color:lightMode?"#2a0850":"#7a6040" }}>{num}.</div>
                     <div style={{ fontSize:11, marginTop:2, lineHeight:1.3 }}>{CARDS[num].name}</div>
