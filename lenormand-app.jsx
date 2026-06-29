@@ -576,27 +576,19 @@ function ForumMatrixGrid({ data, gold }) {
 }
 
 // ============================================================
-// Notizzettel in Flammen — portiert aus Claude Design (BurningNote).
-// 'pure function of time'; läuft hier über eine eigene rAF-Uhr.
+// Notizzettel in Flammen — V2, portiert aus Claude Design.
+// Kamera fest (Papier bewegt sich nicht), transparent, fotorealistische Kohlekante.
 // ============================================================
 const ZettelBurn = (() => {
   const lerp = (a, b, t) => a + (b - a) * t;
-    const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
-    const Easing = {
-      easeInOutQuad: (t) => (t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t),
-      easeInOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
-    };
-    const interpolate = (input, output, ease) => (t) => {
-      if (t <= input[0]) return output[0];
-      if (t >= input[input.length-1]) return output[output.length-1];
-      for (let i=0;i<input.length-1;i++){
-        if (t>=input[i] && t<=input[i+1]) { const p=(t-input[i])/(input[i+1]-input[i]); return output[i]+(output[i+1]-output[i])*(ease?ease(p):p); }
-      }
-      return output[output.length-1];
-    };
+  const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
+  const Easing = {
+    easeInOutQuad: (t) => (t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t),
+    easeInOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+  };
 
   const W = 1080, H = 1920;
-  const PW = 664, PH = 912, PX = (W - PW) / 2, PY = 472;
+  const PW = 900, PH = 1440, PX = (W - PW) / 2, PY = 210;
   const BURN_START = 1.55, BURN_END = 6.85;
 
   function mulberry32(a) {
@@ -683,12 +675,11 @@ const ZettelBurn = (() => {
     size: lerp(190, 340, RNG()), life: lerp(3, 5.2, RNG()), ph: RNG() * 6.28,
   }));
 
-  const ITEMS = [
-    { done: true,  t: 'Alte Zweifel ziehen lassen' },
-    { done: true,  t: 'Auf mein Bauchgefühl hören' },
-    { done: false, t: 'Der neuen Liebe Raum geben' },
-    { done: false, t: 'Mut für den nächsten Schritt' },
-    { done: false, t: 'Dankbar sein für das, was war' },
+  const WISHES = [
+    'Klarheit für meinen Weg',
+    'Mut, Neues zu wagen',
+    'Liebe, die mich trägt',
+    'Vertrauen ins Universum',
   ];
 
   // ── the paper itself (aged texture + handwritten checklist) ────────────────
@@ -731,30 +722,36 @@ const ZettelBurn = (() => {
           background: 'linear-gradient(90deg, transparent, rgba(96,64,28,0.22) 18%, rgba(96,64,28,0.22) 82%, transparent)',
         }} />
 
-        {/* handwritten content — heading at top, body left intentionally empty */}
+        {/* handwritten content */}
         <div style={{
-          position: 'absolute', inset: 0, padding: '74px 66px 60px',
+          position: 'absolute', inset: 0, padding: '110px 92px 90px',
           display: 'flex', flexDirection: 'column',
           fontFamily: '"Caveat", cursive', color: ink,
         }}>
-          <div style={{ fontSize: 31, opacity: 0.6, letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: 40, opacity: 0.6, letterSpacing: '0.02em' }}>
             Vollmond&nbsp;✦&nbsp;Neumond&nbsp;✦&nbsp;Zaubermond
           </div>
 
-          <div style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.0, marginTop: 6 }}>
+          <div style={{ fontSize: 98, fontWeight: 700, lineHeight: 1.0, marginTop: 14 }}>
             Was ich mir wünsche
           </div>
           <div style={{
-            width: 372, height: 5, marginTop: 4, transform: 'rotate(-0.7deg)',
-            background: 'linear-gradient(90deg, rgba(67,48,28,0.85), rgba(67,48,28,0.2))',
+            width: 470, height: 6, marginTop: 8, transform: 'rotate(-0.7deg)',
+            background: 'linear-gradient(90deg, rgba(67,48,28,0.85), rgba(67,48,28,0.15))',
             borderRadius: 3,
           }} />
+
           {showWishes && items && items.length > 0 && (
-          <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 22 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 30, marginTop: 64 }}>
             {items.map((it, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 44, opacity: it.done ? 0.55 : 0.95 }}>
-                <span style={{ fontSize: 38, color: it.done ? '#4a6a2a' : ink }}>{it.done ? '✓' : '○'}</span>
-                <span style={{ textDecoration: it.done ? 'line-through' : 'none' }}>{it.text}</span>
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 24, opacity: it.done ? 0.6 : 1 }}>
+                <span style={{
+                  flex: '0 0 auto', width: 30, height: 30, marginTop: 14,
+                  border: '3px solid rgba(67,48,28,0.62)', borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transform: `rotate(${i % 2 ? -6 : 5}deg) scale(${i % 2 ? 1.04 : 0.95})`,
+                }}>{it.done ? <span style={{ fontSize: 28, lineHeight: 1, color: ink, marginTop: -8 }}>✓</span> : null}</span>
+                <span style={{ fontSize: 52, lineHeight: 1.18, textDecoration: it.done ? 'line-through' : 'none' }}>{it.text}</span>
               </div>
             ))}
           </div>
@@ -953,84 +950,31 @@ const ZettelBurn = (() => {
     return <div style={{ position: 'absolute', inset: 0 }}>{out}</div>;
   }
 
-  function Scene({ t, items, showWishes, transparent }) {
-    const cl = clamp;
-    const interp = interpolate;
-    const env = flameEnv(t);
+  function Scene({ t, items, showWishes }) {
 
-    const camScale = interp([0, 3, 6.85, 10], [1.0, 1.035, 1.075, 1.03], Easing.easeInOutSine)(t);
-    const camY = interp([0, 2, 5, 7, 10], [0, 8, 64, 44, -8], Easing.easeInOutSine)(t);
-
-    const frontWorldY = PY + cl(burnFront(t), -30, PH + 20);
-    const flick = 0.78 + 0.18 * Math.sin(t * 22) + 0.12 * Math.sin(t * 7 + 1);
-    const glowOp = env * cl(flick, 0.3, 1.1);
-    const firePctY = (frontWorldY / H) * 100;
-
-    const remain = cl(burnFront(t) / PH, 0, 1);
-    const shadowOp = 0.5 * remain;
-
+    // Camera is locked off — the paper never moves. Only fire/char/embers/smoke/ash move.
     return (
-      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: transparent ? 'transparent' : '#0a0705' }}>
-        {/* base ambient + vignette */}
-        {!transparent && (
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: 'transparent' }}>
+        {/* paper + glow + char-rim + flames share the fixed, slightly-tilted paper frame */}
         <div style={{
-          position: 'absolute', inset: 0,
-          background: 'radial-gradient(135% 115% at 50% 36%, #1b130b 0%, #0c0805 54%, #060403 100%)',
-        }} />
-        )}
-        {/* warm candle pre-glow (establishing) */}
-        <div style={{
-          position: 'absolute', inset: 0, mixBlendMode: 'screen',
-          background: 'radial-gradient(60% 40% at 50% 78%, rgba(180,110,40,0.5), transparent 70%)',
-          opacity: cl(0.5 - env, 0, 1) * (0.5 + 0.18 * Math.sin(t * 6)),
-        }} />
-        {/* moving fire light removed — replaced by FireGlow clipped to the paper
-            so no warm light spills into the empty area below/left of the sheet */}
-
-        {/* camera world */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          transform: `translateY(${camY}px) scale(${camScale})`,
-          transformOrigin: '50% 46%', willChange: 'transform',
+          position: 'absolute', left: PX, top: PY, width: PW, height: PH,
+          transform: 'rotate(-1deg)', transformOrigin: '50% 50%',
         }}>
-          {/* contact shadow */}
-          <div style={{
-            position: 'absolute', left: PX + PW * 0.05, top: PY + PH - 30,
-            width: PW * 0.9 * (0.5 + 0.5 * remain), height: 90,
-            marginLeft: 0, borderRadius: '50%',
-            background: 'radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.7), transparent 70%)',
-            filter: 'blur(18px)', opacity: shadowOp,
-          }} />
-
-          {/* paper + rim + flames share the rotated paper frame */}
-          <div style={{
-            position: 'absolute', left: PX, top: PY, width: PW, height: PH,
-            transform: 'rotate(-1.1deg)', transformOrigin: '50% 50%',
-          }}>
-            <Paper t={t} items={items} showWishes={showWishes} />
-            <FireGlow t={t} />
-            <EmberRim t={t} />
-            <Flames t={t} />
-          </div>
-
-          <Smoke t={t} />
-          <Sparks t={t} />
-          <Ash t={t} />
+          <Paper t={t} items={items} showWishes={showWishes} />
+          <FireGlow t={t} />
+          <EmberRim t={t} />
+          <Flames t={t} />
         </div>
 
-        {/* cinematic vignette on top */}
-        {!transparent && (
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(120% 100% at 50% 45%, transparent 54%, rgba(0,0,0,0.55) 100%)',
-        }} />
-        )}
+        <Smoke t={t} />
+        <Sparks t={t} />
+        <Ash t={t} />
       </div>
     );
   }
 
 
-  function ZettelBurn({ items, showWishes = true, onDone, duration = 8.4, transparent = false, anchorPaper = false }) {
+  function ZettelBurn({ items, showWishes = true, onDone, duration = 8.4 }) {
     const [t, setT] = React.useState(0);
     const wrapRef = React.useRef(null);
     const [scale, setScale] = React.useState(0.32);
@@ -1047,31 +991,20 @@ const ZettelBurn = (() => {
       return () => cancelAnimationFrame(raf);
     }, []);
     React.useEffect(() => {
-      const fit = () => { if (wrapRef.current) setScale(wrapRef.current.clientWidth / (anchorPaper ? PW : W)); };
+      const fit = () => { if (wrapRef.current) setScale(wrapRef.current.clientWidth / W); };
       fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
     }, []);
-    if (anchorPaper) {
-      // Wrapper hat exakt die Papier-Maße; die 1080×1920-Bühne wird so verschoben,
-      // dass das Papier (PX,PY,PW,PH) genau den Wrapper füllt. Flammen/Funken
-      // dürfen frei darüber hinausragen (overflow sichtbar).
-      return (
-        <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${PW} / ${PH}`, overflow: 'visible' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, transformOrigin: 'top left', transform: `translate(${(-PX*scale).toFixed(2)}px, ${(-PY*scale).toFixed(2)}px) scale(${scale})` }}>
-            <Scene t={t} items={items} showWishes={showWishes} transparent={transparent} />
-          </div>
-        </div>
-      );
-    }
     return (
-      <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}`, borderRadius: transparent ? 0 : 14, overflow: 'hidden', background: transparent ? 'transparent' : '#0a0705', boxShadow: transparent ? 'none' : '0 10px 40px rgba(0,0,0,0.5)' }}>
+      <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}`, overflow: 'hidden', background: 'transparent' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
-          <Scene t={t} items={items} showWishes={showWishes} transparent={transparent} />
+          <Scene t={t} items={items} showWishes={showWishes} />
         </div>
       </div>
     );
   }
   return ZettelBurn;
 })();
+
 
 export default function LenormandApp() {
   const gold = "#c8a96e";
@@ -6324,7 +6257,7 @@ export default function LenormandApp() {
             {/* Der Zettel — gealtertes Notizpapier wie im Design (Caveat-Handschrift) */}
             {!zettelBurning && (
               <div style={{ position:"relative", transform:"rotate(-0.9deg)", marginBottom:18 }}>
-                <div style={{ position:"relative", borderRadius:"5px 8px 6px 7px", padding:"30px 28px 26px", overflow:"hidden", aspectRatio:"664 / 912", display:"flex", flexDirection:"column",
+                <div style={{ position:"relative", borderRadius:"5px 8px 6px 7px", padding:"30px 28px 26px", overflow:"hidden", aspectRatio:"900 / 1440", display:"flex", flexDirection:"column",
                   background:"radial-gradient(120% 95% at 28% 18%, rgba(255,250,235,0.18), rgba(120,92,52,0) 42%), radial-gradient(58% 46% at 76% 66%, rgba(146,104,56,0.26), transparent 62%), radial-gradient(42% 30% at 18% 82%, rgba(112,80,42,0.30), transparent 60%), radial-gradient(30% 24% at 84% 22%, rgba(120,86,46,0.22), transparent 60%), linear-gradient(176deg, #ecdcb6 0%, #e1cd9f 46%, #d3bb88 100%)",
                   boxShadow:"0 10px 30px rgba(0,0,0,0.4), inset 0 0 44px rgba(86,58,26,0.34), inset 0 -22px 50px rgba(70,44,18,0.22)" }}>
                   <div style={{ position:"absolute", inset:0, backgroundImage: zettelGrain, backgroundSize:"160px 160px", opacity:0.07, mixBlendMode:"multiply", pointerEvents:"none" }}/>
@@ -6358,7 +6291,7 @@ export default function LenormandApp() {
             {/* Brennender Zettel — deine Claude-Design-Animation */}
             {zettelBurning && (
               <div style={{ marginBottom:18 }}>
-                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} transparent={true} onDone={handleBurnDone} />
+                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
                 <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
