@@ -309,7 +309,7 @@ function ConfettiCanvas() {
 // springt weg, noch bevor das erste Zeichen sichtbar wird. Mit eigenem lokalem State hier
 // bleibt die Texteingabe komplett unabhängig von allem, was in LenormandApp passiert, bis
 // "Speichern" gedrückt wird.
-function InlineEditBox({ initialValue, onSave, onCancel, rows, fontSize }) {
+function InlineEditBox({ initialValue, onSave, onCancel, rows, fontSize, lightMode }) {
   const [value, setValue] = useState(initialValue);
   return (
     <div>
@@ -343,7 +343,7 @@ class ContentErrorBoundary extends React.Component {
   }
 }
 
-function InlinePostEditBox({ initialTitle, initialBody, onSave, onCancel }) {
+function InlinePostEditBox({ initialTitle, initialBody, onSave, onCancel, lightMode }) {
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
   return (
@@ -3737,7 +3737,7 @@ export default function LenormandApp() {
       <div style={{ marginLeft: indent }}>
         <div style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.12)"}`, borderRadius:8, padding:"10px 14px", marginBottom:8 }}>
           {isEditing ? (
-            <InlineEditBox
+            <InlineEditBox lightMode={lightMode}
               initialValue={reply.body}
               onSave={(newBody) => saveEditForumReply(reply.id, newBody)}
               onCancel={() => setForumEditingReplyId(null)}
@@ -4737,7 +4737,7 @@ export default function LenormandApp() {
                 <button onClick={() => setForumView("kategorie")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zur Liste</button>
                 <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
                   {forumEditingPostId === forumActivePost.id ? (
-                    <InlinePostEditBox
+                    <InlinePostEditBox lightMode={lightMode}
                       initialTitle={forumActivePost.title}
                       initialBody={forumActivePost.body}
                       onSave={(newTitle, newBody) => saveEditForumPost(forumActivePost.id, newTitle, newBody)}
@@ -4962,7 +4962,7 @@ export default function LenormandApp() {
                   <div>
                     <button onClick={() => setKurseView("kategorie")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
                     <div style={{ fontSize:14, color:gold, marginBottom:16 }}>Neue Lektion in „{kurseActiveCategory.name}"</div>
-                    <InlinePostEditBox
+                    <InlinePostEditBox lightMode={lightMode}
                       initialTitle="" initialBody=""
                       onSave={async (title, body) => {
                         if (!title.trim()) return;
@@ -4994,7 +4994,7 @@ export default function LenormandApp() {
                       style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zum Kurs</button>
                     <div style={{ background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"16px 18px", marginBottom:16 }}>
                       {forumEditingPostId === kurseActivePost.id ? (
-                        <InlinePostEditBox
+                        <InlinePostEditBox lightMode={lightMode}
                           initialTitle={kurseActivePost.title} initialBody={kurseActivePost.body}
                           onSave={(newTitle, newBody) => saveEditForumPost(kurseActivePost.id, newTitle, newBody)}
                           onCancel={() => setForumEditingPostId(null)}
