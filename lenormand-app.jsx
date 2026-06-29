@@ -4953,12 +4953,16 @@ export default function LenormandApp() {
                             method:"POST", headers:{...dbHeaders(), "Prefer":"return=representation"},
                             body: JSON.stringify({ category_id: kurseActiveCategory.id, title: title.trim(), body: body.trim(), user_id: getUserId(), display_name: userDisplayName || "Anna" })
                           });
-                          const data = await r.json();
-                          if (data && data[0]) {
-                            setKursePosts(prev => [...prev, data[0]]);
-                            setKurseView("kategorie");
+                          if (!r.ok) {
+                            let msg = ""; try { msg = JSON.stringify(await r.json()); } catch {}
+                            alert("Lektion konnte nicht gespeichert werden (" + r.status + "). " + msg);
+                            return;
                           }
-                        } catch {}
+                          // Nicht auf die Insert-Antwort verlassen (RLS kann sie leer machen) —
+                          // frisch vom Server laden, dann zurück zur Lektionsliste.
+                          await loadKursePosts(kurseActiveCategory.id);
+                          setKurseView("kategorie");
+                        } catch (e) { alert("Speichern fehlgeschlagen: " + (e && e.message ? e.message : e)); }
                       }}
                       onCancel={() => setKurseView("kategorie")}
                     />
