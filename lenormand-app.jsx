@@ -4054,17 +4054,19 @@ export default function LenormandApp() {
         <div style={{ fontSize:10, color: lightMode?"#7a3a9a":"#6a5040", letterSpacing:2, marginBottom:8, fontStyle:"italic" }}>wo Karten Geheimnisse offenbaren — und du nicht allein damit bist</div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:12 }}>
           {/* Reihe 1 */}
-          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["matrix","⬛ Matrix"]].map(([v,l]) => (
+          {[["liesmich","📖 Willkommen"],["random","🔮 Frage"],["personen","👤 Person"],["matrix","⬛ Matrix"]].map(([v,l]) => {
+            const active = v==="random" ? view==="fragmich" : view===v;
+            return (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else if(v==="matrix") { setView("matrix"); setMatrixView("question"); setMode("situation"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
                 else { setView(v); setDailyMode("tagebuch"); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); if(v!==view) reset(); }
               }}
-              style={{ background:view===v?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", border:`1px solid ${view===v?(lightMode?"#c8a8e0":"rgba(200,169,110,0.4)"):"rgba(200,169,110,0.12)"}`, color:view===v?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
+              style={{ background:active?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", border:`1px solid ${active?(lightMode?"#c8a8e0":"rgba(200,169,110,0.4)"):"rgba(200,169,110,0.12)"}`, color:active?gold:"#5a4a34", padding:"7px 16px", borderRadius:4, cursor:"pointer", fontSize:13, letterSpacing:1, fontFamily:"Georgia,serif" }}>
               {l}
             </button>
-          ))}
+          ); })}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
           {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","📙 Forum"],["shop","🛍️ Shop"]].map(([v,l]) => (
@@ -4277,7 +4279,6 @@ export default function LenormandApp() {
         {(view === "matrix" || view === "personen" || view === "fragmich") && (<>
           {/* Step 0: Frage eingeben */}
           {matrixView === "question" && (<>
-            <div style={{ background:lightMode?"rgba(200,168,224,0.12)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"#c8a8e0":"rgba(200,169,110,0.18)"}`, borderRadius:12, padding:"28px 32px", marginBottom:24 }}>
             <div style={{ textAlign:"center", marginBottom:20 }}>
               <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:6 }}>Schritt 1</div>
               <div style={{ fontSize:16, color:gold, marginBottom:6 }}>Deine Frage</div>
@@ -4301,7 +4302,6 @@ export default function LenormandApp() {
                 style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"10px 28px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                 {randomMode ? "🎲 Mischen & Deuten" : mode === "personen" ? "Signifikator wählen →" : "Weiter →"}
               </button>
-            </div>
             </div>
           </>)}
 
