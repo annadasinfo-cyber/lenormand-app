@@ -5734,7 +5734,7 @@ export default function LenormandApp() {
                   <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>Klicke eine Position — dann wähle die Karte</div>
                   <button onClick={() => { if(signifikator || matrixFreeText[4]) setWritingView("writing"); }}
                     disabled={!signifikator && !matrixFreeText[4]}
-                    style={{ background:(signifikator||matrixFreeText[4])?"rgba(200,169,110,0.12)":"transparent", border:`1px solid ${(signifikator||matrixFreeText[4])?gold:"rgba(200,169,110,0.2)"}`, color:(signifikator||matrixFreeText[4])?gold:"#4a3a24", padding:"6px 16px", borderRadius:6, cursor:(signifikator||matrixFreeText[4])?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>
+                    style={{ background:(signifikator||matrixFreeText[4])?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", border:`1px solid ${(signifikator||matrixFreeText[4])?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:(signifikator||matrixFreeText[4])?gold:"#4a3a24", padding:"6px 16px", borderRadius:6, cursor:(signifikator||matrixFreeText[4])?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>
                     Weiter →
                   </button>
                 </div>
@@ -5745,13 +5745,13 @@ export default function LenormandApp() {
                     setActivePos(willActivate ? "intro" : null);
                     if (willActivate) setPickerMode(matrixFreeText["intro"] ? "freitext" : "karte");
                   }}
-                  style={{ border:`1.5px solid ${activePos==="intro"?gold:(introCard||matrixFreeText["intro"])?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 10px", marginBottom:8, cursor:"pointer", background:activePos==="intro"?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
+                  style={{ border:`1.5px solid ${activePos==="intro"?(lightMode?"#c8a8e0":gold):(introCard||matrixFreeText["intro"])?(lightMode?"rgba(200,168,224,0.55)":"rgba(200,169,110,0.4)"):(lightMode?"rgba(200,168,224,0.35)":"rgba(200,169,110,0.15)")}`, borderRadius:8, padding:"8px 10px", marginBottom:8, cursor:"pointer", background:activePos==="intro"?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.06)"):"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
                   <div style={{ fontSize:8, color:lightMode?"#2a0850":"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Intro</div>
                   {introCard ? (<>
                     <span style={{ fontSize:18 }}>{SYMBOLS[introCard]}</span>
-                    <span style={{ fontSize:10, color:gold }}>{CARDS[introCard].name}</span>
+                    <span style={{ fontSize:10, color:lightMode?"#2a0850":gold }}>{CARDS[introCard].name}</span>
                   </>) : matrixFreeText["intro"] ? (
-                    <span style={{ fontSize:10, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText["intro"].slice(0,30)}{matrixFreeText["intro"].length>30?"…":""}</span>
+                    <span style={{ fontSize:10, color:lightMode?"#2a0850":gold, fontStyle:"italic" }}>✍️ {matrixFreeText["intro"].slice(0,30)}{matrixFreeText["intro"].length>30?"…":""}</span>
                   ) : <span style={{ fontSize:10, color:lightMode?"#2a0850":"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
                 </div>
 
@@ -5769,13 +5769,13 @@ export default function LenormandApp() {
                         setActivePos(willActivate ? pos : null);
                         if (willActivate) setPickerMode(matrixFreeText[pos] ? "freitext" : "karte");
                       }}
-                        style={{ border:`1.5px solid ${isActive?gold:(card||freeText)?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 6px", textAlign:"center", cursor:"pointer", background:isCenter?"rgba(200,169,110,0.08)":isActive?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", minHeight:80 }}>
+                        style={{ border:`1.5px solid ${isActive?(lightMode?"#c8a8e0":gold):(card||freeText)?(lightMode?"rgba(200,168,224,0.55)":"rgba(200,169,110,0.4)"):(lightMode?"rgba(200,168,224,0.35)":"rgba(200,169,110,0.15)")}`, borderRadius:8, padding:"8px 6px", textAlign:"center", cursor:"pointer", background:isCenter?(lightMode?"rgba(200,168,224,0.20)":"rgba(200,169,110,0.08)"):isActive?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.06)"):"rgba(200,169,110,0.02)", minHeight:80 }}>
                         <div style={{ fontSize:8, color:lightMode?"#2a0850":"#5a4a34", letterSpacing:1, textTransform:"uppercase", marginBottom:4 }}>{labels[pos]}</div>
                         {card ? (<>
                           <div style={{ fontSize:24 }}>{SYMBOLS[card]}</div>
-                          <div style={{ fontSize:8, color:gold, marginTop:2 }}>{CARDS[card].name}</div>
+                          <div style={{ fontSize:8, color:lightMode?"#2a0850":gold, marginTop:2 }}>{CARDS[card].name}</div>
                         </>) : freeText ? (
-                          <div style={{ fontSize:10, color:gold, marginTop:10, lineHeight:1.3, wordBreak:"break-word" }}>✍️ {freeText.slice(0, 40)}{freeText.length > 40 ? "…" : ""}</div>
+                          <div style={{ fontSize:10, color:lightMode?"#2a0850":gold, marginTop:10, lineHeight:1.3, wordBreak:"break-word" }}>✍️ {freeText.slice(0, 40)}{freeText.length > 40 ? "…" : ""}</div>
                         ) : <div style={{ fontSize:10, color:lightMode?"#2a0850":"#3a2a18", marginTop:8 }}>+</div>}
                       </div>
                     );
@@ -5788,13 +5788,13 @@ export default function LenormandApp() {
                     setActivePos(willActivate ? "outro" : null);
                     if (willActivate) setPickerMode(matrixFreeText["outro"] ? "freitext" : "karte");
                   }}
-                  style={{ border:`1.5px solid ${activePos==="outro"?gold:(outroCard||matrixFreeText["outro"])?"rgba(200,169,110,0.4)":"rgba(200,169,110,0.15)"}`, borderRadius:8, padding:"8px 10px", marginBottom:16, cursor:"pointer", background:activePos==="outro"?"rgba(200,169,110,0.06)":"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
+                  style={{ border:`1.5px solid ${activePos==="outro"?(lightMode?"#c8a8e0":gold):(outroCard||matrixFreeText["outro"])?(lightMode?"rgba(200,168,224,0.55)":"rgba(200,169,110,0.4)"):(lightMode?"rgba(200,168,224,0.35)":"rgba(200,169,110,0.15)")}`, borderRadius:8, padding:"8px 10px", marginBottom:16, cursor:"pointer", background:activePos==="outro"?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.06)"):"rgba(200,169,110,0.02)", display:"flex", alignItems:"center", gap:8 }}>
                   <div style={{ fontSize:8, color:lightMode?"#2a0850":"#5a4a34", letterSpacing:1, textTransform:"uppercase", width:50, flexShrink:0 }}>🎬 Outro</div>
                   {outroCard ? (<>
                     <span style={{ fontSize:18 }}>{SYMBOLS[outroCard]}</span>
-                    <span style={{ fontSize:10, color:gold }}>{CARDS[outroCard].name}</span>
+                    <span style={{ fontSize:10, color:lightMode?"#2a0850":gold }}>{CARDS[outroCard].name}</span>
                   </>) : matrixFreeText["outro"] ? (
-                    <span style={{ fontSize:10, color:gold, fontStyle:"italic" }}>✍️ {matrixFreeText["outro"].slice(0,30)}{matrixFreeText["outro"].length>30?"…":""}</span>
+                    <span style={{ fontSize:10, color:lightMode?"#2a0850":gold, fontStyle:"italic" }}>✍️ {matrixFreeText["outro"].slice(0,30)}{matrixFreeText["outro"].length>30?"…":""}</span>
                   ) : <span style={{ fontSize:10, color:lightMode?"#2a0850":"#3a2a18" }}>+ optional eine Karte zuordnen</span>}
                 </div>
 
@@ -5863,9 +5863,11 @@ export default function LenormandApp() {
                                 }
                                 setActivePos(null);
                               }}
-                                style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif" }}>
+                                style={{ background:"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:6, padding:"6px 4px", cursor:alreadyUsed?"default":"pointer", opacity:alreadyUsed?0.2:1, textAlign:"center", fontFamily:"Georgia,serif", color:lightMode?"#2a0850":"#9a8060", transition:"all 0.18s" }}
+                                onMouseEnter={e => { if(alreadyUsed)return; e.currentTarget.style.borderColor=lightMode?"#c8a8e0":"rgba(200,169,110,0.35)"; e.currentTarget.style.color=gold; }}
+                                onMouseLeave={e => { e.currentTarget.style.borderColor=lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"; e.currentTarget.style.color=lightMode?"#2a0850":"#9a8060"; }}>
                                 <div style={{ fontSize:22 }}>{SYMBOLS[num]}</div>
-                                <div style={{ fontSize:9, color:lightMode?"#2a0850":"#9a8060", marginTop:3 }}>{num}. {CARDS[num].name}</div>
+                                <div style={{ fontSize:9, marginTop:3 }}>{num}. {CARDS[num].name}</div>
                               </button>
                             );
                           })}
