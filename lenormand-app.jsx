@@ -6324,7 +6324,7 @@ export default function LenormandApp() {
             {/* Brennender Zettel — deine Claude-Design-Animation */}
             {zettelBurning && (
               <div style={{ marginBottom:18 }}>
-                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} transparent={true} anchorPaper={true} onDone={handleBurnDone} />
+                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} transparent={true} onDone={handleBurnDone} />
                 <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
