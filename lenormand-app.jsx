@@ -29,7 +29,9 @@ const supabase = (() => {
           if (!s || !s.access_token) return null;
           const payload = JSON.parse(atob(s.access_token.split('.')[1]));
           if (payload.exp && payload.exp < Date.now()/1000) {
-            localStorage.removeItem("sb_session");
+            // access_token abgelaufen → hier null zurückgeben, ABER die gespeicherte
+            // Session NICHT löschen: der refresh_token lebt länger und wird gebraucht,
+            // um sich ohne Passwort einen frischen access_token zu holen.
             return null;
           }
           return s;
@@ -1097,28 +1099,42 @@ export default function LenormandApp() {
   // direkt nachdem sie deklariert sind).
   React.useEffect(() => { sessionStorage.setItem("lenni_view", view); }, [view]);
 
-  // Auto-Refresh Token alle 45 Minuten
+  // Token frisch halten — damit dich beim Schreiben (Writing!) nichts mehr ausloggt und
+  // weiter gespeichert wird. Liest den refresh_token DIREKT aus dem localStorage (nicht über
+  // getSession, das einen abgelaufenen access_token zwar nicht mehr löscht, aber null liefert),
+  // erneuert proaktiv ~10 Min vor Ablauf, alle 3 Min, beim Start und bei jedem Tab-Fokus
+  // (fängt den Fall ab, dass Laptop/Handy zwischendurch geschlafen haben).
   React.useEffect(() => {
-    if (!session) return;
-    const refresh = async () => {
+    let stopped = false, busy = false;
+    const readStored = () => { try { return JSON.parse(localStorage.getItem("sb_session") || "null"); } catch { return null; } };
+    const secondsLeft = (s) => { try { return JSON.parse(atob(s.access_token.split('.')[1])).exp - Math.floor(Date.now() / 1000); } catch { return -1; } };
+    const doRefresh = async (s) => {
+      if (busy || !s?.refresh_token) return;
+      busy = true;
       try {
-        const s = supabase.auth.getSession();
-        if (!s?.refresh_token) return;
         const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-          method:"POST",
-          headers:{"apikey":SUPABASE_KEY,"Content-Type":"application/json"},
-          body: JSON.stringify({refresh_token: s.refresh_token})
+          method: "POST", headers: { "apikey": SUPABASE_KEY, "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: s.refresh_token })
         });
         const data = await r.json();
         if (data.access_token) {
           localStorage.setItem("sb_session", JSON.stringify(data));
-          setSession(data);
+          if (!stopped) setSession(data);
         }
-      } catch {}
+      } catch {} finally { busy = false; }
     };
-    const interval = setInterval(refresh, 45 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [!!session]);
+    const maybeRefresh = () => {
+      const s = readStored();
+      if (!s?.refresh_token) return;
+      if (secondsLeft(s) < 600) doRefresh(s); // < 10 Min Restlaufzeit (oder schon abgelaufen)
+    };
+    maybeRefresh(); // beim Start: falls im Hintergrund abgelaufen, sofort erneuern (auch Recovery nach Reload)
+    const interval = setInterval(maybeRefresh, 3 * 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === "visible") maybeRefresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", maybeRefresh);
+    return () => { stopped = true; clearInterval(interval); document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("focus", maybeRefresh); };
+  }, []);
 
   const [authView, setAuthView] = React.useState("login");
   // Account-Switcher (nur Admins): offen/zu, plus eigenes kleines Mini-Login-Formular
@@ -4824,8 +4840,11 @@ export default function LenormandApp() {
 
             {/* KURSE — Übersicht folgt */}
             {communityMode === "kurse" && (<>
-              {/* Zugriffssperre für alle ohne pro_full */}
-              {!isProFull ? (
+              {/* Zugriffssperre für alle ohne pro_full — aber erst urteilen, wenn die Rolle geladen
+                  ist. Sonst sperrt es Admin/Pro kurz aus, solange userRole lädt (oder nach Token-Ablauf). */}
+              {session && userRole === null ? (
+                <div style={{ textAlign:"center", padding:"40px 20px", color:lightMode?"#2a0850":"#7a6040", fontSize:13 }}>Lädt…</div>
+              ) : !isProFull ? (
                 <div style={{ textAlign:"center", padding:"40px 20px" }}>
                   <div style={{ fontSize:32, marginBottom:14 }}>🎓</div>
                   <div style={{ fontSize:16, color:gold, marginBottom:10 }}>Kursbereich</div>
@@ -5068,7 +5087,7 @@ export default function LenormandApp() {
 
         {/* ── IMPRESSUM (Platzhalter) ── */}
         {view === "impressum" && (
-          <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
+          <div style={{ maxWidth:700, margin:"0 auto", padding:"20px 0" }}>
             <button onClick={() => setView("liesmich")}
               style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
             <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Impressum</div>
@@ -5080,7 +5099,7 @@ export default function LenormandApp() {
 
         {/* ── AGB (Platzhalter) ── */}
         {view === "agb" && (
-          <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
+          <div style={{ maxWidth:700, margin:"0 auto", padding:"20px 0" }}>
             <button onClick={() => setView("liesmich")}
               style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
             <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Allgemeine Geschäftsbedingungen</div>
@@ -6267,7 +6286,7 @@ export default function LenormandApp() {
 
         {/* ── ZAUBERZETTEL: Brief verbrennen ── */}
         {view === "tagebuch" && dailyMode === "manifest" && (
-          <div style={{ paddingBottom:40, maxWidth:560, margin:"0 auto" }}>
+          <div style={{ paddingBottom:40, maxWidth:700, margin:"0 auto" }}>
             <style>{`
               @keyframes zettelEmber {
                 0% { transform: translateY(0) translateX(0) scale(1); opacity:0; }
