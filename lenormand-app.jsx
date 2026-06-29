@@ -1019,16 +1019,18 @@ const ZettelBurn = (() => {
         </div>
 
         {/* cinematic vignette on top */}
+        {!transparent && (
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
           background: 'radial-gradient(120% 100% at 50% 45%, transparent 54%, rgba(0,0,0,0.55) 100%)',
         }} />
+        )}
       </div>
     );
   }
 
 
-  function ZettelBurn({ items, showWishes = true, onDone, duration = 8.4, transparent = false }) {
+  function ZettelBurn({ items, showWishes = true, onDone, duration = 8.4, transparent = false, anchorPaper = false }) {
     const [t, setT] = React.useState(0);
     const wrapRef = React.useRef(null);
     const [scale, setScale] = React.useState(0.32);
@@ -1045,9 +1047,21 @@ const ZettelBurn = (() => {
       return () => cancelAnimationFrame(raf);
     }, []);
     React.useEffect(() => {
-      const fit = () => { if (wrapRef.current) setScale(wrapRef.current.clientWidth / W); };
+      const fit = () => { if (wrapRef.current) setScale(wrapRef.current.clientWidth / (anchorPaper ? PW : W)); };
       fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
     }, []);
+    if (anchorPaper) {
+      // Wrapper hat exakt die Papier-Maße; die 1080×1920-Bühne wird so verschoben,
+      // dass das Papier (PX,PY,PW,PH) genau den Wrapper füllt. Flammen/Funken
+      // dürfen frei darüber hinausragen (overflow sichtbar).
+      return (
+        <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${PW} / ${PH}`, overflow: 'visible' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, transformOrigin: 'top left', transform: `translate(${(-PX*scale).toFixed(2)}px, ${(-PY*scale).toFixed(2)}px) scale(${scale})` }}>
+            <Scene t={t} items={items} showWishes={showWishes} transparent={transparent} />
+          </div>
+        </div>
+      );
+    }
     return (
       <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}`, borderRadius: transparent ? 0 : 14, overflow: 'hidden', background: transparent ? 'transparent' : '#0a0705', boxShadow: transparent ? 'none' : '0 10px 40px rgba(0,0,0,0.5)' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
@@ -6310,7 +6324,7 @@ export default function LenormandApp() {
             {/* Brennender Zettel — deine Claude-Design-Animation */}
             {zettelBurning && (
               <div style={{ marginBottom:18 }}>
-                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} transparent={true} onDone={handleBurnDone} />
+                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} transparent={true} anchorPaper={true} onDone={handleBurnDone} />
                 <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
