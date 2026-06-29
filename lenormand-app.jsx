@@ -4175,9 +4175,11 @@ export default function LenormandApp() {
                 const isDisabled = selected.length === 2 && !isSel;
                 return (
                   <button key={num} onClick={() => !isDisabled && toggleCard(num)}
-                    style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:(lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)")}`, borderRadius:7, padding:"8px 4px", cursor:isDisabled?"default":"pointer", opacity:isDisabled?0.22:1, color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
+                    style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:(lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)")}`, borderRadius:7, padding:"8px 4px", cursor:isDisabled?"default":"pointer", opacity:isDisabled?0.22:1, color:isSel?gold:(lightMode?"#2a0850":"#d4c4a0"), transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}
+                    onMouseEnter={e => { if(isDisabled)return; e.currentTarget.style.borderColor=lightMode?"#c8a8e0":"rgba(200,169,110,0.35)"; e.currentTarget.style.color=gold; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor=isSel?gold:(lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"); e.currentTarget.style.color=isSel?gold:(lightMode?"#2a0850":"#d4c4a0"); }}>
                     <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                    <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
+                    <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
                   </button>
                 );
               })}
@@ -4263,9 +4265,11 @@ export default function LenormandApp() {
                         if (isSel) setComboSelected(prev => prev.filter(k => k !== num));
                         else if (comboSelected.length < maxCards) setComboSelected(prev => [...prev, num]);
                       }}
-                        style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:(lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)")}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:isSel?gold:"#7a6a54", transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}>
+                        style={{ background:isSel?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.015)", border:`1px solid ${isSel?gold:(lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)")}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:isSel?gold:(lightMode?"#2a0850":"#d4c4a0"), transition:"all 0.18s", textAlign:"center", fontFamily:"Georgia,serif" }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor=lightMode?"#c8a8e0":"rgba(200,169,110,0.35)"; e.currentTarget.style.color=gold; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor=isSel?gold:(lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"); e.currentTarget.style.color=isSel?gold:(lightMode?"#2a0850":"#d4c4a0"); }}>
                         <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                        <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
+                        <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
                       </button>
                     );
                   })}
@@ -4319,11 +4323,11 @@ export default function LenormandApp() {
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", gap:8 }}>
               {filteredCards().map(num => (
                 <button key={num} onClick={() => { selectSignifikator(num); setSearch(""); }}
-                  style={{ background:"rgba(200,169,110,0.015)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:"#7a6a54", textAlign:"center", fontFamily:"Georgia,serif", transition:"all 0.18s" }}
+                  style={{ background:"rgba(200,169,110,0.015)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, borderRadius:7, padding:"8px 4px", cursor:"pointer", color:lightMode?"#2a0850":"#d4c4a0", textAlign:"center", fontFamily:"Georgia,serif", transition:"all 0.18s" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor=lightMode?"#c8a8e0":"rgba(200,169,110,0.35)"; e.currentTarget.style.color=gold; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor=lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"; e.currentTarget.style.color="#7a6a54"; }}>
+                  onMouseLeave={e => { e.currentTarget.style.borderColor=lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"; e.currentTarget.style.color=lightMode?"#2a0850":"#d4c4a0"; }}>
                   <div style={{ fontSize:26 }}>{SYMBOLS[num]}</div>
-                  <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}><span style={{color:lightMode?"#2a0850":"#9a8060"}}>{num}.</span> <span style={{color:lightMode?"#2a0850":"#d4c4a0"}}>{CARDS[num].name}</span></div>
+                  <div style={{ fontSize:12, marginTop:5, lineHeight:1.3 }}>{num}. {CARDS[num].name}</div>
                 </button>
               ))}
             </div>
