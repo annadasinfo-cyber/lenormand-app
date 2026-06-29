@@ -794,75 +794,72 @@ const ZettelBurn = (() => {
   //   1) bright flickering EMBER line (white-hot core → orange → red)
   //   2) dense BLACK CARBONIZED band right behind it
   //   3) translucent LIGHT-BROWN SCORCH fading up into the intact paper
+  // Brandkante über zwei Canvas-Ebenen (GPU): scharf gezeichnet, dann CSS-blur auf
+  // dem Canvas-Element selbst — Safari weichzeichnet Canvas auf der Grafikkarte (anders
+  // als SVG-Pfade). Eine Ebene für den verkohlten Rand, eine für die leuchtende Glut.
   function EmberRim({ t }) {
-    const front = burnFront(t);
-    if (front < -96 || front > PH + 40) return null;
-    const env = flameEnv(t);
-    if (env < 0.04) return null; // no rim before the flame actually ignites
-    const cl = clamp;
-    const N = 80;
+    const charRef = React.useRef(null);
+    const emberRef = React.useRef(null);
+    React.useEffect(() => {
+      const cc = charRef.current, ec = emberRef.current;
+      if (!cc || !ec) return;
+      const cx = cc.getContext('2d'), ex = ec.getContext('2d');
+      cx.clearRect(0, 0, PW, PH);
+      ex.clearRect(0, 0, PW, PH);
 
-    // build the offset polylines once
-    const pts = [];
-    for (let i = 0; i <= N; i++) {
-      const u = i / N;
-      pts.push({ u, x: u * PW, y: edgeYr(u, t) });
-    }
-    const path = (dy) => {
-      let s = `M ${pts[0].x.toFixed(1)} ${(pts[0].y + dy).toFixed(1)}`;
-      for (let i = 1; i <= N; i++) s += ` L ${pts[i].x.toFixed(1)} ${(pts[i].y + dy).toFixed(1)}`;
-      return s;
-    };
-    const dEdge = path(0);
-    const dChar = path(-13);
-    const dScorch = path(-40);
-    const dScorch2 = path(-66);
-    const cap = { strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' };
-    const eo = 0.5 + 0.5 * env; // ember opacity follows ignite/burnout
+      const front = burnFront(t);
+      const env = flameEnv(t);
+      if (front < -96 || front > PH + 40 || env < 0.04) return; // noch keine Glut
 
-    // tiny individual embers that brighten and wink out along the burn line
-    const embers = [];
-    for (let i = 2; i <= N - 2; i += 1) {
-      const p = pts[i];
-      const tw = Math.sin(t * (7 + (i % 6) * 1.7) + i * 1.3);
-      const on = cl(tw, -0.2, 1);
-      if (on <= 0.02) continue;
-      const r = 1.6 + 2.8 * on;
-      embers.push(
-        <circle key={'e' + i} cx={p.x.toFixed(1)} cy={(p.y - 1).toFixed(1)} r={r.toFixed(1)}
-          fill={i % 3 ? '#ffd98a' : '#fff'} opacity={(0.5 + 0.5 * on) * eo}
-          filter="url(#zbblur0_5)" style={{ mixBlendMode: 'screen' }} />
-      );
-    }
+      const N = 80;
+      const pts = [];
+      for (let i = 0; i <= N; i++) pts.push({ x: (i / N) * PW, y: edgeYr(i / N, t) });
+      const trace = (ctx, dy) => {
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y + dy);
+        for (let i = 1; i <= N; i++) ctx.lineTo(pts[i].x, pts[i].y + dy);
+      };
+      const stroke = (ctx, color, w, a, dy) => {
+        ctx.globalAlpha = a; ctx.strokeStyle = color; ctx.lineWidth = w;
+        trace(ctx, dy); ctx.stroke();
+      };
+      const eo = 0.5 + 0.5 * env;
 
+      // verkohlter Rand: heller Schorf federt ins Papier, dann dichte schwarze Kohle
+      cx.lineCap = 'round'; cx.lineJoin = 'round';
+      stroke(cx, '#9a6a38', 46, 0.42, -66);
+      stroke(cx, '#5e3a18', 36, 0.70, -40);
+      stroke(cx, '#241204', 34, 0.92, -13);
+      stroke(cx, '#0a0502', 22, 0.98, -13);
+      stroke(cx, '#070301', 10, 1.00, 0);
+
+      // Glut: additiv ('lighter') zu rot→orange→gold→weißglühendem Kern
+      ex.lineCap = 'round'; ex.lineJoin = 'round';
+      ex.globalCompositeOperation = 'lighter';
+      stroke(ex, '#ff2200', 16, 0.85 * eo, 0);
+      stroke(ex, '#ff6a12', 9, 0.95 * eo, 0);
+      stroke(ex, '#ffb43c', 4.5, 0.98 * eo, 0);
+      stroke(ex, '#fff0c0', 1.8, 0.95 * eo, 0);
+
+      // einzelne Glutpunkte, die aufblitzen und verlöschen
+      for (let i = 2; i <= N - 2; i++) {
+        const p = pts[i];
+        const tw = Math.sin(t * (7 + (i % 6) * 1.7) + i * 1.3);
+        const on = clamp(tw, -0.2, 1);
+        if (on <= 0.02) continue;
+        const r = 1.6 + 2.8 * on;
+        ex.globalAlpha = (0.5 + 0.5 * on) * eo;
+        ex.fillStyle = i % 3 ? '#ffd98a' : '#fff';
+        ex.beginPath(); ex.arc(p.x, p.y - 1, r, 0, Math.PI * 2); ex.fill();
+      }
+    }, [t]);
+
+    const base = { position: 'absolute', left: 0, top: 0, width: PW, height: PH, pointerEvents: 'none' };
     return (
-      <svg width={PW} height={PH} viewBox={`0 0 ${PW} ${PH}`}
-        style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
-        <defs>
-          {/* Filterfläche folgt der Brandkante (schmales Band) statt der ganzen Zettelhöhe.
-              Spart auf Safari/Intel viel Rechenzeit — die Glut ist ja nur ein schmaler Streifen. */}
-          {[16, 8, 5, 1.6, 0.6, 7, 3, 1.4, 0.5].map((sd) => (
-            <filter key={sd} id={`zbblur${String(sd).replace('.', '_')}`}
-              filterUnits="userSpaceOnUse" x="-80" y={front - 250} width={PW + 160} height={520}>
-              <feGaussianBlur stdDeviation={sd} />
-            </filter>
-          ))}
-        </defs>
-        {/* 3 — light translucent scorch, feathering up into the paper */}
-        <path d={dScorch2} stroke="#9a6a38" strokeWidth="46" opacity={0.42} filter="url(#zbblur16)" {...cap} />
-        <path d={dScorch} stroke="#5e3a18" strokeWidth="36" opacity={0.7} filter="url(#zbblur8)" {...cap} />
-        {/* 2 — dense black carbonized band right behind the ember line */}
-        <path d={dChar} stroke="#241204" strokeWidth="34" opacity={0.92} filter="url(#zbblur5)" {...cap} />
-        <path d={dChar} stroke="#0a0502" strokeWidth="22" opacity={0.98} filter="url(#zbblur1_6)" {...cap} />
-        {/* crisp blackened lip exactly at the burn edge */}
-        <path d={dEdge} stroke="#070301" strokeWidth="10" opacity={1} filter="url(#zbblur0_6)" {...cap} />
-        {/* 1 — bright ember line: red halo → orange → white-hot core */}
-        <path d={dEdge} stroke="#ff2200" strokeWidth="16" opacity={0.85 * eo} filter="url(#zbblur7)" style={{ mixBlendMode: 'screen' }} {...cap} />
-        <path d={dEdge} stroke="#ff6a12" strokeWidth="9" opacity={0.95 * eo} filter="url(#zbblur3)" style={{ mixBlendMode: 'screen' }} {...cap} />
-        <path d={dEdge} stroke="#ffb43c" strokeWidth="4.5" opacity={0.98 * eo} filter="url(#zbblur1_4)" style={{ mixBlendMode: 'screen' }} {...cap} />
-        <path d={dEdge} stroke="#fff0c0" strokeWidth="1.8" opacity={0.95 * eo} filter="url(#zbblur0_5)" style={{ mixBlendMode: 'screen' }} {...cap} />
-        {embers}
-      </svg>
+      <>
+        <canvas ref={charRef} width={PW} height={PH} style={{ ...base, filter: 'blur(7px)' }} />
+        <canvas ref={emberRef} width={PW} height={PH} style={{ ...base, filter: 'blur(2.5px)' }} />
+      </>
     );
   }
 
@@ -6342,14 +6339,10 @@ export default function LenormandApp() {
               </div>
             )}
 
-            {/* Brennender Zettel — Trick 17: Bühne in App-Hintergrundfarbe (sieht freigestellt aus),
-                aber isoliert/opak, damit die screen/lighter-Mischung lokal auf der GPU läuft
-                statt jedes Bild teuer gegen die ganze Seite. */}
+            {/* Brennender Zettel — freigestellt; Kante läuft jetzt über Canvas (GPU) */}
             {zettelBurning && (
               <div style={{ marginBottom:18 }}>
-                <div style={{ background:appBg, isolation:"isolate", borderRadius:14, overflow:"hidden" }}>
-                  <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
-                </div>
+                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
                 <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
