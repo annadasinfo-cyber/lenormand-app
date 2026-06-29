@@ -3078,6 +3078,12 @@ export default function LenormandApp() {
   ];
 
   const checkAccess = () => {
+    // Alter localStorage-Trial (Passwort + 14-Tage-Zähler) ist Geschichte:
+    // Zugang regeln jetzt ausschließlich Login + Rollen (Mitglied/Pro/V.I.P./Mod/Admin).
+    // Deshalb hier immer "granted" — so erscheinen weder das "noch X Tage kostenlos"-
+    // Banner noch die "Probezeit abgelaufen"-Sperre. (Umkehrbar: alte Logik unten als Kommentar.)
+    return "granted";
+    /* früher:
     try {
       const pw = localStorage.getItem("lenormand_pw");
       if (VALID_PASSWORDS.includes(pw)) return "granted";
@@ -3090,6 +3096,7 @@ export default function LenormandApp() {
       if (days < 14) return "trial";
       return "expired";
     } catch { return "trial"; }
+    */
   };
   const [access, setAccess] = useState(checkAccess);
   const [pwInput, setPwInput] = useState("");
@@ -3761,7 +3768,9 @@ export default function LenormandApp() {
     if (view === "tagebuch" && (dailyMode === "manifest" || dailyMode === "writing")) return true;
     return false;
   };
-  if (session && !isPro && proGatedView()) {
+  // Erst sperren, wenn die Rolle wirklich geladen ist (userRole!==null).
+  // Sonst blitzt das Overlay kurz auf, solange Supabase die Admin/Pro-Rolle noch lädt.
+  if (session && userRole !== null && !isPro && proGatedView()) {
     return (
       <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#080512,#0f0a1a,#0a0810)", fontFamily:"Georgia,serif", color:"#f0e8d8", display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
         <div style={{ maxWidth:440, textAlign:"center", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"40px 32px" }}>
@@ -6330,12 +6339,10 @@ export default function LenormandApp() {
               </div>
             )}
 
-            {/* Brennender Zettel — deine Claude-Design-Animation */}
+            {/* Brennender Zettel — deine Claude-Design-Animation (freigestellt) */}
             {zettelBurning && (
               <div style={{ marginBottom:18 }}>
-                <div style={{ position:"relative", borderRadius:16, overflow:"hidden", background:"radial-gradient(circle at 50% 22%, #160d20, #0a0712 72%)" }}>
-                  <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
-                </div>
+                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
                 <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
