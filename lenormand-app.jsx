@@ -6725,7 +6725,7 @@ export default function LenormandApp() {
 
                         {/* Akkordeon-Inhalt */}
                         {isOpen && (
-                          <div style={{ border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderTop:"none", borderRadius:"0 0 6px 6px", padding:"12px 14px", background:lightMode?"rgba(255,255,255,0.35)":"rgba(10,7,18,0.3)" }}>
+                          <div style={{ border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderTop:"none", borderRadius:"0 0 6px 6px", padding:"12px 14px", background:"transparent" }}>
 
                             {/* 2er */}
                             {key === "2er" && (
