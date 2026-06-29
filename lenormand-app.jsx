@@ -1023,10 +1023,11 @@ const ZettelBurn = (() => {
     const [scale, setScale] = React.useState(0.32);
     const doneRef = React.useRef(false);
     React.useEffect(() => {
-      let raf, start = performance.now();
+      let raf, start = performance.now(), lastDraw = 0;
+      const FRAME = 1000 / 30; // auf ~30fps drosseln — bei Feuer optisch identisch, halbe Rechenlast
       const tick = (now) => {
         const tt = (now - start) / 1000;
-        setT(tt);
+        if (now - lastDraw >= FRAME) { lastDraw = now; setT(tt); }
         if (tt >= duration) { if (!doneRef.current) { doneRef.current = true; onDone && onDone(); } return; }
         raf = requestAnimationFrame(tick);
       };
