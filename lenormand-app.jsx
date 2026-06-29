@@ -3712,7 +3712,7 @@ export default function LenormandApp() {
           <button key={m} onClick={() => {
               setView("tagebuch"); setDailyMode(m); setTagebuchView("tagebuch"); setKlientName(""); setKlientGeburt(""); setTippVisible(false); setWritingView("projekt");
             }}
-            style={{ background:isActive?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${isActive?gold:"rgba(200,169,110,0.2)"}`, color:isActive?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
+            style={{ background:isActive?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.15)"):"rgba(200,169,110,0.03)", border:`1px solid ${isActive?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:isActive?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
             {l}
           </button>
         );
@@ -5452,7 +5452,7 @@ export default function LenormandApp() {
                   </div>
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:8 }}>
+                  <div style={{ fontSize:11, color:lightMode?"#2a0850":gold, letterSpacing:1, marginBottom:6, display:"flex", alignItems:"center", gap:8 }}>
                     💭 Gedanken
                     {tagebuchSaveStatus === "saving" && <span style={{ fontSize:9, color:lightMode?"#2a0850":"#9a8060", letterSpacing:0, textTransform:"none" }}>speichert…</span>}
                     {tagebuchSaveStatus === "saved" && <span style={{ fontSize:9, color:"#5a9a5a", letterSpacing:0, textTransform:"none" }}>✓ gespeichert</span>}
@@ -5461,19 +5461,19 @@ export default function LenormandApp() {
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:14 }}>
-                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
+                  <div style={{ fontSize:11, color:lightMode?"#2a0850":gold, letterSpacing:1, marginBottom:6 }}>🌙 Reflexionen</div>
                   <textarea placeholder="Was hat sich bewahrheitet?" value={selectedEntry.reflexionen} onChange={e => updateTagebuch("reflexionen", e.target.value)} rows={4}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ marginBottom:18 }}>
-                  <div style={{ fontSize:11, color:gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
+                  <div style={{ fontSize:11, color:lightMode?"#2a0850":gold, letterSpacing:1, marginBottom:6 }}>📝 Resümee</div>
                   <textarea placeholder="Das Fazit des Tages…" value={selectedEntry.resumee} onChange={e => updateTagebuch("resumee", e.target.value)} rows={3}
                     style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
                 </div>
                 <div style={{ textAlign:"center", marginBottom:20 }}>
                   {!tippVisible ? (
                     <button onClick={() => setTippVisible(true)}
-                      style={{ background:"rgba(200,169,110,0.1)", border:`1px solid ${gold}`, color:gold, padding:"12px 28px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                      style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.1)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"12px 28px", borderRadius:8, cursor:"pointer", fontSize:14, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                       ✨ Tipp vom Universum
                     </button>
                   ) : (
@@ -5581,17 +5581,17 @@ export default function LenormandApp() {
                       setSelectedTemplate(null);
                       setShowProjectList(false);
                     }}
-                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${gold}`, background:"rgba(200,169,110,0.18)", color:gold, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", fontWeight:"bold" }}>
+                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${lightMode?"#c8a8e0":gold}`, background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.18)", color:gold, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", fontWeight:"bold" }}>
                       ✨ Start (neue Session)
                     </button>
                     <button onClick={() => { setSelectedFolder(null); setShowProjectList(true); }}
-                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder && showProjectList?gold:"rgba(200,169,110,0.2)"}`, background:!selectedFolder && showProjectList?"rgba(200,169,110,0.12)":"transparent", color:!selectedFolder && showProjectList?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                      style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedFolder && showProjectList?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, background:!selectedFolder && showProjectList?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", color:!selectedFolder && showProjectList?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                       Alle
                     </button>
                     {folders.map(f => (
                       <div key={f.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
                         <button onClick={() => { setSelectedFolder(f.id); setShowProjectList(true); }}
-                          style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedFolder===f.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedFolder===f.id?"rgba(200,169,110,0.12)":"transparent", color:selectedFolder===f.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                          style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedFolder===f.id?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, background:selectedFolder===f.id?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", color:selectedFolder===f.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                           📁 {f.name}
                         </button>
                         {selectedFolder===f.id && (
@@ -5660,13 +5660,13 @@ export default function LenormandApp() {
                   ) : (
                     <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                       <button onClick={() => setSelectedTemplate(null)}
-                        style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedTemplate?gold:"rgba(200,169,110,0.2)"}`, background:!selectedTemplate?"rgba(200,169,110,0.12)":"transparent", color:!selectedTemplate?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                        style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${!selectedTemplate?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, background:!selectedTemplate?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", color:!selectedTemplate?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                         Ohne Vorlage
                       </button>
                       {textTemplates.map(tpl => (
                         <div key={tpl.id} style={{ display:"flex", alignItems:"center", gap:4 }}>
                           <button onClick={() => setSelectedTemplate(tpl)}
-                            style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedTemplate?.id===tpl.id?gold:"rgba(200,169,110,0.2)"}`, background:selectedTemplate?.id===tpl.id?"rgba(200,169,110,0.12)":"transparent", color:selectedTemplate?.id===tpl.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                            style={{ padding:"5px 12px", borderRadius:5, border:`1px solid ${selectedTemplate?.id===tpl.id?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, background:selectedTemplate?.id===tpl.id?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)"):"transparent", color:selectedTemplate?.id===tpl.id?gold:"#7a6040", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                             📋 {tpl.name}
                           </button>
                           <button onClick={() => deleteTemplate(tpl.id)} style={{ background:"transparent", border:"none", color:"#4a3a2a", cursor:"pointer", fontSize:10 }}>✕</button>
