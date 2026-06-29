@@ -575,6 +575,488 @@ function ForumMatrixGrid({ data, gold }) {
   );
 }
 
+// ============================================================
+// Notizzettel in Flammen — portiert aus Claude Design (BurningNote).
+// 'pure function of time'; läuft hier über eine eigene rAF-Uhr.
+// ============================================================
+const ZettelBurn = (() => {
+  const lerp = (a, b, t) => a + (b - a) * t;
+    const clamp = (v, mn, mx) => Math.max(mn, Math.min(mx, v));
+    const Easing = {
+      easeInOutQuad: (t) => (t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t),
+      easeInOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+    };
+    const interpolate = (input, output, ease) => (t) => {
+      if (t <= input[0]) return output[0];
+      if (t >= input[input.length-1]) return output[output.length-1];
+      for (let i=0;i<input.length-1;i++){
+        if (t>=input[i] && t<=input[i+1]) { const p=(t-input[i])/(input[i+1]-input[i]); return output[i]+(output[i+1]-output[i])*(ease?ease(p):p); }
+      }
+      return output[output.length-1];
+    };
+
+  const W = 1080, H = 1920;
+  const PW = 664, PH = 912, PX = (W - PW) / 2, PY = 472;
+  const BURN_START = 1.55, BURN_END = 6.85;
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+
+  // Burn front position in paper-local Y (0 = paper top). Starts just below the
+  // bottom edge (intact) and sweeps up past the top (consumed).
+  function burnFront(t) {
+    const cl = clamp;
+    const p = cl((t - BURN_START) / (BURN_END - BURN_START), 0, 1);
+    const e = Easing.easeInOutQuad(p);
+    return lerp(PH + 6, -152, e);
+  }
+  // Diagonal tilt across the width — negative so the RIGHT side burns first.
+  const SLANT = -132;
+
+  // Jagged, time-crawling offset added to the front to make an organic edge.
+  function edgeOffset(u, t) {
+    return Math.sin(u * 7.3 + 1.3) * 17
+         + Math.sin(u * 15.1 + 4.0) * 9
+         + Math.sin(u * 29.7 + 2.2) * 5
+         + Math.sin(u * 52.0 + 0.6) * 3
+         + Math.sin(u * 88.0 + t * 9.0) * 2.6;
+  }
+  const edgeY = (u, t) => burnFront(t) + edgeOffset(u, t) + (u - 0.5) * SLANT;
+  // Render edge for fire/glow: never let flames sit BELOW the paper's bottom edge
+  // (otherwise the slanted start floats fire in the empty space beneath the sheet).
+  const edgeYr = (u, t) => Math.min(edgeY(u, t), PH - 1);
+
+  // Global fire intensity envelope: ignites ~1.7, dies down after the paper runs out.
+  function flameEnv(t) {
+    const cl = clamp;
+    const ig = cl((t - 1.42) / 0.55, 0, 1);
+    const out = 1 - cl((t - 6.5) / 1.65, 0, 1);
+    return cl(ig, 0, 1) * cl(out, 0, 1);
+  }
+
+  // ── deterministic particle tables ──────────────────────────────────────────
+  const RNG = mulberry32(20260628);
+  const SPARKS = Array.from({ length: 150 }, () => {
+    // ~55% during the active burn, ~45% reserved for the rise-to-universe finale
+    const birth = RNG() < 0.55 ? lerp(1.95, 6.5, RNG()) : lerp(6.2, 9.3, RNG());
+    return {
+      birth, u: RNG(),
+      vy: lerp(95, 245, RNG()), acc: lerp(8, 32, RNG()),
+      drift: lerp(10, 42, RNG()), freq: lerp(2, 6, RNG()), phase: RNG() * 6.28,
+      side: lerp(-28, 28, RNG()), life: lerp(0.7, 1.9, RNG()),
+      size: lerp(2.2, 7, RNG()), hue: lerp(20, 44, RNG()),
+    };
+  });
+  const ASH = Array.from({ length: 46 }, () => {
+    const birth = lerp(5.4, 9.2, RNG());
+    return {
+      birth, u: RNG(), vy: lerp(26, 72, RNG()),
+      drift: lerp(22, 64, RNG()), freq: lerp(0.8, 2.2, RNG()), phase: RNG() * 6.28,
+      side: lerp(-32, 32, RNG()), life: lerp(2.4, 4.4, RNG()),
+      size: lerp(5, 13, RNG()), rot: RNG() * 360, rots: lerp(-100, 100, RNG()),
+      g: lerp(58, 120, RNG()),
+    };
+  });
+  const TONGUES = Array.from({ length: 20 }, (_, i) => ({
+    u: (i + 0.5) / 20 + lerp(-0.018, 0.018, RNG()),
+    h: lerp(130, 320, RNG()), w: lerp(42, 84, RNG()),
+    sway: lerp(6, 16, RNG()), sfreq: lerp(3, 7, RNG()),
+    fr: lerp(7, 13, RNG()), ph: RNG() * 6.28, base: lerp(0.72, 1, RNG()),
+  }));
+  // Fine, fast-flickering licks layered on top of the main tongues for realism.
+  const LICKS = Array.from({ length: 54 }, (_, i) => ({
+    u: (i + 0.5) / 54 + lerp(-0.01, 0.01, RNG()),
+    h: lerp(46, 168, RNG()), w: lerp(13, 30, RNG()),
+    sway: lerp(4, 13, RNG()), sfreq: lerp(5, 11, RNG()),
+    fr: lerp(11, 22, RNG()), ph: RNG() * 6.28, base: lerp(0.5, 1, RNG()),
+  }));
+  const SMOKE = Array.from({ length: 5 }, () => ({
+    birth: lerp(4.3, 7.8, RNG()), x: lerp(0.28, 0.72, RNG()),
+    vy: lerp(48, 86, RNG()), drift: lerp(40, 95, RNG()),
+    size: lerp(190, 340, RNG()), life: lerp(3, 5.2, RNG()), ph: RNG() * 6.28,
+  }));
+
+  const ITEMS = [
+    { done: true,  t: 'Alte Zweifel ziehen lassen' },
+    { done: true,  t: 'Auf mein Bauchgefühl hören' },
+    { done: false, t: 'Der neuen Liebe Raum geben' },
+    { done: false, t: 'Mut für den nächsten Schritt' },
+    { done: false, t: 'Dankbar sein für das, was war' },
+  ];
+
+  // ── the paper itself (aged texture + handwritten checklist) ────────────────
+  function Paper({ t, items, showWishes }) {
+    const cl = clamp;
+    const flick = 0.87 + 0.05 * Math.sin(t * 7 + 0.5) + 0.03 * Math.sin(t * 13);
+
+    // clip-path keeps only the un-burned region (above the jagged front).
+    const N = 62;
+    let cp = `polygon(-40px -40px, ${PW + 40}px -40px`;
+    for (let i = N; i >= 0; i--) {
+      const u = i / N;
+      const y = clamp(edgeY(u, t), -220, PH + 60);
+      cp += `, ${(u * PW).toFixed(1)}px ${y.toFixed(1)}px`;
+    }
+    cp += ')';
+
+    const ink = '#43301c';
+    return (
+      <div style={{
+        position: 'absolute', inset: 0,
+        clipPath: cp, WebkitClipPath: cp,
+        filter: `brightness(${flick.toFixed(3)})`,
+      }}>
+        {/* aged paper body */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `
+            radial-gradient(120% 95% at 28% 18%, rgba(255,250,235,0.18), rgba(120,92,52,0.0) 42%),
+            radial-gradient(58% 46% at 76% 66%, rgba(146,104,56,0.26), transparent 62%),
+            radial-gradient(42% 30% at 18% 82%, rgba(112,80,42,0.30), transparent 60%),
+            radial-gradient(30% 24% at 84% 22%, rgba(120,86,46,0.22), transparent 60%),
+            linear-gradient(176deg, #ecdcb6 0%, #e1cd9f 46%, #d3bb88 100%)`,
+          boxShadow: 'inset 0 0 70px rgba(86,58,26,0.40), inset 0 -40px 80px rgba(70,44,18,0.28)',
+          borderRadius: '5px 8px 6px 7px',
+        }} />
+        {/* faint horizontal fold */}
+        <div style={{
+          position: 'absolute', left: 0, right: 0, top: '43%', height: 2,
+          background: 'linear-gradient(90deg, transparent, rgba(96,64,28,0.22) 18%, rgba(96,64,28,0.22) 82%, transparent)',
+        }} />
+
+        {/* handwritten content — heading at top, body left intentionally empty */}
+        <div style={{
+          position: 'absolute', inset: 0, padding: '74px 66px 60px',
+          display: 'flex', flexDirection: 'column',
+          fontFamily: '"Caveat", cursive', color: ink,
+        }}>
+          <div style={{ fontSize: 31, opacity: 0.6, letterSpacing: '0.04em' }}>
+            Vollmond&nbsp;&nbsp;✦
+          </div>
+
+          <div style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.0, marginTop: 6 }}>
+            Was ich mir wünsche
+          </div>
+          <div style={{
+            width: 372, height: 5, marginTop: 4, transform: 'rotate(-0.7deg)',
+            background: 'linear-gradient(90deg, rgba(67,48,28,0.85), rgba(67,48,28,0.2))',
+            borderRadius: 3,
+          }} />
+          {showWishes && items && items.length > 0 && (
+          <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 22 }}>
+            {items.map((it, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 18, fontSize: 44, opacity: it.done ? 0.55 : 0.95 }}>
+                <span style={{ fontSize: 38, color: it.done ? '#4a6a2a' : ink }}>{it.done ? '✓' : '○'}</span>
+                <span style={{ textDecoration: it.done ? 'line-through' : 'none' }}>{it.text}</span>
+              </div>
+            ))}
+          </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── warm fire light, CLIPPED to the remaining paper (no spill into the void) ─
+  function FireGlow({ t }) {
+    const env = flameEnv(t);
+    if (env < 0.04) return null;
+    const cl = clamp;
+    // same clip as the paper — keeps the glow only over the un-burned sheet,
+    // so nothing leaks below or left of the actual paper edge
+    const N = 48;
+    let cp = `polygon(0px -60px, ${PW}px -60px`;
+    for (let i = N; i >= 0; i--) {
+      const u = i / N;
+      const y = cl(edgeYr(u, t) + 10, -220, PH);
+      cp += `, ${(u * PW).toFixed(1)}px ${y.toFixed(1)}px`;
+    }
+    cp += ')';
+    const fy = burnFront(t);
+    const flick = 0.82 + 0.18 * Math.sin(t * 21) + 0.1 * Math.sin(t * 7 + 1);
+    return (
+      <div style={{
+        position: 'absolute', inset: 0, clipPath: cp, WebkitClipPath: cp,
+        mixBlendMode: 'screen', pointerEvents: 'none',
+        opacity: env * cl(flick, 0.4, 1.1),
+        background: `radial-gradient(150% 300px at 50% ${fy.toFixed(0)}px, rgba(255,150,52,0.62), rgba(220,72,16,0.30) 38%, transparent 70%)`,
+      }} />
+    );
+  }
+
+  // ── glowing char / ember rim that follows the burn front ───────────────────
+  function EmberRim({ t }) {
+    const front = burnFront(t);
+    if (front < -96 || front > PH + 40) return null;
+    const env = flameEnv(t);
+    if (env < 0.04) return null; // no rim before the flame actually ignites
+    const N = 64;
+    // edge line, plus two bands offset ABOVE it (into the remaining paper)
+    let d = `M 0 ${edgeYr(0, t).toFixed(1)}`;
+    let dc = `M 0 ${(edgeYr(0, t) - 11).toFixed(1)}`;
+    let ds = `M 0 ${(edgeYr(0, t) - 30).toFixed(1)}`;
+    for (let i = 1; i <= N; i++) {
+      const u = i / N, x = (u * PW).toFixed(1);
+      d += ` L ${x} ${edgeYr(u, t).toFixed(1)}`;
+      dc += ` L ${x} ${(edgeYr(u, t) - 11).toFixed(1)}`;
+      ds += ` L ${x} ${(edgeYr(u, t) - 30).toFixed(1)}`;
+    }
+    const cap = { strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' };
+    return (
+      <svg width={PW} height={PH} viewBox={`0 0 ${PW} ${PH}`}
+        style={{ position: 'absolute', left: 0, top: 0, overflow: 'visible' }}>
+        {/* charred-brown scorch fading up into the remaining paper */}
+        <path d={ds} stroke="#5a3a18" strokeWidth="40" opacity={0.5} style={{ filter: 'blur(15px)' }} {...cap} />
+        {/* dark charred-paper band just above the burn line */}
+        <path d={dc} stroke="#241405" strokeWidth="30" opacity={0.82} style={{ filter: 'blur(5px)' }} {...cap} />
+        {/* blackened char right at the edge */}
+        <path d={d} stroke="#140b04" strokeWidth="14" opacity={0.95} style={{ filter: 'blur(1.5px)' }} {...cap} />
+        {/* ember outer */}
+        <path d={d} stroke="#ff4d00" strokeWidth="9" opacity={0.95 * (0.45 + 0.55 * env)} style={{ filter: 'blur(3.5px)', mixBlendMode: 'screen' }} {...cap} />
+        {/* ember hot core */}
+        <path d={d} stroke="#ffd778" strokeWidth="3.2" opacity={0.95 * (0.45 + 0.55 * env)} style={{ filter: 'blur(1px)', mixBlendMode: 'screen' }} {...cap} />
+      </svg>
+    );
+  }
+
+  // ── flame tongues anchored to the front ────────────────────────────────────
+  function Flames({ t }) {
+    const env = flameEnv(t);
+    if (env < 0.02) return null;
+    const cl = clamp;
+    const out = [];
+
+    // ── pointed flame tongues ────────────────────────────────────────────────
+    const tongue = (s, key, scale, blurMul) => {
+      const ey = edgeYr(s.u, t);
+      if (ey < -70 || ey > PH + 34) return;
+      const flick = 0.58 + 0.42 * Math.sin(t * s.fr + s.ph) + 0.14 * Math.sin(t * 24 + s.ph * 1.7);
+      const fl = cl(flick, 0.2, 1.4);
+      const h = s.h * fl * env * s.base * scale;
+      const w = s.w * (0.78 + 0.26 * Math.sin(t * s.fr * 0.7 + s.ph));
+      const sway = Math.sin(t * s.sfreq + s.ph) * s.sway + Math.sin(t * s.sfreq * 2.3 + s.ph) * s.sway * 0.4;
+      const cx = s.u * PW + sway;
+      // tip leans with the sway for a licking motion
+      const lean = sway * 0.6;
+      const op = env * cl(fl, 0.28, 1);
+      // teardrop: rounded base, sharp tip (via lopsided border-radius + scaleY)
+      out.push(<div key={'o' + key} style={{
+        position: 'absolute', left: cx, top: ey - h, width: w, height: h,
+        marginLeft: -w / 2, transformOrigin: '50% 100%',
+        transform: `translateX(${lean}px) rotate(${lean * 0.05}deg)`,
+        background: 'radial-gradient(ellipse 50% 58% at 50% 100%, #fff2c0 0%, #ffd24d 16%, #ff8a1e 38%, #ff3d00 62%, rgba(170,16,0,0.4) 82%, transparent 92%)',
+        borderRadius: '50% 50% 50% 50% / 88% 88% 16% 16%',
+        filter: `blur(${5 * blurMul}px)`, mixBlendMode: 'screen', opacity: op,
+      }} />);
+      out.push(<div key={'i' + key} style={{
+        position: 'absolute', left: cx, top: ey - h * 0.7, width: w * 0.4, height: h * 0.7,
+        marginLeft: -(w * 0.4) / 2, transformOrigin: '50% 100%',
+        transform: `translateX(${lean * 1.2}px)`,
+        background: 'radial-gradient(ellipse 50% 56% at 50% 100%, #ffffff 0%, #fff0b0 30%, #ffb43c 62%, transparent 86%)',
+        borderRadius: '50% 50% 50% 50% / 90% 90% 12% 12%',
+        filter: `blur(${2.4 * blurMul}px)`, mixBlendMode: 'screen', opacity: op * 0.95,
+      }} />);
+    };
+
+    for (let k = 0; k < TONGUES.length; k++) tongue(TONGUES[k], 'T' + k, 1, 1.15);
+    for (let k = 0; k < LICKS.length; k++) tongue(LICKS[k], 'L' + k, 1, 0.7);
+
+    return <div style={{ position: 'absolute', inset: 0 }}>{out}</div>;
+  }
+
+  // ── rising sparks (world space) ────────────────────────────────────────────
+  function Sparks({ t }) {
+    const cl = clamp;
+    const out = [];
+    for (let k = 0; k < SPARKS.length; k++) {
+      const s = SPARKS[k];
+      const age = t - s.birth;
+      if (age < 0 || age > s.life) continue;
+      const startY = PY + cl(burnFront(s.birth), 4, PH);
+      const startX = PX + s.u * PW + edgeOffset(s.u, s.birth);
+      const y = startY - s.vy * age - s.acc * age * age;
+      if (y < -50) continue;
+      const x = startX + Math.sin(age * s.freq + s.phase) * s.drift + s.side * age;
+      const lifeT = age / s.life;
+      const op = cl(age / 0.08, 0, 1) * (1 - lifeT) * cl(flameEnv(s.birth) + 0.25, 0, 1) * cl((9.7 - t) / 0.9, 0, 1);
+      const sz = s.size * (1 - 0.4 * lifeT);
+      const light = lerp(78, 54, lifeT);
+      out.push(<div key={k} style={{
+        position: 'absolute', left: x, top: y, width: sz, height: sz,
+        marginLeft: -sz / 2, marginTop: -sz / 2, borderRadius: '50%',
+        background: `radial-gradient(circle, hsla(${s.hue},100%,${light}%,1) 0%, hsla(${s.hue - 8},100%,50%,0.7) 45%, transparent 72%)`,
+        boxShadow: `0 0 ${sz * 1.8}px hsla(${s.hue},100%,60%,0.85)`,
+        mixBlendMode: 'screen', opacity: op,
+      }} />);
+    }
+    return <div style={{ position: 'absolute', inset: 0 }}>{out}</div>;
+  }
+
+  // ── drifting ash flecks (the paper, gone to the universe) ──────────────────
+  function Ash({ t }) {
+    const cl = clamp;
+    const out = [];
+    for (let k = 0; k < ASH.length; k++) {
+      const s = ASH[k];
+      const age = t - s.birth;
+      if (age < 0 || age > s.life) continue;
+      const startY = PY + cl(burnFront(s.birth), 0, PH);
+      const startX = PX + s.u * PW;
+      const y = startY - s.vy * age - 6 * age * age;
+      if (y < -60) continue;
+      const x = startX + Math.sin(age * s.freq + s.phase) * s.drift + s.side * age;
+      const lifeT = age / s.life;
+      const op = cl(age / 0.2, 0, 1) * (1 - lifeT) * 0.62 * cl((9.7 - t) / 0.9, 0, 1);
+      const sz = s.size;
+      const rot = s.rot + s.rots * age;
+      out.push(<div key={k} style={{
+        position: 'absolute', left: x, top: y, width: sz, height: sz * 0.7,
+        marginLeft: -sz / 2, marginTop: -sz / 2,
+        background: `rgba(${s.g | 0},${(s.g * 0.9) | 0},${(s.g * 0.8) | 0},0.9)`,
+        borderRadius: '40% 60% 55% 45%',
+        transform: `rotate(${rot}deg)`,
+        boxShadow: '0 0 4px rgba(0,0,0,0.4)',
+        opacity: op,
+      }} />);
+    }
+    return <div style={{ position: 'absolute', inset: 0 }}>{out}</div>;
+  }
+
+  // ── soft smoke plumes ──────────────────────────────────────────────────────
+  function Smoke({ t }) {
+    const cl = clamp;
+    const out = [];
+    for (let k = 0; k < SMOKE.length; k++) {
+      const s = SMOKE[k];
+      const age = t - s.birth;
+      if (age < 0 || age > s.life) continue;
+      const startY = PY + cl(burnFront(s.birth), -40, PH);
+      const y = startY - s.vy * age;
+      const x = PX + s.x * PW + Math.sin(age * 0.7 + s.ph) * s.drift;
+      const lifeT = age / s.life;
+      const sz = s.size * (0.6 + 0.8 * lifeT);
+      const op = cl(age / 0.6, 0, 1) * (1 - lifeT) * 0.16 * cl((9.7 - t) / 0.9, 0, 1);
+      out.push(<div key={k} style={{
+        position: 'absolute', left: x, top: y, width: sz, height: sz,
+        marginLeft: -sz / 2, marginTop: -sz / 2, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(150,140,128,0.9), rgba(120,110,100,0.4) 45%, transparent 72%)',
+        filter: 'blur(26px)', opacity: op,
+      }} />);
+    }
+    return <div style={{ position: 'absolute', inset: 0 }}>{out}</div>;
+  }
+
+  function Scene({ t, items, showWishes }) {
+    const cl = clamp;
+    const interp = interpolate;
+    const env = flameEnv(t);
+
+    const camScale = interp([0, 3, 6.85, 10], [1.0, 1.035, 1.075, 1.03], Easing.easeInOutSine)(t);
+    const camY = interp([0, 2, 5, 7, 10], [0, 8, 64, 44, -8], Easing.easeInOutSine)(t);
+
+    const frontWorldY = PY + cl(burnFront(t), -30, PH + 20);
+    const flick = 0.78 + 0.18 * Math.sin(t * 22) + 0.12 * Math.sin(t * 7 + 1);
+    const glowOp = env * cl(flick, 0.3, 1.1);
+    const firePctY = (frontWorldY / H) * 100;
+
+    const remain = cl(burnFront(t) / PH, 0, 1);
+    const shadowOp = 0.5 * remain;
+
+    return (
+      <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', background: '#0a0705' }}>
+        {/* base ambient + vignette */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'radial-gradient(135% 115% at 50% 36%, #1b130b 0%, #0c0805 54%, #060403 100%)',
+        }} />
+        {/* warm candle pre-glow (establishing) */}
+        <div style={{
+          position: 'absolute', inset: 0, mixBlendMode: 'screen',
+          background: 'radial-gradient(60% 40% at 50% 78%, rgba(180,110,40,0.5), transparent 70%)',
+          opacity: cl(0.5 - env, 0, 1) * (0.5 + 0.18 * Math.sin(t * 6)),
+        }} />
+        {/* moving fire light removed — replaced by FireGlow clipped to the paper
+            so no warm light spills into the empty area below/left of the sheet */}
+
+        {/* camera world */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          transform: `translateY(${camY}px) scale(${camScale})`,
+          transformOrigin: '50% 46%', willChange: 'transform',
+        }}>
+          {/* contact shadow */}
+          <div style={{
+            position: 'absolute', left: PX + PW * 0.05, top: PY + PH - 30,
+            width: PW * 0.9 * (0.5 + 0.5 * remain), height: 90,
+            marginLeft: 0, borderRadius: '50%',
+            background: 'radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0.7), transparent 70%)',
+            filter: 'blur(18px)', opacity: shadowOp,
+          }} />
+
+          {/* paper + rim + flames share the rotated paper frame */}
+          <div style={{
+            position: 'absolute', left: PX, top: PY, width: PW, height: PH,
+            transform: 'rotate(-1.1deg)', transformOrigin: '50% 50%',
+          }}>
+            <Paper t={t} items={items} showWishes={showWishes} />
+            <FireGlow t={t} />
+            <EmberRim t={t} />
+            <Flames t={t} />
+          </div>
+
+          <Smoke t={t} />
+          <Sparks t={t} />
+          <Ash t={t} />
+        </div>
+
+        {/* cinematic vignette on top */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'radial-gradient(120% 100% at 50% 45%, transparent 54%, rgba(0,0,0,0.55) 100%)',
+        }} />
+      </div>
+    );
+  }
+
+
+  function ZettelBurn({ items, showWishes = true, onDone, duration = 8.4 }) {
+    const [t, setT] = React.useState(0);
+    const wrapRef = React.useRef(null);
+    const [scale, setScale] = React.useState(0.32);
+    const doneRef = React.useRef(false);
+    React.useEffect(() => {
+      let raf, start = performance.now();
+      const tick = (now) => {
+        const tt = (now - start) / 1000;
+        setT(tt);
+        if (tt >= duration) { if (!doneRef.current) { doneRef.current = true; onDone && onDone(); } return; }
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(raf);
+    }, []);
+    React.useEffect(() => {
+      const fit = () => { if (wrapRef.current) setScale(wrapRef.current.clientWidth / W); };
+      fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
+    }, []);
+    return (
+      <div ref={wrapRef} style={{ position: 'relative', width: '100%', aspectRatio: `${W} / ${H}`, borderRadius: 14, overflow: 'hidden', background: '#0a0705', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: W, height: H, transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+          <Scene t={t} items={items} showWishes={showWishes} />
+        </div>
+      </div>
+    );
+  }
+  return ZettelBurn;
+})();
+
 export default function LenormandApp() {
   const gold = "#c8a96e";
   const [lightMode, setLightMode] = React.useState(() => localStorage.getItem("lenni_theme") !== "dark");
@@ -2308,8 +2790,13 @@ export default function LenormandApp() {
   const [zettelItems, setZettelItems] = React.useState([{ text:"", done:false }]);
   const [zettelArchiv, setZettelArchiv] = React.useState([]);
   const [zettelBurning, setZettelBurning] = React.useState(false);
+  const [zettelBurnSnapshot, setZettelBurnSnapshot] = React.useState([]);
+  const ZETTEL_SHOW_WISHES = true; // Wünsche aufs brennende Papier? (false = nur stilvoller Zettel)
   const [zettelFocus, setZettelFocus] = React.useState(null);
   const zettelInputRefs = React.useRef({});
+  // Optik: gealtertes Notizpapier (in beiden Modi cremefarben — Papier ist Papier)
+  const zettelPaperBg = "linear-gradient(135deg,#f6ecd4 0%,#efe1c2 48%,#e4d2aa 100%)";
+  const zettelGrain = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='pg'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23pg)'/%3E%3C/svg%3E")`;
 
   // Archiv laden
   const loadZettelArchiv = async () => {
@@ -2322,6 +2809,15 @@ export default function LenormandApp() {
     } catch {}
   };
   React.useEffect(() => { loadZettelArchiv(); }, [session]);
+
+  // Caveat-Handschrift für den Zauberzettel laden
+  React.useEffect(() => {
+    if (document.getElementById("caveat-font")) return;
+    const l = document.createElement("link");
+    l.id = "caveat-font"; l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&display=swap";
+    document.head.appendChild(l);
+  }, []);
 
   // Fokus auf neu erzeugte Checkbox-Zeile setzen
   React.useEffect(() => {
@@ -2346,30 +2842,33 @@ export default function LenormandApp() {
     }
   };
 
-  // Verbrennen: Animation läuft, danach wird die Notiz versiegelt ins Archiv gelegt
+  // Verbrennen: sofort versiegelt speichern, dann spielt die Flammen-Animation
   const verbrenneZettel = async () => {
     const items = zettelItems.map(it => ({ text:(it.text||"").trim(), done: !!it.done })).filter(it => it.text);
     if (items.length === 0 || zettelBurning) return;
+    setZettelBurnSnapshot(items);
     setZettelBurning(true);
     const uid = getUserId();
     const burnedAt = new Date();
     const unlockAt = new Date(burnedAt.getTime() + ZETTEL_LOCK_DAYS*24*60*60*1000);
-    setTimeout(async () => {
-      const entry = { user_id: uid, items, burned_at: burnedAt.toISOString(), unlock_at: unlockAt.toISOString() };
-      let ok = false;
-      if (uid) {
-        try {
-          const res = await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv`, {
-            method:"POST", headers: dbHeaders(), body: JSON.stringify(entry)
-          });
-          ok = res.ok;
-        } catch {}
-      }
-      if (ok) { await loadZettelArchiv(); }
-      else { setZettelArchiv(prev => [{...entry, id:"local_"+burnedAt.getTime()}, ...prev]); }
-      setZettelItems([{ text:"", done:false }]);
-      setZettelBurning(false);
-    }, 2300); // Dauer der Flammen-Animation
+    const entry = { user_id: uid, items, burned_at: burnedAt.toISOString(), unlock_at: unlockAt.toISOString() };
+    if (uid) {
+      try {
+        await fetch(`${SUPABASE_URL}/rest/v1/zauberzettel_archiv`, {
+          method:"POST", headers: dbHeaders(), body: JSON.stringify(entry)
+        });
+      } catch {}
+    } else {
+      setZettelArchiv(prev => [{...entry, id:"local_"+burnedAt.getTime()}, ...prev]);
+    }
+  };
+
+  // Wird aufgerufen, wenn die Flammen-Animation durch ist
+  const handleBurnDone = async () => {
+    setZettelItems([{ text:"", done:false }]);
+    setZettelBurnSnapshot([]);
+    setZettelBurning(false);
+    await loadZettelArchiv();
   };
 
   // Im entsiegelten Archiv einen Wunsch als "erfüllt" markieren
@@ -5759,6 +6258,7 @@ export default function LenormandApp() {
                 0% { transform: scaleY(0.85) scaleX(1) translateY(0); opacity:0.65; }
                 100% { transform: scaleY(1.3) scaleX(0.8) translateY(-7px); opacity:1; }
               }
+              .zettel-ink::placeholder { color: rgba(90,60,30,0.42); font-style:normal; }
             `}</style>
 
             {/* Kopf */}
@@ -5771,94 +6271,45 @@ export default function LenormandApp() {
               </div>
             </div>
 
-            {/* Der Zettel (Checklisten-Eingabe) */}
+            {/* Der Zettel — gealtertes Notizpapier wie im Design (Caveat-Handschrift) */}
             {!zettelBurning && (
-              <div style={{ background:lightMode?"rgba(100,50,140,0.04)":"rgba(200,169,110,0.04)", border:`1.5px solid ${lightMode?"#7a3a9a":"rgba(200,169,110,0.4)"}`, borderRadius:12, padding:"18px 16px", marginBottom:14 }}>
-                {zettelItems.map((it, i) => (
-                  <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                    <button onClick={()=>toggleZettelDone(i)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:16, padding:0, lineHeight:1, color: it.done?"#5a9a5a":(lightMode?"#7a3a9a":"#9a8060") }}>{it.done?"☑️":"☐"}</button>
-                    <input
-                      ref={el => { zettelInputRefs.current[i] = el; }}
-                      value={it.text}
-                      onChange={e=>setZettelText(i, e.target.value)}
-                      onKeyDown={e=>zettelKeyDown(e, i)}
-                      placeholder={i===0 ? "z.B. Ich finde die passende Wohnung…" : "noch ein Wunsch…"}
-                      style={{ flex:1, background:"transparent", border:"none", borderBottom:`1px solid ${lightMode?"rgba(122,58,154,0.25)":"rgba(200,169,110,0.15)"}`, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13.5, padding:"4px 2px", outline:"none", textDecoration: it.done?"line-through":"none", opacity: it.done?0.6:1 }}
-                    />
-                    {zettelItems.length>1 && (
-                      <button onClick={()=>removeZettelItem(i)} title="entfernen" style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, color:"#9a6050", padding:"0 2px" }}>✕</button>
-                    )}
+              <div style={{ position:"relative", transform:"rotate(-0.9deg)", marginBottom:18 }}>
+                <div style={{ position:"relative", borderRadius:"5px 8px 6px 7px", padding:"30px 28px 26px", overflow:"hidden",
+                  background:"radial-gradient(120% 95% at 28% 18%, rgba(255,250,235,0.18), rgba(120,92,52,0) 42%), radial-gradient(58% 46% at 76% 66%, rgba(146,104,56,0.26), transparent 62%), radial-gradient(42% 30% at 18% 82%, rgba(112,80,42,0.30), transparent 60%), radial-gradient(30% 24% at 84% 22%, rgba(120,86,46,0.22), transparent 60%), linear-gradient(176deg, #ecdcb6 0%, #e1cd9f 46%, #d3bb88 100%)",
+                  boxShadow:"0 10px 30px rgba(0,0,0,0.4), inset 0 0 44px rgba(86,58,26,0.34), inset 0 -22px 50px rgba(70,44,18,0.22)" }}>
+                  <div style={{ position:"absolute", inset:0, backgroundImage: zettelGrain, backgroundSize:"160px 160px", opacity:0.07, mixBlendMode:"multiply", pointerEvents:"none" }}/>
+                  <div style={{ position:"relative", fontFamily:"'Caveat', cursive", color:"#43301c" }}>
+                    <div style={{ fontSize:16, opacity:0.6, letterSpacing:"0.04em" }}>Vollmond&nbsp;&nbsp;✦</div>
+                    <div style={{ fontSize:34, fontWeight:700, lineHeight:1.0, marginTop:2, marginBottom:2 }}>Was ich mir wünsche</div>
+                    <div style={{ width:170, height:3, marginBottom:16, transform:"rotate(-0.7deg)", background:"linear-gradient(90deg, rgba(67,48,28,0.85), rgba(67,48,28,0.2))", borderRadius:3 }} />
+                    {zettelItems.map((it, i) => (
+                      <div key={i} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+                        <button onClick={()=>toggleZettelDone(i)} style={{ background:"none", border:"none", cursor:"pointer", fontSize:20, padding:0, lineHeight:1, color: it.done?"#4a6a2a":"#6a4a24" }}>{it.done?"✓":"○"}</button>
+                        <input
+                          className="zettel-ink"
+                          ref={el => { zettelInputRefs.current[i] = el; }}
+                          value={it.text}
+                          onChange={e=>setZettelText(i, e.target.value)}
+                          onKeyDown={e=>zettelKeyDown(e, i)}
+                          placeholder={i===0 ? "Ich finde die passende Wohnung…" : "noch ein Wunsch…"}
+                          style={{ flex:1, background:"transparent", border:"none", borderBottom:"1px solid rgba(96,64,28,0.22)", color:"#3a2410", fontFamily:"'Caveat', cursive", fontSize:22, lineHeight:1.2, padding:"2px 2px", outline:"none", textDecoration: it.done?"line-through":"none", opacity: it.done?0.55:1 }}
+                        />
+                        {zettelItems.length>1 && (
+                          <button onClick={()=>removeZettelItem(i)} title="entfernen" style={{ background:"none", border:"none", cursor:"pointer", fontSize:15, color:"#9a5238", padding:"0 2px" }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <div style={{ fontSize:16, color:"#8a6a40", marginTop:8, paddingLeft:30, opacity:0.8 }}>↵ Enter für den nächsten Wunsch</div>
                   </div>
-                ))}
-                <div style={{ fontSize:10, color:lightMode?"#8a6a9a":"#6a5040", fontStyle:"italic", marginTop:6, paddingLeft:24 }}>↵ Enter für den nächsten Wunsch</div>
+                </div>
               </div>
             )}
 
-            {/* Brennender Zettel — verbrennt von unten nach oben */}
+            {/* Brennender Zettel — deine Claude-Design-Animation */}
             {zettelBurning && (
-              <div style={{ marginBottom:14 }}>
-                <div style={{ position:"relative", overflow:"visible" }}>
-                  {/* Das Papier, das von unten weggebrannt wird */}
-                  <div style={{ position:"relative", zIndex:1, background:lightMode?"rgba(100,50,140,0.04)":"rgba(200,169,110,0.04)", border:`1.5px solid ${lightMode?"#7a3a9a":"rgba(200,169,110,0.4)"}`, borderRadius:12, padding:"18px 16px", animation:"zettelPaperBurn 2.3s ease-in forwards" }}>
-                    {zettelItems.filter(it=>it.text.trim()).map((it,i)=>(
-                      <div key={i} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13.5 }}>
-                        <span>{it.done?"☑️":"☐"}</span><span>{it.text}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Verkohlte, zerrissene Brandkante mit Flammen — wandert synchron nach oben */}
-                  <div style={{ position:"absolute", left:-12, right:-12, height:66, bottom:0, transform:"translateY(45%)", zIndex:2, pointerEvents:"none", animation:"zettelFireLine 2.3s ease-in forwards" }}>
-                    {/* SVG: zerfranste Kohle + Scorch + Glut */}
-                    <svg viewBox="0 0 600 80" preserveAspectRatio="none" style={{ position:"absolute", inset:0, width:"100%", height:"100%", overflow:"visible" }}>
-                      <defs>
-                        <filter id="zettelChar" x="-25%" y="-40%" width="150%" height="200%">
-                          <feTurbulence type="fractalNoise" baseFrequency="0.014 0.05" numOctaves="2" seed="7" result="n">
-                            <animate attributeName="baseFrequency" dur="0.7s" values="0.014 0.05;0.02 0.07;0.014 0.05" repeatCount="indefinite"/>
-                          </feTurbulence>
-                          <feDisplacementMap in="SourceGraphic" in2="n" scale="30" xChannelSelector="R" yChannelSelector="G"/>
-                        </filter>
-                        <linearGradient id="zettelGlowG" x1="0" y1="1" x2="0" y2="0">
-                          <stop offset="0" stopColor="#ff6a12" stopOpacity="0.9"/>
-                          <stop offset="0.5" stopColor="#ff9a30" stopOpacity="0.45"/>
-                          <stop offset="1" stopColor="#ff9a30" stopOpacity="0"/>
-                        </linearGradient>
-                        <linearGradient id="zettelScorch" x1="0" y1="1" x2="0" y2="0">
-                          <stop offset="0" stopColor="#1a0c04" stopOpacity="1"/>
-                          <stop offset="0.45" stopColor="#3a1c0a" stopOpacity="0.9"/>
-                          <stop offset="0.78" stopColor="#7a4a24" stopOpacity="0.35"/>
-                          <stop offset="1" stopColor="#7a4a24" stopOpacity="0"/>
-                        </linearGradient>
-                      </defs>
-                      {/* Glut/Schein unter der Kante */}
-                      <rect x="-30" y="36" width="660" height="60" fill="url(#zettelGlowG)" filter="url(#zettelChar)" opacity="0.85"/>
-                      {/* Scorch-Band (angesengtes Papier, oben zerfranst) */}
-                      <rect x="-30" y="30" width="660" height="74" fill="url(#zettelScorch)" filter="url(#zettelChar)"/>
-                      {/* schwarze Kohlekruste direkt an der Kante */}
-                      <rect x="-30" y="27" width="660" height="16" fill="#0e0602" filter="url(#zettelChar)"/>
-                    </svg>
-                    {/* lodernde Flammen */}
-                    {[...Array(7)].map((_,i)=>{
-                      const left = (i*14 + Math.random()*5).toFixed(0);
-                      const h = Math.round(38 + Math.random()*42);
-                      const w = Math.round(14 + Math.random()*10);
-                      const delay = (Math.random()*0.4).toFixed(2);
-                      const dur = (0.5 + Math.random()*0.4).toFixed(2);
-                      return <div key={"f"+i} style={{ position:"absolute", bottom:20, left:left+"%", width:w, height:h, background:"radial-gradient(ellipse at 50% 100%, #ffe27a 0%, #ffac30 35%, #ff6a14 60%, rgba(255,80,16,0) 78%)", borderRadius:"50% 50% 48% 48% / 65% 65% 38% 38%", filter:"blur(1px)", transformOrigin:"bottom center", animation:`zettelFlame ${dur}s ease-in-out ${delay}s infinite alternate` }}/>;
-                    })}
-                    {/* aufsteigende Funken */}
-                    {[...Array(20)].map((_,i)=>{
-                      const left = (Math.random()*100).toFixed(1);
-                      const delay = (Math.random()*0.9).toFixed(2);
-                      const dur = (0.9 + Math.random()*1.0).toFixed(2);
-                      const size = Math.round(2 + Math.random()*4);
-                      const drift = (Math.random()*50-25).toFixed(0)+"px";
-                      return <span key={"e"+i} style={{ position:"absolute", bottom:14, left:left+"%", width:size, height:size, borderRadius:"50%", background:"radial-gradient(circle, #ffe6a0, #ff7a1a)", boxShadow:"0 0 6px #ff9030", "--drift":drift, animation:`zettelEmber ${dur}s ease-out ${delay}s infinite` }}/>;
-                    })}
-                  </div>
-                </div>
-
-                <div style={{ textAlign:"center", marginTop:18, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
+              <div style={{ marginBottom:18 }}>
+                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
+                <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
 
