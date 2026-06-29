@@ -554,7 +554,7 @@ function AdminBar({ gold, lightMode, displayName, myEmail, accounts, accountsLoa
 // Zeigt eine gespeicherte Frage-Deutung (Situations- oder Personen-Matrix) als echtes
 // visuelles 3×3-Raster im Forum an — genau wie auf dem Bildschirm beim Deuten selbst,
 // statt nur als Fließtext. data kommt aus forum_posts.matrix_data (siehe shareFrageToForum).
-function ForumMatrixGrid({ data, gold }) {
+function ForumMatrixGrid({ data, gold, lightMode }) {
   if (!data || !Array.isArray(data.cells)) return null;
   const isPersonen = data.mode === "personen";
   return (
@@ -4820,7 +4820,7 @@ export default function LenormandApp() {
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", marginBottom:8 }}>{new Date(forumActivePost.created_at).toLocaleDateString('de-DE')}</div>
                         {forumActivePost.matrix_data ? (
-                          <ForumMatrixGrid data={forumActivePost.matrix_data} gold={gold} />
+                          <ForumMatrixGrid data={forumActivePost.matrix_data} gold={gold} lightMode={lightMode} />
                         ) : (
                           <div style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.7 }}>{renderTextWithVideos(forumActivePost.body)}</div>
                         )}
