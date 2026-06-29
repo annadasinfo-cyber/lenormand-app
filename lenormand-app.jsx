@@ -4011,7 +4011,7 @@ export default function LenormandApp() {
         {/* ── KOMBINATIONEN ── */}
         {/* ── LIESMICH ── */}
         {view === "liesmich" && (
-          <div style={{ maxWidth:700, margin:"0 auto" }}>
+          <div style={{ maxWidth:1100, margin:"0 auto" }}>
             <div style={{ borderRadius:12, overflow:"hidden", marginBottom:24, position:"relative", paddingTop:"56.25%" }}>
               <iframe
                 src="https://www.youtube.com/embed/N9sWhC_j_qE"
@@ -4496,7 +4496,7 @@ export default function LenormandApp() {
         })()}
 
         {view === "forum" && !viewedProfileId && (
-          <div style={{ maxWidth:700, margin:"0 auto" }}>
+          <div style={{ maxWidth:1100, margin:"0 auto" }}>
 
             {/* Untermenü */}
             <ForumSubNav />
@@ -5087,7 +5087,7 @@ export default function LenormandApp() {
 
         {/* ── IMPRESSUM (Platzhalter) ── */}
         {view === "impressum" && (
-          <div style={{ maxWidth:700, margin:"0 auto", padding:"20px 0" }}>
+          <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
             <button onClick={() => setView("liesmich")}
               style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
             <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Impressum</div>
@@ -5099,7 +5099,7 @@ export default function LenormandApp() {
 
         {/* ── AGB (Platzhalter) ── */}
         {view === "agb" && (
-          <div style={{ maxWidth:700, margin:"0 auto", padding:"20px 0" }}>
+          <div style={{ maxWidth:560, margin:"0 auto", padding:"20px 0" }}>
             <button onClick={() => setView("liesmich")}
               style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:18, padding:0, fontFamily:"Georgia,serif", display:"block" }}>← zurück</button>
             <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Allgemeine Geschäftsbedingungen</div>
@@ -6286,7 +6286,7 @@ export default function LenormandApp() {
 
         {/* ── ZAUBERZETTEL: Brief verbrennen ── */}
         {view === "tagebuch" && dailyMode === "manifest" && (
-          <div style={{ paddingBottom:40, maxWidth:700, margin:"0 auto" }}>
+          <div style={{ paddingBottom:40, maxWidth:560, margin:"0 auto" }}>
             <style>{`
               @keyframes zettelEmber {
                 0% { transform: translateY(0) translateX(0) scale(1); opacity:0; }
