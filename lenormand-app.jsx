@@ -4294,7 +4294,7 @@ export default function LenormandApp() {
             <div style={{ display:"flex", justifyContent:"center", gap:10, marginTop:16, flexWrap:"wrap" }}>
               {mode === "personen" && (
                 <button onClick={() => { fullRandom(); }}
-                  style={{ background:"rgba(200,169,110,0.08)", border:`1px solid rgba(200,169,110,0.35)`, color:lightMode?"#5a1080":"#c8a96e", padding:"10px 22px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
+                  style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.08)", border:`1px solid ${lightMode?"#c8a8e0":"rgba(200,169,110,0.35)"}`, color:gold, padding:"10px 22px", borderRadius:6, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif", letterSpacing:1 }}>
                   🎲 Zufällig mischen
                 </button>
               )}
@@ -4344,7 +4344,7 @@ export default function LenormandApp() {
               </div>
 <div style={{display:"flex", gap:6}}>
                 <button onClick={() => setMatrixView("result")}
-                  style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
+                  style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
                   Deuten →
                 </button>
               </div>
