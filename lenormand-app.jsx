@@ -6342,10 +6342,14 @@ export default function LenormandApp() {
               </div>
             )}
 
-            {/* Brennender Zettel — deine Claude-Design-Animation (freigestellt) */}
+            {/* Brennender Zettel — Trick 17: Bühne in App-Hintergrundfarbe (sieht freigestellt aus),
+                aber isoliert/opak, damit die screen/lighter-Mischung lokal auf der GPU läuft
+                statt jedes Bild teuer gegen die ganze Seite. */}
             {zettelBurning && (
               <div style={{ marginBottom:18 }}>
-                <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
+                <div style={{ background:appBg, isolation:"isolate", borderRadius:14, overflow:"hidden" }}>
+                  <ZettelBurn items={zettelBurnSnapshot} showWishes={ZETTEL_SHOW_WISHES} onDone={handleBurnDone} />
+                </div>
                 <div style={{ textAlign:"center", marginTop:16, fontSize:13, fontStyle:"italic", color:lightMode?"#7a3a9a":gold, fontFamily:"Georgia,serif" }}>✨ Emanuel nimmt deine Wünsche entgegen…</div>
               </div>
             )}
