@@ -1505,6 +1505,10 @@ export default function LenormandApp() {
   const [profileSaveStatus, setProfileSaveStatus] = React.useState("");
   const [forumCategories, setForumCategories] = React.useState([]);
   const [forumView, setForumView] = React.useState("liste"); // "liste" | "kategorie" | "post" | "neu"
+  // Aktivitäts-Stream als Startbild der Forum-Übersicht (Facebook-artiger Feed).
+  const [forumStartTab, setForumStartTab] = React.useState("stream"); // "stream" | "kategorien"
+  const [forumStream, setForumStream] = React.useState([]);
+  const [forumStreamLoading, setForumStreamLoading] = React.useState(false);
   const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
   const [forumPosts, setForumPosts] = React.useState([]);
   // Kurse-Bereich: eigene States, gleiche Struktur wie Forum
@@ -1762,6 +1766,73 @@ export default function LenormandApp() {
       if (Array.isArray(data)) setForumPosts(data);
     } catch {}
   };
+
+  // Relative Zeitangabe für den Stream: "gerade eben", "vor 5 Min", "vor 3 Std", "vor 2 Tagen".
+  const streamTimeAgo = (iso) => {
+    if (!iso) return "";
+    const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+    if (s < 60) return "gerade eben";
+    const m = Math.floor(s / 60); if (m < 60) return `vor ${m} Min`;
+    const h = Math.floor(m / 60); if (h < 24) return `vor ${h} Std`;
+    const d = Math.floor(h / 24); if (d < 7) return `vor ${d} ${d === 1 ? "Tag" : "Tagen"}`;
+    const w = Math.floor(d / 7); if (w < 5) return `vor ${w} ${w === 1 ? "Woche" : "Wochen"}`;
+    return new Date(iso).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  };
+
+  // Baut den Aktivitäts-Stream aus vorhandenen Tabellen (Beiträge, Antworten, Likes,
+  // neue Mitglieder) plus activity_events (Quiz-Highscores). Keine Duplizierung —
+  // es wird nur gelesen und clientseitig nach Zeit gemischt.
+  const loadForumStream = async () => {
+    setForumStreamLoading(true);
+    const q = (t, extra) => fetch(`${SUPABASE_URL}/rest/v1/${t}?${extra}`, { headers: dbHeaders() }).then(r => r.json()).catch(() => []);
+    try {
+      const [posts, replies, postLikes, replyLikes, members, events] = await Promise.all([
+        q("forum_posts", "select=id,title,body,display_name,user_id,category_id,created_at,matrix_data&order=created_at.desc&limit=20"),
+        q("forum_replies", "select=id,post_id,body,display_name,user_id,created_at&order=created_at.desc&limit=20"),
+        q("forum_post_likes", "select=post_id,user_id,created_at&order=created_at.desc&limit=15"),
+        q("forum_reply_likes", "select=reply_id,user_id,created_at&order=created_at.desc&limit=15"),
+        q("profiles", "select=id,display_name,created_at&order=created_at.desc&limit=10"),
+        q("activity_events", "select=id,user_id,display_name,kind,payload,created_at&order=created_at.desc&limit=15"),
+      ]);
+      const arr = x => Array.isArray(x) ? x : [];
+      // Namensauflösung (für Like-Akteure, die nicht schon als display_name auf der Zeile stehen)
+      const nameById = {};
+      arr(members).forEach(p => { if (p.id) nameById[p.id] = p.display_name; });
+      const likeUserIds = [...new Set([...arr(postLikes), ...arr(replyLikes)].map(l => l.user_id).filter(Boolean))].filter(id => !nameById[id]);
+      if (likeUserIds.length) arr(await q("profiles", `id=in.(${likeUserIds.join(",")})&select=id,display_name`)).forEach(p => { nameById[p.id] = p.display_name; });
+      // Beitrags-Titel/Kategorie-Auflösung
+      const postById = {};
+      arr(posts).forEach(p => { postById[p.id] = p; });
+      // reply_id -> post_id (für Reply-Likes)
+      const replyById = {};
+      arr(replies).forEach(r => { replyById[r.id] = r; });
+      const missingReplyIds = [...new Set(arr(replyLikes).map(l => l.reply_id).filter(id => id && !replyById[id]))];
+      if (missingReplyIds.length) arr(await q("forum_replies", `id=in.(${missingReplyIds.join(",")})&select=id,post_id`)).forEach(r => { replyById[r.id] = r; });
+      // fehlende Beiträge (für Likes/Antworten auf ältere Beiträge) nachladen
+      const neededPostIds = new Set();
+      arr(replies).forEach(r => r.post_id && neededPostIds.add(r.post_id));
+      arr(postLikes).forEach(l => l.post_id && neededPostIds.add(l.post_id));
+      arr(replyLikes).forEach(l => { const rep = replyById[l.reply_id]; if (rep && rep.post_id) neededPostIds.add(rep.post_id); });
+      const missingPostIds = [...neededPostIds].filter(id => !postById[id]);
+      if (missingPostIds.length) arr(await q("forum_posts", `id=in.(${missingPostIds.join(",")})&select=id,title,category_id`)).forEach(p => { postById[p.id] = p; });
+      const catName = id => { const c = forumCategories.find(c => c.id === id); return c ? c.name : ""; };
+      const items = [];
+      arr(posts).forEach(p => items.push({ key: "p" + p.id, kind: "post", actor: p.display_name || "Mitglied", when: p.created_at, post: p, title: p.title, body: p.body, category: catName(p.category_id), isMatrix: !!p.matrix_data }));
+      arr(replies).forEach(r => { const p = postById[r.post_id]; items.push({ key: "r" + r.id, kind: "reply", actor: r.display_name || "Mitglied", when: r.created_at, body: r.body, postId: r.post_id, postTitle: p ? p.title : "einen Beitrag" }); });
+      arr(postLikes).forEach(l => { const p = postById[l.post_id]; items.push({ key: "pl" + l.post_id + l.user_id + l.created_at, kind: "like", actor: nameById[l.user_id] || "Jemand", when: l.created_at, postId: l.post_id, postTitle: p ? p.title : "einen Beitrag" }); });
+      arr(replyLikes).forEach(l => { const rep = replyById[l.reply_id]; const p = rep ? postById[rep.post_id] : null; items.push({ key: "rl" + l.reply_id + l.user_id + l.created_at, kind: "like", actor: nameById[l.user_id] || "Jemand", when: l.created_at, postId: rep ? rep.post_id : null, postTitle: p ? p.title : "eine Antwort" }); });
+      arr(members).forEach(p => items.push({ key: "m" + p.id, kind: "member", actor: p.display_name || "Ein neues Mitglied", when: p.created_at }));
+      arr(events).forEach(e => items.push({ key: "e" + e.id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, payload: e.payload || {} }));
+      items.sort((a, b) => new Date(b.when) - new Date(a.when));
+      setForumStream(items.slice(0, 30));
+    } catch {}
+    setForumStreamLoading(false);
+  };
+
+  // Stream frisch laden, sobald man auf der Forum-Startseite im Stream-Tab landet.
+  React.useEffect(() => {
+    if (view === "forum" && forumView === "liste" && forumStartTab === "stream") loadForumStream();
+  }, [view, forumView, forumStartTab, session]);
 
   // Alle Beitrags-IDs laden, die diese Person schon geöffnet hat — einmal beim Login/Start,
   // damit "ungelesen" in der ganzen Forum-Übersicht direkt korrekt angezeigt werden kann.
@@ -3278,6 +3349,16 @@ export default function LenormandApp() {
       lastPlayed: today
     };
     saveStats(newS);
+    // Neuen persönlichen Highscore automatisch in den Aktivitäts-Stream legen (nur eingeloggt).
+    if (newHighscore) {
+      const uid = getUserId();
+      if (uid) {
+        fetch(`${SUPABASE_URL}/rest/v1/activity_events`, {
+          method: "POST", headers: {...dbHeaders(), "Prefer": "return=minimal"},
+          body: JSON.stringify({ user_id: uid, display_name: userDisplayName || "Mitglied", kind: "quiz_highscore", payload: { score: newBest[modeKey], mode: modeKey } })
+        }).catch(() => {});
+      }
+    }
   };
   const [signifikator, setSignifikator] = useState(null);
   const [writingMode, setWritingMode] = useState("situation"); // "situation" | "personen" — welche Matrix für die Textdeutung im Writing-Bereich genutzt wird
@@ -3846,7 +3927,7 @@ export default function LenormandApp() {
                     style={{ background:"transparent", border:"none", color:forumMyLikes[reply.id]?gold:"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", display:"flex", alignItems:"center", gap:4 }}>
                     {forumMyLikes[reply.id] ? "★" : "☆"} {forumLikeCounts[reply.id] || 0}
                   </button>
-                  <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); }}
+                  <button onClick={() => { setForumReplyToId(reply.id); setForumReplyToName(reply.display_name); setTimeout(() => { const box = document.getElementById("forum-reply-composer"); if (box) box.scrollIntoView({ behavior:"smooth", block:"center" }); const ta = document.getElementById("forum-reply-textarea"); if (ta) ta.focus(); }, 60); }}
                     style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:10, padding:0, fontFamily:"Georgia,serif" }}>
                     ↩ Antworten
                   </button>
@@ -4651,6 +4732,18 @@ export default function LenormandApp() {
             {/* KATEGORIEN-LISTE */}
             {forumView === "liste" && (
               <div>
+                {/* Umschalter: Aktivitäts-Stream (Start) oder Kategorienliste. Das Forum
+                    bleibt vollständig als Container erhalten — der Stream ist nur das Startbild. */}
+                <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+                  {[["stream","🌊 Stream"],["kategorien","📁 Kategorien"]].map(([t,l]) => (
+                    <button key={t} onClick={() => setForumStartTab(t)}
+                      style={{ background:forumStartTab===t?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.15)"):"rgba(200,169,110,0.03)", border:`1px solid ${forumStartTab===t?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:forumStartTab===t?gold:"#7a6040", padding:"7px 16px", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s" }}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+
+                {forumStartTab === "kategorien" && (<>
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
                   {isAdmin && (
                     <button onClick={() => setForumShowNewCat(v => !v)} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"5px 12px", borderRadius:5, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>
@@ -4750,6 +4843,61 @@ export default function LenormandApp() {
 
                 {/* Echte Forum-Statistik (siehe loadForumCategories) statt Fake-Zahlen */}
                 <ForumStatsBar />
+                </>)}
+
+                {forumStartTab === "stream" && (
+                  <div>
+                    {forumStreamLoading && forumStream.length === 0 && (
+                      <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:12, padding:"24px 0" }}>Lädt den Stream…</div>
+                    )}
+                    {!forumStreamLoading && forumStream.length === 0 && (
+                      <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Aktivität. Sei die Erste! ✨</div>
+                    )}
+                    {forumStream.map(ev => {
+                      const icon = ev.kind === "post" ? (ev.isMatrix ? "🃏" : "🕯️") : ev.kind === "reply" ? "💬" : ev.kind === "like" ? "⭐" : ev.kind === "member" ? "🌱" : ev.kind === "quiz_highscore" ? "🏆" : "✨";
+                      const openTarget = () => {
+                        if (ev.kind === "post" && ev.post) { const cat = forumCategories.find(c => c.id === ev.post.category_id); setForumActiveCategory(cat || {id: ev.post.category_id}); openForumPost(ev.post); }
+                        else if (ev.postId) { loadAndOpenPostById(ev.postId); }
+                      };
+                      const clickable = ev.kind === "post" || ((ev.kind === "reply" || ev.kind === "like") && ev.postId);
+                      const quizModeLabel = { kombis:"Kombinationen", zeit:"Blitz", person:"Personen", karte:"Kartenkunde", "3er":"3er-Kombis", "4er":"4er-Kombis" };
+                      let headline;
+                      if (ev.kind === "post") headline = <>hat ein neues Thema eröffnet{ev.category ? <> in <span style={{color:gold}}>{ev.category}</span></> : ""}</>;
+                      else if (ev.kind === "reply") headline = <>hat geantwortet auf <span style={{color:gold}}>„{ev.postTitle}"</span></>;
+                      else if (ev.kind === "like") headline = <>gefällt <span style={{color:gold}}>„{ev.postTitle}"</span></>;
+                      else if (ev.kind === "member") headline = <>ist neu dabei 🌱</>;
+                      else if (ev.kind === "quiz_highscore") headline = <>hat einen neuen Highscore: <span style={{color:gold}}>{ev.payload?.score}</span>{ev.payload?.mode ? <> ({quizModeLabel[ev.payload.mode] || ev.payload.mode})</> : ""}</>;
+                      else headline = <>hat etwas getan</>;
+                      return (
+                        <div key={ev.key}
+                          style={{ background:lightMode?"rgba(200,168,224,0.07)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.4)":"rgba(200,169,110,0.2)"}`, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
+                          <div style={{ display:"flex", alignItems:"baseline", gap:8, flexWrap:"wrap" }}>
+                            <span style={{ fontSize:16 }}>{icon}</span>
+                            <span style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0" }}><span style={{ fontWeight:"bold" }}>{ev.actor}</span> {headline}</span>
+                            <span style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", marginLeft:"auto", whiteSpace:"nowrap" }}>{streamTimeAgo(ev.when)}</span>
+                          </div>
+                          {ev.kind === "post" && (
+                            <div onClick={openTarget} style={{ marginTop:8, cursor:"pointer" }}>
+                              <div style={{ fontSize:14, color:gold, marginBottom:5, fontWeight:"bold" }}>{ev.title}</div>
+                              <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6, maxHeight:240, overflow:"hidden", position:"relative" }}>
+                                {renderTextWithVideos(ev.body || "")}
+                              </div>
+                            </div>
+                          )}
+                          {ev.kind === "reply" && (
+                            <div onClick={openTarget} style={{ marginTop:6, cursor:"pointer", fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6, maxHeight:180, overflow:"hidden" }}>
+                              {renderTextWithVideos(ev.body || "")}
+                            </div>
+                          )}
+                          {clickable && (
+                            <div onClick={openTarget} style={{ marginTop:8, fontSize:11, color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer" }}>→ zum Beitrag</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <ForumStatsBar />
+                  </div>
+                )}
               </div>
             )}
 
@@ -4875,6 +5023,18 @@ export default function LenormandApp() {
                   </>)}
                 </div>
 
+                <div id="forum-reply-composer" style={{ marginBottom:18 }}>
+                  {forumReplyToId && (
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11, color:lightMode?"#2a0850":"#9a8060", marginBottom:6, background:"rgba(200,169,110,0.05)", padding:"5px 10px", borderRadius:6 }}>
+                      <span>Antwort an {forumReplyToName}</span>
+                      <button onClick={() => { setForumReplyToId(null); setForumReplyToName(""); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
+                    </div>
+                  )}
+                  <textarea id="forum-reply-textarea" placeholder="Schreib eine Antwort…" value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
+                    style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+                  <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { createForumReply(); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
+                </div>
+
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", letterSpacing:1, textTransform:"uppercase" }}>{forumReplies.length} Antworten</div>
                   <div style={{ display:"flex", gap:6 }}>
@@ -4923,17 +5083,6 @@ export default function LenormandApp() {
                   </>);
                 })()}
 
-                <div style={{ marginTop:14 }}>
-                  {forumReplyToId && (
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:11, color:lightMode?"#2a0850":"#9a8060", marginBottom:6, background:"rgba(200,169,110,0.05)", padding:"5px 10px", borderRadius:6 }}>
-                      <span>Antwort an {forumReplyToName}</span>
-                      <button onClick={() => { setForumReplyToId(null); setForumReplyToName(""); }} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11 }}>✕</button>
-                    </div>
-                  )}
-                  <textarea placeholder="Antworten…" value={forumReplyText} onChange={e => setForumReplyText(e.target.value)} rows={3}
-                    style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
-                  <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); } else { createForumReply(); } }} style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"7px 18px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Antworten</button>
-                </div>
                 <ForumStatsBar />
               </div>
             )}
