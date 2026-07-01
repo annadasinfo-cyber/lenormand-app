@@ -2655,10 +2655,13 @@ export default function LenormandApp() {
   const isGuest = !session || !getUserId();
   const isAdmin = userRole === "admin";
   const isMod = userRole === "mod" || isAdmin;
-  const isPro = userRole === "pro" || isMod;
   // Nur echte Käufer — Test-PRO ("pro" via 14-Tage-Trial) kommt hier nicht rein.
   // Du vergibst pro_full manuell im Supabase-Dashboard bei jedem echten Kauf.
   const isProFull = userRole === "pro_full" || isMod;
+  // Pro-Zugang hat JEDER ab Pro aufwärts: Test-Pro, Voll-Pro, Mod, Admin.
+  // (pro_full MUSS hier mit rein, sonst wird ein Vollmitglied fälschlich
+  //  aus den Pro-Bereichen ausgesperrt — "Zutritt nur für Pro-Mitglieder".)
+  const isPro = userRole === "pro" || isProFull;
 
   // Kann diese Kategorie überhaupt gesehen werden, je nach Sichtbarkeits-Stufe + eigener Rolle?
   // Alle Kategorien werden in der Übersicht angezeigt (auch für Gäste, als Appetit-Macher) —
