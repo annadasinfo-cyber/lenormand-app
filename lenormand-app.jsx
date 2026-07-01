@@ -1509,6 +1509,10 @@ export default function LenormandApp() {
   const [forumStartTab, setForumStartTab] = React.useState("stream"); // "stream" | "kategorien"
   const [forumStream, setForumStream] = React.useState([]);
   const [forumStreamLoading, setForumStreamLoading] = React.useState(false);
+  const [streamStatusText, setStreamStatusText] = React.useState("");
+  const [forumStreamComments, setForumStreamComments] = React.useState({}); // eventId -> [comments]
+  const [streamCommentDrafts, setStreamCommentDrafts] = React.useState({}); // eventId -> Textentwurf
+  const [streamCommentsOpen, setStreamCommentsOpen] = React.useState({}); // eventId -> bool (Eingabe sichtbar)
   const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
   const [forumPosts, setForumPosts] = React.useState([]);
   // Kurse-Bereich: eigene States, gleiche Struktur wie Forum
@@ -1822,11 +1826,58 @@ export default function LenormandApp() {
       arr(postLikes).forEach(l => { const p = postById[l.post_id]; items.push({ key: "pl" + l.post_id + l.user_id + l.created_at, kind: "like", actor: nameById[l.user_id] || "Jemand", when: l.created_at, postId: l.post_id, postTitle: p ? p.title : "einen Beitrag" }); });
       arr(replyLikes).forEach(l => { const rep = replyById[l.reply_id]; const p = rep ? postById[rep.post_id] : null; items.push({ key: "rl" + l.reply_id + l.user_id + l.created_at, kind: "like", actor: nameById[l.user_id] || "Jemand", when: l.created_at, postId: rep ? rep.post_id : null, postTitle: p ? p.title : "eine Antwort" }); });
       arr(members).forEach(p => items.push({ key: "m" + p.id, kind: "member", actor: p.display_name || "Ein neues Mitglied", when: p.created_at }));
-      arr(events).forEach(e => items.push({ key: "e" + e.id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, payload: e.payload || {} }));
+      arr(events).forEach(e => items.push({ key: "e" + e.id, eventId: e.id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, payload: e.payload || {} }));
       items.sort((a, b) => new Date(b.when) - new Date(a.when));
-      setForumStream(items.slice(0, 30));
+      const sliced = items.slice(0, 30);
+      setForumStream(sliced);
+      loadStreamComments(sliced.map(i => i.eventId).filter(Boolean));
     } catch {}
     setForumStreamLoading(false);
+  };
+
+  // Kommentare zu den Stream-Ereignissen laden (in einem Rutsch) und nach event_id gruppieren.
+  const loadStreamComments = async (eventIds) => {
+    if (!eventIds || !eventIds.length) { setForumStreamComments({}); return; }
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/activity_comments?event_id=in.(${eventIds.join(",")})&order=created_at.asc`, { headers: dbHeaders() });
+      const data = await r.json();
+      const map = {};
+      (Array.isArray(data) ? data : []).forEach(c => { (map[c.event_id] = map[c.event_id] || []).push(c); });
+      setForumStreamComments(map);
+    } catch {}
+  };
+
+  // Statusbeitrag ("Was machst du gerade?") als activity_event in den Stream legen.
+  const postStreamStatus = async () => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    const text = streamStatusText.trim();
+    if (!text) return;
+    setStreamStatusText("");
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/activity_events`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "return=minimal"},
+        body: JSON.stringify({ user_id: uid, display_name: userDisplayName || "Mitglied", kind: "status", payload: { text } })
+      });
+    } catch {}
+    loadForumStream();
+  };
+
+  // Kommentar zu einem Stream-Ereignis abgeben (optimistisch).
+  const addStreamComment = async (eventId) => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    const text = (streamCommentDrafts[eventId] || "").trim();
+    if (!text) return;
+    setStreamCommentDrafts(prev => ({ ...prev, [eventId]: "" }));
+    const optimistic = { id: "tmp-" + Date.now(), event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, created_at: new Date().toISOString() };
+    setForumStreamComments(prev => ({ ...prev, [eventId]: [...(prev[eventId] || []), optimistic] }));
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/activity_comments`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "return=minimal"},
+        body: JSON.stringify({ event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text })
+      });
+    } catch {}
   };
 
   // Stream frisch laden, sobald man auf der Forum-Startseite im Stream-Tab landet.
@@ -4870,6 +4921,21 @@ export default function LenormandApp() {
 
                 {forumStartTab === "stream" && (
                   <div>
+                    {/* "Was machst du gerade?" — eigener Status in den Feed */}
+                    {!isGuest ? (
+                      <div style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:12, padding:"12px 14px", marginBottom:16 }}>
+                        <textarea value={streamStatusText} onChange={e => setStreamStatusText(e.target.value)} rows={2}
+                          placeholder="Was machst du gerade?"
+                          style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5 }} />
+                        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:6 }}>
+                          <button onClick={postStreamStatus} disabled={!streamStatusText.trim()} style={{ background:streamStatusText.trim()?(lightMode?"rgba(200,168,224,0.22)":"rgba(200,169,110,0.15)"):"transparent", border:`1px solid ${streamStatusText.trim()?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:streamStatusText.trim()?gold:"#7a6040", padding:"6px 18px", borderRadius:6, cursor:streamStatusText.trim()?"pointer":"default", fontSize:12, fontFamily:"Georgia,serif" }}>Teilen</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ background:lightMode?"rgba(200,168,224,0.08)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.35)":"rgba(200,169,110,0.18)"}`, borderRadius:12, padding:"12px 14px", marginBottom:16, textAlign:"center", fontSize:12, color:lightMode?"#2a0850":"#9a8060" }}>
+                        Melde dich an, um etwas zu teilen.
+                      </div>
+                    )}
                     {forumStreamLoading && forumStream.length === 0 && (
                       <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:12, padding:"24px 0" }}>Lädt den Stream…</div>
                     )}
@@ -4877,7 +4943,7 @@ export default function LenormandApp() {
                       <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Aktivität. Sei die Erste! ✨</div>
                     )}
                     {forumStream.map(ev => {
-                      const icon = ev.kind === "post" ? (ev.isMatrix ? "🃏" : "🕯️") : ev.kind === "reply" ? "💬" : ev.kind === "like" ? "⭐" : ev.kind === "member" ? "🌱" : ev.kind === "quiz_highscore" ? "🏆" : "✨";
+                      const icon = ev.kind === "post" ? (ev.isMatrix ? "🃏" : "🕯️") : ev.kind === "reply" ? "💬" : ev.kind === "like" ? "⭐" : ev.kind === "member" ? "🌱" : ev.kind === "quiz_highscore" ? "🏆" : ev.kind === "status" ? "🌸" : "✨";
                       const openTarget = () => {
                         if (ev.kind === "post" && ev.post) { const cat = forumCategories.find(c => c.id === ev.post.category_id); setForumActiveCategory(cat || {id: ev.post.category_id}); openForumPost(ev.post); }
                         else if (ev.postId) { loadAndOpenPostById(ev.postId); }
@@ -4890,6 +4956,7 @@ export default function LenormandApp() {
                       else if (ev.kind === "like") headline = <>gefällt <span style={{color:gold}}>„{ev.postTitle}"</span></>;
                       else if (ev.kind === "member") headline = <>ist neu dabei 🌱</>;
                       else if (ev.kind === "quiz_highscore") headline = <>hat einen neuen Highscore: <span style={{color:gold}}>{ev.payload?.score}</span>{ev.payload?.mode ? <> ({quizModeLabel[ev.payload.mode] || ev.payload.mode})</> : ""}</>;
+                      else if (ev.kind === "status") headline = <>schreibt:</>;
                       else headline = <>hat etwas getan</>;
                       return (
                         <div key={ev.key}
@@ -4912,8 +4979,36 @@ export default function LenormandApp() {
                               {renderTextWithVideos(ev.body || "")}
                             </div>
                           )}
+                          {ev.kind === "status" && ev.payload?.text && (
+                            <div style={{ marginTop:6, fontSize:13.5, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.6 }}>
+                              {renderTextWithVideos(ev.payload.text)}
+                            </div>
+                          )}
                           {clickable && (
                             <div onClick={openTarget} style={{ marginTop:8, fontSize:11, color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer" }}>→ zum Beitrag</div>
+                          )}
+                          {ev.eventId && (
+                            <div style={{ marginTop:10, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.12)"}`, paddingTop:8 }}>
+                              {(forumStreamComments[ev.eventId] || []).map(c => (
+                                <div key={c.id} style={{ fontSize:12, marginBottom:5, lineHeight:1.5 }}>
+                                  <span style={{ fontWeight:"bold", color:gold }}>{c.display_name}</span>
+                                  <span style={{ color:lightMode?"#2a0850":"#c8b89a" }}> {c.body}</span>
+                                  <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9, marginLeft:6 }}>{streamTimeAgo(c.created_at)}</span>
+                                </div>
+                              ))}
+                              {streamCommentsOpen[ev.eventId] ? (
+                                <div style={{ display:"flex", gap:6, marginTop:6 }}>
+                                  <input value={streamCommentDrafts[ev.eventId] || ""} onChange={e => setStreamCommentDrafts(prev => ({...prev, [ev.eventId]: e.target.value}))}
+                                    onKeyDown={e => { if (e.key === "Enter") addStreamComment(ev.eventId); }}
+                                    placeholder="Kommentieren…"
+                                    style={{ flex:1, minWidth:0, padding:"6px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                                  <button onClick={() => addStreamComment(ev.eventId)} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 12px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", flexShrink:0 }}>➤</button>
+                                </div>
+                              ) : (
+                                <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); return; } setStreamCommentsOpen(prev => ({...prev, [ev.eventId]: true})); }}
+                                  style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", marginTop:4 }}>💬 Kommentieren</button>
+                              )}
+                            </div>
                           )}
                         </div>
                       );
