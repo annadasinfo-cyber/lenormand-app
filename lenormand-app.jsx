@@ -4731,7 +4731,30 @@ export default function LenormandApp() {
 
             {/* KATEGORIEN-LISTE */}
             {forumView === "liste" && (
-              <div>
+              <div className="lenformum-grid">
+                <style>{`.lenformum-grid{display:grid;grid-template-columns:220px minmax(0,1fr) 220px;gap:20px;align-items:start}.lenformum-side-left{position:sticky;top:12px}@media(max-width:900px){.lenformum-grid{grid-template-columns:1fr}.lenformum-side-right{display:none}.lenformum-side-left{position:static}}`}</style>
+
+                {/* LINKS: Profil-Karte (am Handy oben) */}
+                <aside className="lenformum-side-left">
+                  {isGuest ? (
+                    <div style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"20px 16px", textAlign:"center" }}>
+                      <div style={{ fontSize:26, marginBottom:8 }}>🕯️</div>
+                      <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#d4c4a0", marginBottom:12, lineHeight:1.5 }}>Melde dich an, um mitzumachen.</div>
+                      <button onClick={() => setView("forum-login-noetig")} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Anmelden</button>
+                    </div>
+                  ) : (
+                    <div onClick={() => setCommunityMode("profil")} style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"18px 16px", textAlign:"center", cursor:"pointer" }}>
+                      <div style={{ width:56, height:56, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 10px" }}>
+                        {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
+                      </div>
+                      <div style={{ fontSize:14, color:gold, marginBottom:6, fontWeight:"bold" }}>{userDisplayName || "Willkommen"}</div>
+                      <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", background:lightMode?"rgba(200,168,224,0.25)":"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10 }}>{forumRoleLabel(userRole)}</div>
+                      <div style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", marginTop:10 }}>Mein Profil →</div>
+                    </div>
+                  )}
+                </aside>
+
+                <main style={{ minWidth:0 }}>
                 {/* Umschalter: Aktivitäts-Stream (Start) oder Kategorienliste. Das Forum
                     bleibt vollständig als Container erhalten — der Stream ist nur das Startbild. */}
                 <div style={{ display:"flex", gap:8, marginBottom:16 }}>
@@ -4898,6 +4921,16 @@ export default function LenormandApp() {
                     <ForumStatsBar />
                   </div>
                 )}
+                </main>
+
+                {/* RECHTS: dekorativ (am Handy ausgeblendet) */}
+                <aside className="lenformum-side-right">
+                  <div style={{ background:lightMode?"rgba(200,168,224,0.08)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.35)":"rgba(200,169,110,0.18)"}`, borderRadius:14, padding:"24px 16px", textAlign:"center" }}>
+                    <div style={{ fontSize:30, marginBottom:12 }}>🕯️</div>
+                    <div style={{ fontSize:12, fontStyle:"italic", color:lightMode?"#5a3a6a":"#9a8060", lineHeight:1.7 }}>„Wahrheit fühlt sich an."</div>
+                    <div style={{ marginTop:18, fontSize:18, opacity:0.45 }}>🌙 ✦ 🐍</div>
+                  </div>
+                </aside>
               </div>
             )}
 
