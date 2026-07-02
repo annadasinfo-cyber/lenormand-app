@@ -1831,13 +1831,14 @@ export default function LenormandApp() {
       const repliesByPost = {};
       arr(replies).slice().reverse().forEach(r => { (repliesByPost[r.post_id] = repliesByPost[r.post_id] || []).push(r); });
       const catName = id => { const c = forumCategories.find(c => c.id === id); return c ? c.name : ""; };
+      const catIcon = id => { const c = forumCategories.find(c => c.id === id); return c && c.icon ? c.icon : ""; };
       const items = [];
       // Post-Karten mit Inline-Antworten + Bumping (die jüngste Aktivität bestimmt die Reihenfolge)
       Object.values(postById).forEach(p => {
         const reps = repliesByPost[p.id] || [];
         const lastReply = reps.length ? reps[reps.length - 1].created_at : null;
         const sortWhen = lastReply && new Date(lastReply) > new Date(p.created_at) ? lastReply : p.created_at;
-        items.push({ key: "p" + p.id, kind: "post", actor: p.display_name || "Mitglied", when: p.created_at, sortWhen, post: p, title: p.title, body: p.body, category: catName(p.category_id), isMatrix: !!p.matrix_data, replies: reps, lastReplyWhen: lastReply });
+        items.push({ key: "p" + p.id, kind: "post", actor: p.display_name || "Mitglied", when: p.created_at, sortWhen, post: p, title: p.title, body: p.body, category: catName(p.category_id), categoryIcon: catIcon(p.category_id), isMatrix: !!p.matrix_data, replies: reps, lastReplyWhen: lastReply });
       });
       // System-Ereignisse (Status, Highscore, neues Mitglied) als eigene Karten
       arr(events).forEach(e => items.push({ key: "e" + e.id, eventId: e.id, userId: e.user_id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, sortWhen: e.created_at, payload: e.payload || {} }));
@@ -5125,7 +5126,7 @@ export default function LenormandApp() {
                       <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Aktivität. Sei die Erste! ✨</div>
                     )}
                     {forumStream.map(ev => {
-                      const icon = ev.kind === "post" ? (ev.isMatrix ? "🃏" : "🕯️") : ev.kind === "reply" ? "💬" : ev.kind === "like" ? "⭐" : ev.kind === "member" ? "🌱" : ev.kind === "quiz_highscore" ? "🏆" : ev.kind === "status" ? "🌸" : "✨";
+                      const icon = ev.kind === "post" ? (ev.isMatrix ? "🃏" : (ev.categoryIcon || "🕯️")) : ev.kind === "reply" ? "💬" : ev.kind === "like" ? "⭐" : ev.kind === "member" ? "🌱" : ev.kind === "quiz_highscore" ? "🏆" : ev.kind === "status" ? "🌸" : "✨";
                       const openTarget = () => {
                         if (ev.kind === "post" && ev.post) { const cat = forumCategories.find(c => c.id === ev.post.category_id); setForumActiveCategory(cat || {id: ev.post.category_id}); openForumPost(ev.post); }
                         else if (ev.postId) { loadAndOpenPostById(ev.postId); }
