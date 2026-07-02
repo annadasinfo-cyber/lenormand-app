@@ -2036,6 +2036,89 @@ export default function LenormandApp() {
     );
   };
 
+  // Wiederverwendbare Seitenleisten (auf allen Seiten gleich).
+  const renderLeftRail = () => (
+    isGuest ? (
+      <div style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"20px 16px", textAlign:"center" }}>
+        <div style={{ fontSize:26, marginBottom:8 }}>🕯️</div>
+        <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#d4c4a0", marginBottom:12, lineHeight:1.5 }}>Melde dich an, um mitzumachen.</div>
+        <button onClick={() => setView("forum-login-noetig")} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Anmelden</button>
+      </div>
+    ) : (
+      <div onClick={() => { setView("forum"); setCommunityMode("profil"); }} style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"18px 16px", textAlign:"center", cursor:"pointer" }}>
+        <div style={{ width:56, height:56, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 10px" }}>
+          {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
+        </div>
+        <div style={{ fontSize:14, color:gold, marginBottom:6, fontWeight:"bold" }}>{userDisplayName || "Willkommen"}</div>
+        <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", background:lightMode?"rgba(200,168,224,0.25)":"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10 }}>{forumRoleLabel(userRole)}</div>
+        <div style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", marginTop:10 }}>Mein Profil →</div>
+      </div>
+    )
+  );
+
+  const renderRightRail = () => (<>
+    <div style={{ background:lightMode?"rgba(200,168,224,0.08)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.35)":"rgba(200,169,110,0.18)"}`, borderRadius:14, padding:"24px 16px", textAlign:"center" }}>
+      <div style={{ fontSize:30, marginBottom:12 }}>🕯️</div>
+      <div style={{ fontSize:12, fontStyle:"italic", color:lightMode?"#5a3a6a":"#9a8060", lineHeight:1.7 }}>„Wahrheit fühlt sich an."</div>
+      <div style={{ marginTop:18, fontSize:18, opacity:0.45 }}>🌙 ✦ 🐍</div>
+    </div>
+    {isAdmin && (
+      <div style={{ background:"#f4ecd8", border:"1px solid #d8c8a0", borderRadius:12, padding:"14px 14px 12px", boxShadow:"0 2px 8px rgba(0,0,0,0.10)", marginTop:16 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+          <span style={{ fontSize:11, letterSpacing:2, color:"#7a5c2e", textTransform:"uppercase", fontFamily:"Georgia,serif" }}>📌 Heute</span>
+          <span style={{ fontSize:10, color:"#a08a5a" }}>{manifestSaveStatus === "saving" ? "speichert…" : manifestSaveStatus === "saved" ? "✓ gesichert" : manifestSaveStatus === "error" ? "⚠︎" : ""}</span>
+        </div>
+        <div style={{ fontSize:9, color:"#a08a5a", fontStyle:"italic", marginBottom:6 }}>Was ist jetzt dran? — eine Zeile pro Punkt</div>
+        <textarea value={manifestData.heute} onChange={e => updateManifest("heute", e.target.value)}
+          placeholder={"ausreichend schlafen\nmehr Wasser trinken\neinen Brief schreiben"}
+          rows={4}
+          style={{ width:"100%", padding:"8px 10px", background:"rgba(255,255,255,0.45)", border:"1px solid #d8c8a0", borderRadius:6, color:"#3a2e18", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"vertical", lineHeight:1.7 }} />
+        {manifestData.heute && (
+          <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid #d8c8a0" }}>
+            {manifestData.heute.split('\n').map(s => s.trim()).filter(Boolean).map((item, i, arr) => {
+              const checked = (manifestData._checked_heute || []).includes(i);
+              return (
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, padding:"3px 4px", borderRadius:4, background: checked?"rgba(90,154,90,0.12)":"transparent" }}>
+                  <button onClick={() => {
+                    const current = manifestData._checked_heute || [];
+                    const newChecked = checked ? current.filter(x => x !== i) : [...current, i];
+                    updateManifest("_checked_heute", newChecked);
+                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:0, color: checked?"#5a9a5a":"#7a5c2e" }}>{checked ? "☑️" : "☐"}</button>
+                  <span style={{ flex:1, fontSize:11.5, color: checked?"#8a9a7a":"#3a2e18", textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
+                  {i > 0 && (
+                    <button onClick={() => {
+                      const items = manifestData.heute.split('\n').map(s=>s.trim()).filter(Boolean);
+                      const oldChecked = manifestData._checked_heute || [];
+                      [items[i-1], items[i]] = [items[i], items[i-1]];
+                      const newChecked = oldChecked.map(idx => idx===i ? i-1 : idx===i-1 ? i : idx);
+                      const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
+                      setManifestData(updated); saveManifest(updated);
+                    }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#a08a5a", padding:"0 2px" }} title="nach oben">⬆</button>
+                  )}
+                  {i < arr.length-1 && (
+                    <button onClick={() => {
+                      const items = manifestData.heute.split('\n').map(s=>s.trim()).filter(Boolean);
+                      const oldChecked = manifestData._checked_heute || [];
+                      [items[i], items[i+1]] = [items[i+1], items[i]];
+                      const newChecked = oldChecked.map(idx => idx===i ? i+1 : idx===i+1 ? i : idx);
+                      const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
+                      setManifestData(updated); saveManifest(updated);
+                    }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#a08a5a", padding:"0 2px" }} title="nach unten">⬇</button>
+                  )}
+                  <button onClick={() => {
+                    const { items, newChecked } = removeManifestItem(manifestData, "heute", i);
+                    const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
+                    setManifestData(updated); saveManifest(updated);
+                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a3a2a", padding:"0 2px" }}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    )}
+  </>);
+
   // Stream frisch laden, sobald man auf der Forum-Startseite im Stream-Tab landet.
   React.useEffect(() => {
     if (view === "forum" && forumView === "liste" && forumStartTab === "stream") loadForumStream();
@@ -4417,6 +4500,10 @@ export default function LenormandApp() {
       )}
 
       <div style={{ maxWidth:"100%", margin:"0 auto", padding:"24px 24px 60px" }}>
+        <div className="lenapp-grid">
+          <style>{`.lenapp-grid{display:grid;grid-template-columns:clamp(220px,20vw,320px) minmax(0,1fr) clamp(220px,20vw,320px);gap:14px;align-items:start}.lenapp-side-left{position:sticky;top:12px}.lenapp-side-right{position:sticky;top:12px}@media(max-width:900px){.lenapp-grid{grid-template-columns:1fr}.lenapp-side-right{display:none}.lenapp-side-left{position:static}}`}</style>
+          <aside className="lenapp-side-left">{renderLeftRail()}</aside>
+          <main style={{ minWidth:0 }}>
 
         {/* ── KOMBINATIONEN ── */}
         {/* ── LIESMICH ── */}
@@ -4963,30 +5050,7 @@ export default function LenormandApp() {
 
             {/* KATEGORIEN-LISTE */}
             {forumView === "liste" && (
-              <div className="lenformum-grid">
-                <style>{`.lenformum-grid{display:grid;grid-template-columns:clamp(220px,20vw,320px) minmax(0,1fr) clamp(220px,20vw,320px);gap:14px;align-items:start}.lenformum-side-left{position:sticky;top:12px}@media(max-width:900px){.lenformum-grid{grid-template-columns:1fr}.lenformum-side-right{display:none}.lenformum-side-left{position:static}}`}</style>
-
-                {/* LINKS: Profil-Karte (am Handy oben) */}
-                <aside className="lenformum-side-left">
-                  {isGuest ? (
-                    <div style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"20px 16px", textAlign:"center" }}>
-                      <div style={{ fontSize:26, marginBottom:8 }}>🕯️</div>
-                      <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#d4c4a0", marginBottom:12, lineHeight:1.5 }}>Melde dich an, um mitzumachen.</div>
-                      <button onClick={() => setView("forum-login-noetig")} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Anmelden</button>
-                    </div>
-                  ) : (
-                    <div onClick={() => setCommunityMode("profil")} style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:14, padding:"18px 16px", textAlign:"center", cursor:"pointer" }}>
-                      <div style={{ width:56, height:56, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 10px" }}>
-                        {(userDisplayName || "?").trim().charAt(0).toUpperCase() || "?"}
-                      </div>
-                      <div style={{ fontSize:14, color:gold, marginBottom:6, fontWeight:"bold" }}>{userDisplayName || "Willkommen"}</div>
-                      <div style={{ fontSize:10, color:lightMode?"#2a0850":"#7a6040", background:lightMode?"rgba(200,168,224,0.25)":"rgba(200,169,110,0.08)", display:"inline-block", padding:"3px 10px", borderRadius:10 }}>{forumRoleLabel(userRole)}</div>
-                      <div style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", marginTop:10 }}>Mein Profil →</div>
-                    </div>
-                  )}
-                </aside>
-
-                <main style={{ minWidth:0 }}>
+              <div>
                 {/* Umschalter: Aktivitäts-Stream (Start) oder Kategorienliste. Das Forum
                     bleibt vollständig als Container erhalten — der Stream ist nur das Startbild. */}
                 {isAdmin && (
@@ -5267,66 +5331,6 @@ export default function LenormandApp() {
                     )}
                   </div>
                 )}
-                </main>
-
-                {/* RECHTS: dekorativ (am Handy ausgeblendet) */}
-                <aside className="lenformum-side-right">
-                  <div style={{ background:lightMode?"rgba(200,168,224,0.08)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.35)":"rgba(200,169,110,0.18)"}`, borderRadius:14, padding:"24px 16px", textAlign:"center" }}>
-                    <div style={{ fontSize:30, marginBottom:12 }}>🕯️</div>
-                    <div style={{ fontSize:12, fontStyle:"italic", color:lightMode?"#5a3a6a":"#9a8060", lineHeight:1.7 }}>„Wahrheit fühlt sich an."</div>
-                    <div style={{ marginTop:18, fontSize:18, opacity:0.45 }}>🌙 ✦ 🐍</div>
-                  </div>
-                  {isAdmin && (
-                    <div style={{ background:"#f4ecd8", border:"1px solid #d8c8a0", borderRadius:12, padding:"14px 14px 12px", boxShadow:"0 2px 8px rgba(0,0,0,0.10)", marginTop:16 }}>
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-                        <span style={{ fontSize:11, letterSpacing:2, color:"#7a5c2e", textTransform:"uppercase", fontFamily:"Georgia,serif" }}>📌 Heute</span>
-                        <span style={{ fontSize:10, color:"#a08a5a" }}>{manifestSaveStatus === "saving" ? "speichert…" : manifestSaveStatus === "saved" ? "✓ gesichert" : manifestSaveStatus === "error" ? "⚠︎" : ""}</span>
-                      </div>
-                      <div style={{ fontSize:9, color:"#a08a5a", fontStyle:"italic", marginBottom:6 }}>Was ist jetzt dran? — eine Zeile pro Punkt</div>
-                      <textarea value={manifestData.heute} onChange={e => updateManifest("heute", e.target.value)}
-                        placeholder={"ausreichend schlafen\nmehr Wasser trinken\neinen Brief schreiben"}
-                        rows={4}
-                        style={{ width:"100%", padding:"8px 10px", background:"rgba(255,255,255,0.45)", border:"1px solid #d8c8a0", borderRadius:6, color:"#3a2e18", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"vertical", lineHeight:1.7 }} />
-                      {manifestData.heute && (
-                        <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid #d8c8a0" }}>
-                          {manifestData.heute.split('\n').map(s => s.trim()).filter(Boolean).map((item, i, arr) => {
-                            const checked = (manifestData._checked_heute || []).includes(i);
-                            return (
-                              <div key={i} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, padding:"3px 4px", borderRadius:4, background: checked?"rgba(90,154,90,0.12)":"transparent" }}>
-                                <button onClick={() => {
-                                  const current = manifestData._checked_heute || [];
-                                  const newChecked = checked ? current.filter(x => x !== i) : [...current, i];
-                                  updateManifest("_checked_heute", newChecked);
-                                }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:0, color: checked?"#5a9a5a":"#7a5c2e" }}>{checked ? "☑️" : "☐"}</button>
-                                <span style={{ flex:1, fontSize:11.5, color: checked?"#8a9a7a":"#3a2e18", textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
-                                {i > 0 && (
-                                  <button onClick={() => {
-                                    const items = manifestData.heute.split('\n').map(s=>s.trim()).filter(Boolean);
-                                    const oldChecked = manifestData._checked_heute || [];
-                                    [items[i-1], items[i]] = [items[i], items[i-1]];
-                                    const newChecked = oldChecked.map(idx => idx===i ? i-1 : idx===i-1 ? i : idx);
-                                    const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
-                                    setManifestData(updated); saveManifest(updated);
-                                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#a08a5a", padding:"0 2px" }} title="nach oben">⬆</button>
-                                )}
-                                {i < arr.length-1 && (
-                                  <button onClick={() => {
-                                    const items = manifestData.heute.split('\n').map(s=>s.trim()).filter(Boolean);
-                                    const oldChecked = manifestData._checked_heute || [];
-                                    [items[i], items[i+1]] = [items[i+1], items[i]];
-                                    const newChecked = oldChecked.map(idx => idx===i ? i+1 : idx===i+1 ? i : idx);
-                                    const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
-                                    setManifestData(updated); saveManifest(updated);
-                                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#a08a5a", padding:"0 2px" }} title="nach unten">⬇</button>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </aside>
               </div>
             )}
 
@@ -7291,6 +7295,9 @@ export default function LenormandApp() {
             </>)}
           </div>
         )}
+          </main>
+          <aside className="lenapp-side-right">{renderRightRail()}</aside>
+        </div>
       </div>
 
       <div style={{ textAlign:"center", padding:"14px 20px", borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}` }}>
