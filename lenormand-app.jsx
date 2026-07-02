@@ -1107,8 +1107,10 @@ export default function LenormandApp() {
     if (hash === "#community") {
       setView("forum");
       setForumView("liste");
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
     } else if (hash.startsWith("#post-")) {
       loadAndOpenPostById(hash.slice("#post-".length));
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
     }
   }, []);
 
