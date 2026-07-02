@@ -1829,7 +1829,7 @@ export default function LenormandApp() {
         items.push({ key: "p" + p.id, kind: "post", actor: p.display_name || "Mitglied", when: p.created_at, sortWhen, post: p, title: p.title, body: p.body, category: catName(p.category_id), isMatrix: !!p.matrix_data, replies: reps, lastReplyWhen: lastReply });
       });
       // System-Ereignisse (Status, Highscore, neues Mitglied) als eigene Karten
-      arr(events).forEach(e => items.push({ key: "e" + e.id, eventId: e.id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, sortWhen: e.created_at, payload: e.payload || {} }));
+      arr(events).forEach(e => items.push({ key: "e" + e.id, eventId: e.id, userId: e.user_id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, sortWhen: e.created_at, payload: e.payload || {} }));
       items.sort((a, b) => new Date(b.sortWhen) - new Date(a.sortWhen));
       const sliced = items.slice(0, 30);
       setForumStream(sliced);
@@ -1878,9 +1878,60 @@ export default function LenormandApp() {
     loadForumCategories();
   };
 
+  // Bearbeiten/Löschen direkt im Stream — aktualisiert forumStream lokal, damit man
+  // nicht ins Forum wechseln muss.
+  const saveStreamPostEdit = async (id, title, body) => {
+    if (!title.trim() || !body.trim()) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${id}`, {
+        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({ title: title.trim(), body: body.trim() })
+      });
+      setForumStream(prev => prev.map(it => (it.kind === "post" && it.post?.id === id)
+        ? { ...it, title: title.trim(), body: body.trim(), post: { ...it.post, title: title.trim(), body: body.trim() } } : it));
+      setForumEditingPostId(null);
+    } catch {}
+  };
+  const deleteStreamPost = async (id) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${id}`, { method: "DELETE", headers: dbHeaders() });
+      setForumStream(prev => prev.filter(it => !(it.kind === "post" && it.post?.id === id)));
+    } catch {}
+  };
+  const saveStreamReplyEdit = async (id, body, postId) => {
+    if (!body.trim()) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?id=eq.${id}`, {
+        method: "PATCH", headers: dbHeaders(), body: JSON.stringify({ body: body.trim() })
+      });
+      setForumStream(prev => prev.map(it => (it.kind === "post" && it.post?.id === postId)
+        ? { ...it, replies: (it.replies || []).map(r => r.id === id ? { ...r, body: body.trim() } : r) } : it));
+      setForumEditingReplyId(null);
+    } catch {}
+  };
+  const deleteStreamReply = async (id, postId) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_replies?id=eq.${id}`, { method: "DELETE", headers: dbHeaders() });
+      setForumStream(prev => prev.map(it => (it.kind === "post" && it.post?.id === postId)
+        ? { ...it, replies: (it.replies || []).filter(r => r.id !== id) } : it));
+    } catch {}
+  };
+  // Status-/Ereigniskarte (activity_events) löschen — eigene oder als Mod/Admin.
+  const deleteStreamEvent = async (eventId) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/activity_events?id=eq.${eventId}`, { method: "DELETE", headers: dbHeaders() });
+      setForumStream(prev => prev.filter(it => it.eventId !== eventId));
+    } catch {}
+  };
+  // Kommentar unter einer Ereigniskarte (activity_comments) löschen.
+  const deleteStreamComment = async (commentId, eventId) => {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/activity_comments?id=eq.${commentId}`, { method: "DELETE", headers: dbHeaders() });
+      setForumStreamComments(prev => ({ ...prev, [eventId]: (prev[eventId] || []).filter(c => c.id !== commentId) }));
+    } catch {}
+  };
+
   // Statusbeitrag ("Was machst du gerade?") als activity_event in den Stream legen.
-  const postStreamStatus = async () => {
-    const uid = getUserId();
+  const postStreamStatus = async () => {    const uid = getUserId();
     if (!uid) { setView("forum-login-noetig"); return; }
     const text = streamStatusText.trim();
     if (!text) return;
@@ -3758,6 +3809,14 @@ export default function LenormandApp() {
   // und rendert Letztere als großes eingebettetes Video (gleiche Optik wie auf der Willkommensseite).
   // Erkennt GIF-Links (auch mit Query-Parametern dahinter, wie bei Tenor/Giphy-Links üblich)
   const isGifUrl = (url) => /\.gif(\?.*)?$/i.test(url);
+  // Giphy-Seitenlinks (giphy.com/gifs/... oder /embed/...) einbetten — viele fügen den
+  // Seiten-Link ein statt der direkten .gif-Datei. Wir ziehen die ID heraus.
+  const extractGiphyId = (url) => {
+    const m = url.match(/giphy\.com\/(?:gifs|embed|clips)\/(?:[^/?#]*-)?([A-Za-z0-9]+)/i);
+    return m ? m[1] : null;
+  };
+  // Direkte Videodateien (mp4/webm/ogg/mov) — werden wie ein Video mit Steuerung eingebettet.
+  const isVideoFileUrl = (url) => /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
   // Erkennt normale Bild-Links (jpg/jpeg/png/webp/svg), genau wie isGifUrl — als
   // Übergangslösung, bis es einen echten Bild-Upload gibt. Funktioniert mit jedem Link
   // zu einer Bilddatei, der im Text steht (z.B. von einem eigenen Hosting), nicht nur
@@ -3805,6 +3864,23 @@ export default function LenormandApp() {
       if (isUrl && isGifUrl(part)) {
         return (
           <img key={i} src={part} alt="GIF" loading="lazy"
+            style={{ maxWidth:"100%", borderRadius:10, margin:"10px 0", display:"block" }} />
+        );
+      }
+      // Giphy-Seitenlinks als eingebettetes GIF anzeigen.
+      const giphyId = isUrl ? extractGiphyId(part) : null;
+      if (giphyId) {
+        return (
+          <div key={i} style={{ margin:"10px 0", borderRadius:10, overflow:"hidden" }}>
+            <iframe src={`https://giphy.com/embed/${giphyId}`} title="GIF"
+              style={{ width:"100%", height:280, border:"none" }} allowFullScreen />
+          </div>
+        );
+      }
+      // Direkte Videodateien einbetten (mp4/webm/…) — mit Steuerung, spielt inline.
+      if (isUrl && isVideoFileUrl(part)) {
+        return (
+          <video key={i} src={part} controls playsInline loading="lazy"
             style={{ maxWidth:"100%", borderRadius:10, margin:"10px 0", display:"block" }} />
         );
       }
@@ -4997,20 +5073,40 @@ export default function LenormandApp() {
                             <span style={{ fontSize:16 }}>{icon}</span>
                             <span style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0" }}><span style={{ fontWeight:"bold" }}>{ev.actor}</span> {headline}</span>
                             <span style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", marginLeft:"auto", whiteSpace:"nowrap" }}>{streamTimeAgo(ev.when)}</span>
+                            {ev.eventId && (isMod || ev.userId === getUserId()) && (
+                              <button onClick={() => { if(window.confirm("Wirklich löschen?")) deleteStreamEvent(ev.eventId); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:12, padding:0 }}>✕</button>
+                            )}
                           </div>
                           {ev.kind === "post" && (
                             <div style={{ marginTop:8 }}>
-                              <div style={{ fontSize:14, color:gold, marginBottom:5, fontWeight:"bold" }}>{ev.title}</div>
-                              {ev.body && !ev.isMatrix && (
-                                <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6 }}>
-                                  {renderTextWithVideos(ev.body)}
-                                </div>
-                              )}
-                              {ev.isMatrix && ev.post?.matrix_data && (
-                                <div style={{ marginTop:10 }}>
-                                  <ForumMatrixGrid data={ev.post.matrix_data} gold={gold} lightMode={lightMode} />
-                                </div>
-                              )}
+                              {forumEditingPostId === ev.post.id ? (
+                                <InlinePostEditBox lightMode={lightMode}
+                                  initialTitle={ev.post.title} initialBody={ev.post.body}
+                                  onSave={(t,b) => saveStreamPostEdit(ev.post.id, t, b)}
+                                  onCancel={() => setForumEditingPostId(null)} />
+                              ) : (<>
+                                {(forumCanEdit(ev.post, ev.post.user_id) || isMod || ev.post.user_id === getUserId()) && (
+                                  <div style={{ display:"flex", justifyContent:"flex-end", gap:12, marginBottom:2 }}>
+                                    {forumCanEdit(ev.post, ev.post.user_id) && (
+                                      <button onClick={() => setForumEditingPostId(ev.post.id)} title="Bearbeiten" style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                                    )}
+                                    {(isMod || ev.post.user_id === getUserId()) && (
+                                      <button onClick={() => { if(window.confirm("Beitrag wirklich löschen?")) deleteStreamPost(ev.post.id); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:12 }}>✕</button>
+                                    )}
+                                  </div>
+                                )}
+                                <div style={{ fontSize:14, color:gold, marginBottom:5, fontWeight:"bold" }}>{ev.title}</div>
+                                {ev.body && !ev.isMatrix && (
+                                  <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6 }}>
+                                    {renderTextWithVideos(ev.body)}
+                                  </div>
+                                )}
+                                {ev.isMatrix && ev.post?.matrix_data && (
+                                  <div style={{ marginTop:10 }}>
+                                    <ForumMatrixGrid data={ev.post.matrix_data} gold={gold} lightMode={lightMode} />
+                                  </div>
+                                )}
+                              </>)}
                               <div style={{ marginTop:10, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.12)"}`, paddingTop:8 }}>
                                 {(() => {
                                   const reps = ev.replies || [];
@@ -5023,9 +5119,26 @@ export default function LenormandApp() {
                                     )}
                                     {shown.map(c => (
                                       <div key={c.id} style={{ fontSize:12, marginBottom:7, lineHeight:1.5 }}>
-                                        <span style={{ fontWeight:"bold", color:gold }}>{c.display_name} </span>
-                                        <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9 }}>{streamTimeAgo(c.created_at)}</span>
-                                        <div style={{ color:lightMode?"#2a0850":"#c8b89a", marginTop:2 }}>{renderTextWithVideos(c.body || "")}</div>
+                                        {forumEditingReplyId === c.id ? (
+                                          <InlineEditBox lightMode={lightMode}
+                                            initialValue={c.body}
+                                            onSave={(v) => saveStreamReplyEdit(c.id, v, ev.post.id)}
+                                            onCancel={() => setForumEditingReplyId(null)} />
+                                        ) : (<>
+                                          <span style={{ fontWeight:"bold", color:gold }}>{c.display_name} </span>
+                                          <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9 }}>{streamTimeAgo(c.created_at)}</span>
+                                          {(forumCanEdit(c, c.user_id) || isMod || c.user_id === getUserId()) && (
+                                            <span style={{ marginLeft:6, whiteSpace:"nowrap" }}>
+                                              {forumCanEdit(c, c.user_id) && (
+                                                <button onClick={() => setForumEditingReplyId(c.id)} title="Bearbeiten" style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:10, padding:0, marginRight:6 }}>✎</button>
+                                              )}
+                                              {(isMod || c.user_id === getUserId()) && (
+                                                <button onClick={() => { if(window.confirm("Antwort löschen?")) deleteStreamReply(c.id, ev.post.id); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10, padding:0 }}>✕</button>
+                                              )}
+                                            </span>
+                                          )}
+                                          <div style={{ color:lightMode?"#2a0850":"#c8b89a", marginTop:2 }}>{renderTextWithVideos(c.body || "")}</div>
+                                        </>)}
                                       </div>
                                     ))}
                                   </>);
@@ -5057,10 +5170,13 @@ export default function LenormandApp() {
                           {ev.eventId && (
                             <div style={{ marginTop:10, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.12)"}`, paddingTop:8 }}>
                               {(forumStreamComments[ev.eventId] || []).map(c => (
-                                <div key={c.id} style={{ fontSize:12, marginBottom:5, lineHeight:1.5 }}>
-                                  <span style={{ fontWeight:"bold", color:gold }}>{c.display_name}</span>
-                                  <span style={{ color:lightMode?"#2a0850":"#c8b89a" }}> {c.body}</span>
-                                  <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9, marginLeft:6 }}>{streamTimeAgo(c.created_at)}</span>
+                                <div key={c.id} style={{ fontSize:12, marginBottom:6, lineHeight:1.5 }}>
+                                  <span style={{ fontWeight:"bold", color:gold }}>{c.display_name} </span>
+                                  <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9 }}>{streamTimeAgo(c.created_at)}</span>
+                                  {(isMod || c.user_id === getUserId()) && (
+                                    <button onClick={() => { if(window.confirm("Kommentar löschen?")) deleteStreamComment(c.id, ev.eventId); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10, padding:0, marginLeft:6 }}>✕</button>
+                                  )}
+                                  <div style={{ color:lightMode?"#2a0850":"#c8b89a", marginTop:2 }}>{renderTextWithVideos(c.body || "")}</div>
                                 </div>
                               ))}
                               {streamCommentsOpen[ev.eventId] ? (
