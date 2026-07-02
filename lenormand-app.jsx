@@ -4123,27 +4123,30 @@ export default function LenormandApp() {
   // normalen Forum-Bereich (view==="forum") als auch im Quiz selbst (view==="quiz", ein
   // eigener View-Wert) eingebunden, damit man von beiden Seiten aus konsistent wechseln
   // kann, ohne dass das Untermenü beim Quiz-Klick verschwindet.
-  const ForumSubNav = () => (
-    <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-      {[["forum","🌊 Stream"],["profil","👤 Profil"],["kurse","🎓 Kurse"],["quiz","🎓 Quiz"]].map(([m,l]) => {
-        const isActive = m === "quiz" ? view === "quiz" : (view === "forum" && communityMode === m);
-        return (
-          <button key={m} onClick={() => {
-              if (m === "quiz") {
-                setView("quiz");
-                setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0);
-                return;
-              }
-              setView("forum"); setCommunityMode(m);
-              if (m === "forum") { setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); }
-            }}
-            style={{ background:isActive?"rgba(200,169,110,0.15)":"rgba(200,169,110,0.03)", border:`1px solid ${isActive?gold:"rgba(200,169,110,0.2)"}`, color:isActive?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
-            {l}
+  const ForumSubNav = () => {
+    const items = [
+      { key:"stream", label:"🌊 Stream", active: view==="forum" && communityMode==="forum" && forumStartTab==="stream",
+        onClick: () => { setView("forum"); setCommunityMode("forum"); setForumStartTab("stream"); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); } },
+      ...(isAdmin ? [{ key:"kategorie", label:"📁 Kategorie", active: view==="forum" && communityMode==="forum" && forumStartTab==="kategorien",
+        onClick: () => { setView("forum"); setCommunityMode("forum"); setForumStartTab("kategorien"); setForumView("liste"); setForumActiveCategory(null); setForumActivePost(null); } }] : []),
+      { key:"profil", label:"👤 Profil", active: view==="forum" && communityMode==="profil",
+        onClick: () => { setView("forum"); setCommunityMode("profil"); } },
+      { key:"kurse", label:"🎓 Kurse", active: view==="forum" && communityMode==="kurse",
+        onClick: () => { setView("forum"); setCommunityMode("kurse"); } },
+      { key:"quiz", label:"🎓 Quiz", active: view==="quiz",
+        onClick: () => { setView("quiz"); setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0); } },
+    ];
+    return (
+      <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
+        {items.map(it => (
+          <button key={it.key} onClick={it.onClick}
+            style={{ background:it.active?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.15)"):"rgba(200,169,110,0.03)", border:`1px solid ${it.active?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:it.active?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
+            {it.label}
           </button>
-        );
-      })}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
 
   // Wiederverwendbare Statistik-Zeile (alle Mitglieder, alle Beiträge inkl. Antworten,
   // heute aktiv) — wird auf jeder Forum-Unterseite unten eingebunden, nicht nur in der
@@ -5051,19 +5054,6 @@ export default function LenormandApp() {
             {/* KATEGORIEN-LISTE */}
             {forumView === "liste" && (
               <div>
-                {/* Umschalter: Aktivitäts-Stream (Start) oder Kategorienliste. Das Forum
-                    bleibt vollständig als Container erhalten — der Stream ist nur das Startbild. */}
-                {isAdmin && (
-                <div style={{ display:"flex", gap:8, marginBottom:16 }}>
-                  {[["stream","🌊 Stream"],["kategorien","📁 Kategorien"]].map(([t,l]) => (
-                    <button key={t} onClick={() => setForumStartTab(t)}
-                      style={{ background:forumStartTab===t?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.15)"):"rgba(200,169,110,0.03)", border:`1px solid ${forumStartTab===t?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:forumStartTab===t?gold:"#7a6040", padding:"7px 16px", borderRadius:8, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s" }}>
-                      {l}
-                    </button>
-                  ))}
-                </div>
-                )}
-
                 {forumStartTab === "kategorien" && (<>
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
                   {isAdmin && (
