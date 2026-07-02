@@ -2063,28 +2063,28 @@ export default function LenormandApp() {
       <div style={{ marginTop:18, fontSize:18, opacity:0.45 }}>🌙 ✦ 🐍</div>
     </div>
     {isAdmin && (
-      <div style={{ background:"#f4ecd8", border:"1px solid #d8c8a0", borderRadius:12, padding:"14px 14px 12px", boxShadow:"0 2px 8px rgba(0,0,0,0.10)", marginTop:16 }}>
+      <div style={{ background:lightMode?"rgba(200,168,224,0.06)":"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(200,168,224,0.30)":"rgba(200,169,110,0.15)"}`, borderRadius:14, padding:"16px 14px", marginTop:16 }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
-          <span style={{ fontSize:11, letterSpacing:2, color:"#7a5c2e", textTransform:"uppercase", fontFamily:"Georgia,serif" }}>📌 Heute</span>
-          <span style={{ fontSize:10, color:"#a08a5a" }}>{manifestSaveStatus === "saving" ? "speichert…" : manifestSaveStatus === "saved" ? "✓ gesichert" : manifestSaveStatus === "error" ? "⚠︎" : ""}</span>
+          <span style={{ fontSize:10, letterSpacing:2, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", fontFamily:"Georgia,serif" }}>📌 Heute</span>
+          <span style={{ fontSize:9, color:lightMode?"#6a4a90":"#7a6040" }}>{manifestSaveStatus === "saving" ? "speichert…" : manifestSaveStatus === "saved" ? "✓" : manifestSaveStatus === "error" ? "⚠︎" : ""}</span>
         </div>
-        <div style={{ fontSize:9, color:"#a08a5a", fontStyle:"italic", marginBottom:6 }}>Was ist jetzt dran? — eine Zeile pro Punkt</div>
+        <div style={{ fontSize:9, color:lightMode?"#6a4a90":"#7a6040", fontStyle:"italic", marginBottom:6 }}>Was ist jetzt dran? — eine Zeile pro Punkt</div>
         <textarea value={manifestData.heute} onChange={e => updateManifest("heute", e.target.value)}
           placeholder={"ausreichend schlafen\nmehr Wasser trinken\neinen Brief schreiben"}
           rows={4}
-          style={{ width:"100%", padding:"8px 10px", background:"rgba(255,255,255,0.45)", border:"1px solid #d8c8a0", borderRadius:6, color:"#3a2e18", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"vertical", lineHeight:1.7 }} />
+          style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.25)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"vertical", lineHeight:1.7 }} />
         {manifestData.heute && (
-          <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid #d8c8a0" }}>
+          <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.25)":"rgba(200,169,110,0.12)"}` }}>
             {manifestData.heute.split('\n').map(s => s.trim()).filter(Boolean).map((item, i, arr) => {
               const checked = (manifestData._checked_heute || []).includes(i);
               return (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, padding:"3px 4px", borderRadius:4, background: checked?"rgba(90,154,90,0.12)":"transparent" }}>
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, padding:"3px 4px", borderRadius:4, background: checked?(lightMode?"rgba(200,168,224,0.18)":"rgba(90,154,90,0.10)"):"transparent" }}>
                   <button onClick={() => {
                     const current = manifestData._checked_heute || [];
                     const newChecked = checked ? current.filter(x => x !== i) : [...current, i];
                     updateManifest("_checked_heute", newChecked);
-                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:0, color: checked?"#5a9a5a":"#7a5c2e" }}>{checked ? "☑️" : "☐"}</button>
-                  <span style={{ flex:1, fontSize:11.5, color: checked?"#8a9a7a":"#3a2e18", textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
+                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:0, color: checked?"#7a9a6a":(lightMode?"#7a5c90":"#9a8060") }}>{checked ? "☑️" : "☐"}</button>
+                  <span style={{ flex:1, fontSize:11.5, color: checked?(lightMode?"#8a7aa0":"#8a9a7a"):(lightMode?"#2a0850":"#c8b89a"), textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
                   {i > 0 && (
                     <button onClick={() => {
                       const items = manifestData.heute.split('\n').map(s=>s.trim()).filter(Boolean);
@@ -2093,7 +2093,7 @@ export default function LenormandApp() {
                       const newChecked = oldChecked.map(idx => idx===i ? i-1 : idx===i-1 ? i : idx);
                       const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
                       setManifestData(updated); saveManifest(updated);
-                    }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#a08a5a", padding:"0 2px" }} title="nach oben">⬆</button>
+                    }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#6a4a90":"#9a8060", padding:"0 2px" }} title="nach oben">⬆</button>
                   )}
                   {i < arr.length-1 && (
                     <button onClick={() => {
@@ -2103,13 +2103,13 @@ export default function LenormandApp() {
                       const newChecked = oldChecked.map(idx => idx===i ? i+1 : idx===i+1 ? i : idx);
                       const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
                       setManifestData(updated); saveManifest(updated);
-                    }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#a08a5a", padding:"0 2px" }} title="nach unten">⬇</button>
+                    }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#6a4a90":"#9a8060", padding:"0 2px" }} title="nach unten">⬇</button>
                   )}
                   <button onClick={() => {
                     const { items, newChecked } = removeManifestItem(manifestData, "heute", i);
                     const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
                     setManifestData(updated); saveManifest(updated);
-                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a3a2a", padding:"0 2px" }}>✕</button>
+                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#9a6050", padding:"0 2px" }}>✕</button>
                 </div>
               );
             })}
@@ -4125,7 +4125,7 @@ export default function LenormandApp() {
   // kann, ohne dass das Untermenü beim Quiz-Klick verschwindet.
   const ForumSubNav = () => (
     <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-      {[["profil","👤 Profil"],["forum","📙 News"],["kurse","🎓 Kurse"],["quiz","🎓 Quiz"]].map(([m,l]) => {
+      {[["forum","🌊 Stream"],["profil","👤 Profil"],["kurse","🎓 Kurse"],["quiz","🎓 Quiz"]].map(([m,l]) => {
         const isActive = m === "quiz" ? view === "quiz" : (view === "forum" && communityMode === m);
         return (
           <button key={m} onClick={() => {
@@ -4468,7 +4468,7 @@ export default function LenormandApp() {
           ); })}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
-          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","🌊 Community"],["shop","🛍️ Shop"]].map(([v,l]) => (
+          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","📰 News"],["shop","🛍️ Shop"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
