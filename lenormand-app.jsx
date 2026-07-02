@@ -4234,7 +4234,7 @@ export default function LenormandApp() {
           ); })}
         </div>
         <div style={{ display:"flex", justifyContent:"center", gap:8, marginTop:6 }}>
-          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","📙 Forum"],["shop","🛍️ Shop"]].map(([v,l]) => (
+          {[["picker","🃏 Kombis"],["cards","📖 Alle Karten"],["tagebuch","✨ Daily"],["forum","🌊 Community"],["shop","🛍️ Shop"]].map(([v,l]) => (
             <button key={v} onClick={() => {
                 if(v==="random") { startRandom(); }
                 else if(v==="personen") { setView("personen"); setMatrixView("question"); setMode("personen"); setSignifikator(null); setMatrixCards(Array(9).fill(null)); setActivePos(null); setQuestion(""); setRandomMode(false); }
@@ -5092,6 +5092,18 @@ export default function LenormandApp() {
                     <div style={{ fontSize:12, fontStyle:"italic", color:lightMode?"#5a3a6a":"#9a8060", lineHeight:1.7 }}>„Wahrheit fühlt sich an."</div>
                     <div style={{ marginTop:18, fontSize:18, opacity:0.45 }}>🌙 ✦ 🐍</div>
                   </div>
+                  {isAdmin && (
+                    <div style={{ background:"#f4ecd8", border:"1px solid #d8c8a0", borderRadius:12, padding:"14px 14px 16px", boxShadow:"0 2px 8px rgba(0,0,0,0.10)", marginTop:16 }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                        <span style={{ fontSize:11, letterSpacing:2, color:"#7a5c2e", textTransform:"uppercase", fontFamily:"Georgia,serif" }}>📌 Heute</span>
+                        <span style={{ fontSize:10, color:"#a08a5a" }}>{manifestSaveStatus === "saving" ? "speichert…" : manifestSaveStatus === "saved" ? "✓ gesichert" : manifestSaveStatus === "error" ? "⚠︎" : ""}</span>
+                      </div>
+                      <textarea value={manifestData.heute} onChange={e => updateManifest("heute", e.target.value)}
+                        placeholder="Notizen für heute…"
+                        rows={12}
+                        style={{ width:"100%", background:"transparent", border:"none", outline:"none", resize:"vertical", color:"#3a2e18", fontFamily:"Georgia,serif", fontSize:12.5, lineHeight:1.7, boxSizing:"border-box" }} />
+                    </div>
+                  )}
                 </aside>
               </div>
             )}
