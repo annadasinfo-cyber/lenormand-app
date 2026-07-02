@@ -1525,6 +1525,7 @@ export default function LenormandApp() {
   const [streamLikeCounts, setStreamLikeCounts] = React.useState({}); // eventId -> Anzahl
   const [streamMyLikes, setStreamMyLikes] = React.useState({}); // eventId -> bool (ich habe geliked)
   const [streamReplyDrafts, setStreamReplyDrafts] = React.useState({}); // postId -> Antwort-Entwurf
+  const [streamReplyTo, setStreamReplyTo] = React.useState({}); // postId -> {id, name} Ziel-Antwort (für verschachtelte Antworten)
   const [streamRepliesExpanded, setStreamRepliesExpanded] = React.useState({}); // postId -> alle Antworten zeigen
   const [showScrollTop, setShowScrollTop] = React.useState(false);
   React.useEffect(() => {
@@ -1812,7 +1813,7 @@ export default function LenormandApp() {
     try {
       const [posts, replies, events] = await Promise.all([
         q("forum_posts", "select=id,title,body,display_name,user_id,category_id,created_at,matrix_data&order=created_at.desc&limit=25"),
-        q("forum_replies", "select=id,post_id,body,display_name,user_id,created_at&order=created_at.desc&limit=60"),
+        q("forum_replies", "select=id,post_id,body,display_name,user_id,created_at,reply_to_id&order=created_at.desc&limit=60"),
         q("activity_events", "select=id,user_id,display_name,kind,payload,created_at&order=created_at.desc&limit=20"),
       ]);
       const arr = x => Array.isArray(x) ? x : [];
@@ -1863,8 +1864,11 @@ export default function LenormandApp() {
     if (!uid) { setView("forum-login-noetig"); return; }
     const text = (streamReplyDrafts[postId] || "").trim();
     if (!text) return;
+    const target = streamReplyTo[postId] || null; // {id, name} oder null
+    const replyToId = target ? target.id : null;
     setStreamReplyDrafts(prev => ({ ...prev, [postId]: "" }));
-    const optimistic = { id: "tmp-" + Date.now(), post_id: postId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, created_at: new Date().toISOString() };
+    setStreamReplyTo(prev => { const n = {...prev}; delete n[postId]; return n; });
+    const optimistic = { id: "tmp-" + Date.now(), post_id: postId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, created_at: new Date().toISOString(), reply_to_id: replyToId };
     setForumStream(prev => {
       const list = prev.map(it => (it.kind === "post" && it.post && it.post.id === postId)
         ? { ...it, replies: [...(it.replies || []), optimistic], sortWhen: optimistic.created_at, lastReplyWhen: optimistic.created_at }
@@ -1876,7 +1880,7 @@ export default function LenormandApp() {
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/forum_replies`, {
         method: "POST", headers: {...dbHeaders(), "Prefer": "return=minimal"},
-        body: JSON.stringify({ post_id: postId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text })
+        body: JSON.stringify({ post_id: postId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, reply_to_id: replyToId })
       });
     } catch {}
     // Autoritativ vom Server nachladen: sortiert den Beitrag anhand der jüngsten
@@ -1935,6 +1939,39 @@ export default function LenormandApp() {
       await fetch(`${SUPABASE_URL}/rest/v1/activity_comments?id=eq.${commentId}`, { method: "DELETE", headers: dbHeaders() });
       setForumStreamComments(prev => ({ ...prev, [eventId]: (prev[eventId] || []).filter(c => c.id !== commentId) }));
     } catch {}
+  };
+
+  // Rekursiv: eine Antwort samt ihrer Unter-Antworten (verschachtelt, eingerückt) rendern.
+  const renderStreamReplyNode = (allReplies, postId, c, depth) => {
+    const kids = allReplies.filter(r => r.reply_to_id === c.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const editing = forumEditingReplyId === c.id;
+    return (
+      <div key={c.id} style={{ marginLeft: depth > 0 ? 12 : 0, paddingLeft: depth > 0 ? 8 : 0, borderLeft: depth > 0 ? `2px solid ${lightMode?"rgba(200,168,224,0.4)":"rgba(200,169,110,0.2)"}` : "none", marginBottom:7 }}>
+        {editing ? (
+          <InlineEditBox lightMode={lightMode} initialValue={c.body}
+            onSave={(v) => saveStreamReplyEdit(c.id, v, postId)}
+            onCancel={() => setForumEditingReplyId(null)} />
+        ) : (
+          <div style={{ fontSize:12, lineHeight:1.5 }}>
+            <span style={{ fontWeight:"bold", color:gold }}>{c.display_name} </span>
+            <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9 }}>{streamTimeAgo(c.created_at)}</span>
+            <span style={{ marginLeft:6, whiteSpace:"nowrap" }}>
+              {!isGuest && (
+                <button onClick={() => setStreamReplyTo(prev => ({...prev, [postId]: {id: c.id, name: c.display_name}}))} title="Antworten" style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, padding:0, marginRight:6 }}>↩</button>
+              )}
+              {forumCanEdit(c, c.user_id) && (
+                <button onClick={() => setForumEditingReplyId(c.id)} title="Bearbeiten" style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:10, padding:0, marginRight:6 }}>✎</button>
+              )}
+              {(isMod || c.user_id === getUserId()) && (
+                <button onClick={() => { if(window.confirm("Antwort löschen?")) deleteStreamReply(c.id, postId); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10, padding:0 }}>✕</button>
+              )}
+            </span>
+            <div style={{ color:lightMode?"#2a0850":"#c8b89a", marginTop:2 }}>{renderTextWithVideos(c.body || "")}</div>
+          </div>
+        )}
+        {kids.map(k => renderStreamReplyNode(allReplies, postId, k, Math.min(depth + 1, 5)))}
+      </div>
+    );
   };
 
   // Statusbeitrag ("Was machst du gerade?") als activity_event in den Stream legen.
@@ -5117,46 +5154,32 @@ export default function LenormandApp() {
                               <div style={{ marginTop:10, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.12)"}`, paddingTop:8 }}>
                                 {(() => {
                                   const reps = ev.replies || [];
+                                  const topLevel = reps.filter(r => !r.reply_to_id || !reps.some(x => x.id === r.reply_to_id)).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
                                   const expanded = streamRepliesExpanded[ev.post.id];
-                                  const shown = expanded ? reps : reps.slice(-2);
+                                  const shownTop = expanded ? topLevel : topLevel.slice(-2);
                                   return (<>
-                                    {reps.length > 2 && !expanded && (
+                                    {topLevel.length > 2 && !expanded && (
                                       <button onClick={() => setStreamRepliesExpanded(prev => ({...prev, [ev.post.id]: true}))}
                                         style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", marginBottom:8, display:"block" }}>▸ alle {reps.length} Antworten anzeigen</button>
                                     )}
-                                    {shown.map(c => (
-                                      <div key={c.id} style={{ fontSize:12, marginBottom:7, lineHeight:1.5 }}>
-                                        {forumEditingReplyId === c.id ? (
-                                          <InlineEditBox lightMode={lightMode}
-                                            initialValue={c.body}
-                                            onSave={(v) => saveStreamReplyEdit(c.id, v, ev.post.id)}
-                                            onCancel={() => setForumEditingReplyId(null)} />
-                                        ) : (<>
-                                          <span style={{ fontWeight:"bold", color:gold }}>{c.display_name} </span>
-                                          <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9 }}>{streamTimeAgo(c.created_at)}</span>
-                                          {(forumCanEdit(c, c.user_id) || isMod || c.user_id === getUserId()) && (
-                                            <span style={{ marginLeft:6, whiteSpace:"nowrap" }}>
-                                              {forumCanEdit(c, c.user_id) && (
-                                                <button onClick={() => setForumEditingReplyId(c.id)} title="Bearbeiten" style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:10, padding:0, marginRight:6 }}>✎</button>
-                                              )}
-                                              {(isMod || c.user_id === getUserId()) && (
-                                                <button onClick={() => { if(window.confirm("Antwort löschen?")) deleteStreamReply(c.id, ev.post.id); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10, padding:0 }}>✕</button>
-                                              )}
-                                            </span>
-                                          )}
-                                          <div style={{ color:lightMode?"#2a0850":"#c8b89a", marginTop:2 }}>{renderTextWithVideos(c.body || "")}</div>
-                                        </>)}
-                                      </div>
-                                    ))}
+                                    {shownTop.map(top => renderStreamReplyNode(reps, ev.post.id, top, 0))}
                                   </>);
                                 })()}
                                 {!isGuest ? (
-                                  <div style={{ display:"flex", gap:6, marginTop:6 }}>
+                                  <div style={{ marginTop:6 }}>
+                                    {streamReplyTo[ev.post.id] && (
+                                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:10, color:lightMode?"#2a0850":"#9a8060", marginBottom:4, background:"rgba(200,169,110,0.06)", padding:"3px 8px", borderRadius:5 }}>
+                                        <span>↩ Antwort an {streamReplyTo[ev.post.id].name}</span>
+                                        <button onClick={() => setStreamReplyTo(prev => { const n = {...prev}; delete n[ev.post.id]; return n; })} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10 }}>✕</button>
+                                      </div>
+                                    )}
+                                    <div style={{ display:"flex", gap:6 }}>
                                     <input value={streamReplyDrafts[ev.post.id] || ""} onChange={e => setStreamReplyDrafts(prev => ({...prev, [ev.post.id]: e.target.value}))}
                                       onKeyDown={e => { if (e.key === "Enter") addStreamReply(ev.post.id); }}
-                                      placeholder="Antworten…"
+                                      placeholder={streamReplyTo[ev.post.id] ? `Antwort an ${streamReplyTo[ev.post.id].name}…` : "Antworten…"}
                                       style={{ flex:1, minWidth:0, padding:"6px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
                                     <button onClick={() => addStreamReply(ev.post.id)} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 12px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", flexShrink:0 }}>➤</button>
+                                    </div>
                                   </div>
                                 ) : (
                                   <button onClick={() => setView("forum-login-noetig")} style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", marginTop:4 }}>💬 Anmelden zum Antworten</button>
