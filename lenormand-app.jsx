@@ -1524,6 +1524,7 @@ export default function LenormandApp() {
   const [forumStreamComments, setForumStreamComments] = React.useState({}); // eventId -> [comments]
   const [streamCommentDrafts, setStreamCommentDrafts] = React.useState({}); // eventId -> Textentwurf
   const [streamCommentsOpen, setStreamCommentsOpen] = React.useState({}); // eventId -> bool (Eingabe sichtbar)
+  const [streamCommentReplyTo, setStreamCommentReplyTo] = React.useState({}); // eventId -> {id, name} Ziel-Kommentar (verschachtelt)
   const [streamLikeCounts, setStreamLikeCounts] = React.useState({}); // eventId -> Anzahl
   const [streamMyLikes, setStreamMyLikes] = React.useState({}); // eventId -> bool (ich habe geliked)
   const [streamReplyDrafts, setStreamReplyDrafts] = React.useState({}); // postId -> Antwort-Entwurf
@@ -1992,19 +1993,46 @@ export default function LenormandApp() {
   };
 
   // Kommentar zu einem Stream-Ereignis abgeben (optimistisch).
-  const addStreamComment = async (eventId) => {    const uid = getUserId();
+  const addStreamComment = async (eventId) => {
+    const uid = getUserId();
     if (!uid) { setView("forum-login-noetig"); return; }
     const text = (streamCommentDrafts[eventId] || "").trim();
     if (!text) return;
+    const target = streamCommentReplyTo[eventId] || null;
+    const parentId = target ? target.id : null;
     setStreamCommentDrafts(prev => ({ ...prev, [eventId]: "" }));
-    const optimistic = { id: "tmp-" + Date.now(), event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, created_at: new Date().toISOString() };
+    setStreamCommentReplyTo(prev => { const n = {...prev}; delete n[eventId]; return n; });
+    const optimistic = { id: "tmp-" + Date.now(), event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, created_at: new Date().toISOString(), parent_id: parentId };
     setForumStreamComments(prev => ({ ...prev, [eventId]: [...(prev[eventId] || []), optimistic] }));
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/activity_comments`, {
         method: "POST", headers: {...dbHeaders(), "Prefer": "return=minimal"},
-        body: JSON.stringify({ event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text })
+        body: JSON.stringify({ event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, parent_id: parentId })
       });
     } catch {}
+  };
+
+  // Rekursiv: einen Kommentar samt seiner Unter-Kommentare (verschachtelt) rendern.
+  const renderStreamCommentNode = (allComments, eventId, c, depth) => {
+    const kids = allComments.filter(x => x.parent_id === c.id).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    return (
+      <div key={c.id} style={{ marginLeft: depth > 0 ? 12 : 0, paddingLeft: depth > 0 ? 8 : 0, borderLeft: depth > 0 ? `2px solid ${lightMode?"rgba(200,168,224,0.4)":"rgba(200,169,110,0.2)"}` : "none", marginBottom:6 }}>
+        <div style={{ fontSize:12, lineHeight:1.5 }}>
+          <span style={{ fontWeight:"bold", color:gold }}>{c.display_name} </span>
+          <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9 }}>{streamTimeAgo(c.created_at)}</span>
+          <span style={{ marginLeft:6, whiteSpace:"nowrap" }}>
+            {!isGuest && (
+              <button onClick={() => { setStreamCommentsOpen(prev => ({...prev, [eventId]: true})); setStreamCommentReplyTo(prev => ({...prev, [eventId]: {id: c.id, name: c.display_name}})); }} title="Antworten" style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, padding:0, marginRight:6 }}>↩</button>
+            )}
+            {(isMod || c.user_id === getUserId()) && (
+              <button onClick={() => { if(window.confirm("Kommentar löschen?")) deleteStreamComment(c.id, eventId); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10, padding:0 }}>✕</button>
+            )}
+          </span>
+          <div style={{ color:lightMode?"#2a0850":"#c8b89a", marginTop:2 }}>{renderTextWithVideos(c.body || "")}</div>
+        </div>
+        {kids.map(k => renderStreamCommentNode(allComments, eventId, k, Math.min(depth + 1, 5)))}
+      </div>
+    );
   };
 
   // Stream frisch laden, sobald man auf der Forum-Startseite im Stream-Tab landet.
@@ -5201,23 +5229,26 @@ export default function LenormandApp() {
                           )}
                           {ev.eventId && (
                             <div style={{ marginTop:10, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.12)"}`, paddingTop:8 }}>
-                              {(forumStreamComments[ev.eventId] || []).map(c => (
-                                <div key={c.id} style={{ fontSize:12, marginBottom:6, lineHeight:1.5 }}>
-                                  <span style={{ fontWeight:"bold", color:gold }}>{c.display_name} </span>
-                                  <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9 }}>{streamTimeAgo(c.created_at)}</span>
-                                  {(isMod || c.user_id === getUserId()) && (
-                                    <button onClick={() => { if(window.confirm("Kommentar löschen?")) deleteStreamComment(c.id, ev.eventId); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10, padding:0, marginLeft:6 }}>✕</button>
-                                  )}
-                                  <div style={{ color:lightMode?"#2a0850":"#c8b89a", marginTop:2 }}>{renderTextWithVideos(c.body || "")}</div>
-                                </div>
-                              ))}
+                              {(() => {
+                                const cms = forumStreamComments[ev.eventId] || [];
+                                const topLevel = cms.filter(c => !c.parent_id || !cms.some(x => x.id === c.parent_id)).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                                return topLevel.map(top => renderStreamCommentNode(cms, ev.eventId, top, 0));
+                              })()}
                               {streamCommentsOpen[ev.eventId] ? (
-                                <div style={{ display:"flex", gap:6, marginTop:6 }}>
-                                  <input value={streamCommentDrafts[ev.eventId] || ""} onChange={e => setStreamCommentDrafts(prev => ({...prev, [ev.eventId]: e.target.value}))}
-                                    onKeyDown={e => { if (e.key === "Enter") addStreamComment(ev.eventId); }}
-                                    placeholder="Kommentieren…"
-                                    style={{ flex:1, minWidth:0, padding:"6px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
-                                  <button onClick={() => addStreamComment(ev.eventId)} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 12px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", flexShrink:0 }}>➤</button>
+                                <div style={{ marginTop:6 }}>
+                                  {streamCommentReplyTo[ev.eventId] && (
+                                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", fontSize:10, color:lightMode?"#2a0850":"#9a8060", marginBottom:4, background:"rgba(200,169,110,0.06)", padding:"3px 8px", borderRadius:5 }}>
+                                      <span>↩ Antwort an {streamCommentReplyTo[ev.eventId].name}</span>
+                                      <button onClick={() => setStreamCommentReplyTo(prev => { const n = {...prev}; delete n[ev.eventId]; return n; })} style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:10 }}>✕</button>
+                                    </div>
+                                  )}
+                                  <div style={{ display:"flex", gap:6 }}>
+                                    <input value={streamCommentDrafts[ev.eventId] || ""} onChange={e => setStreamCommentDrafts(prev => ({...prev, [ev.eventId]: e.target.value}))}
+                                      onKeyDown={e => { if (e.key === "Enter") addStreamComment(ev.eventId); }}
+                                      placeholder={streamCommentReplyTo[ev.eventId] ? `Antwort an ${streamCommentReplyTo[ev.eventId].name}…` : "Kommentieren…"}
+                                      style={{ flex:1, minWidth:0, padding:"6px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                                    <button onClick={() => addStreamComment(ev.eventId)} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 12px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", flexShrink:0 }}>➤</button>
+                                  </div>
                                 </div>
                               ) : (
                                 <button onClick={() => { if (isGuest) { setView("forum-login-noetig"); return; } setStreamCommentsOpen(prev => ({...prev, [ev.eventId]: true})); }}
@@ -7112,159 +7143,11 @@ export default function LenormandApp() {
 
         {/* ── QUEST (Platzhalter) ── */}
         {view === "tagebuch" && dailyMode === "quest" && (
-          <div style={{ paddingBottom:30 }}>
-            <div style={{ textAlign:"center", marginBottom:20 }}>
-              <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:10 }}>🎯 Quest</div>
-              <div style={{ fontSize:10, marginBottom:6, color: manifestSaveStatus==="saved" ? "#5a9a5a" : manifestSaveStatus==="saving" ? "#9a8060" : manifestSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:14 }}>
-                {manifestSaveStatus==="saving" && "Speichert…"}
-                {manifestSaveStatus==="saved" && "✓ Gespeichert"}
-                {manifestSaveStatus==="error" && ("⚠ Nicht gespeichert" + (manifestSaveError ? ": " + manifestSaveError : " — bitte Internetverbindung prüfen"))}
-              </div>
-              <div style={{ fontSize:14, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:500, margin:"0 auto" }}>
-                Schreibe auf, was du dir wünschst und was du erschaffen willst. Trenne deine Wünsche mit einem Komma — und lass dir von Emanuel bei der Verwirklichung helfen, jetzt sofort, sicher, sanft und schnell.
-              </div>
-            </div>
-
-            {/* 2×2 Grid */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(280px, 1fr))", gap:14, marginBottom:20 }}>
-              {[
-                {key:"heute",  icon:"📅", label:"Heute",    sub:"Was ist jetzt dran?",           placeholder:"z.B. ausreichend schlafen\nmehr Wasser trinken\neinen Brief schreiben"},
-                {key:"wochen", icon:"⏱️", label:"3 Wochen", sub:"Was kommt bald?",               placeholder:"z.B. die Wohnung aufräumen\neinen Arzttermin machen\nmehr spazieren gehen"},
-                {key:"monate", icon:"🌙", label:"3 Monate", sub:"Was wächst gerade?",            placeholder:"z.B. ein neues Auto\n5 kg abnehmen\neinen Kurs belegen\nmehr Zeit für Familie"},
-                {key:"jahre",  icon:"🌟", label:"3 Jahre",  sub:"Was ist dein großes Bild?",     placeholder:"z.B. ein Haus kaufen\nden Job wechseln\neine Reise machen\nfinanziell frei sein"},
-                {key:"irgendwann", icon:"✨", label:"Irgendwann", sub:"",                        placeholder:"z.B. nach Japan reisen\nein Buch schreiben\nam Meer leben…"},
-                {key:"traum",  icon:"💫", label:"Beweise finden für:", sub:"finde Emanuel im Alltag", placeholder:"z.B. ein zufälliger Moment der Leichtigkeit\neine Begegnung zur richtigen Zeit\nein Gefühl von Klarheit, das einfach da war…"},
-              ].map(({key, icon, label, sub, placeholder}) => (
-                <div key={key} style={{ background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:10, padding:"14px 14px 10px" }}>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                    <span style={{ fontSize:16 }}>{icon}</span>
-                    <div>
-                      <div style={{ fontSize:12, color:gold, letterSpacing:1 }}>{label}</div>
-                      <div style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34", fontStyle:"italic" }}>{sub}</div>
-                    </div>
-                  </div>
-                  <textarea
-                    placeholder={placeholder}
-                    value={manifestData[key]}
-                    onChange={e => updateManifest(key, e.target.value)}
-                    rows={4}
-                    style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.7 }}
-                  />
-                  {/* Interaktive Liste */}
-                  {manifestData[key] && (
-                    <div style={{ marginTop:8, paddingTop:8, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.08)"}` }}>
-                      {manifestData[key].split('\n').map(s => s.trim()).filter(Boolean).map((item, i, arr) => {
-                        const checkedKey = `_checked_${key}`;
-                        const checked = (manifestData[checkedKey] || []).includes(i);
-                        const fieldKeys = ["heute","wochen","monate","jahre","irgendwann","traum"];
-                        const keyIdx = fieldKeys.indexOf(key);
-                        return (
-                          <div key={i} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, padding:"3px 6px", borderRadius:4, background: checked?"rgba(90,154,90,0.08)":"transparent" }}>
-                            {/* Checkbox */}
-                            <button onClick={() => {
-                              const ck = `_checked_${key}`;
-                              const current = manifestData[ck] || [];
-                              const newChecked = checked ? current.filter(x => x !== i) : [...current, i];
-                              updateManifest(ck, newChecked);
-                            }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:0, color: checked?"#5a9a5a":"#7a6040" }}>
-                              {checked ? "☑️" : "☐"}
-                            </button>
-                            {/* Text */}
-                            <span style={{ flex:1, fontSize:11, color: checked?"#5a7a5a":"#9a8060", textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
-
-                            {/* Innerhalb der Liste nach oben */}
-                            {i > 0 && (
-                              <button onClick={() => {
-                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
-                                const ck = `_checked_${key}`;
-                                const oldChecked = manifestData[ck] || [];
-                                [items[i-1], items[i]] = [items[i], items[i-1]];
-                                const newChecked = oldChecked.map(idx => {
-                                  if (idx === i) return i-1;
-                                  if (idx === i-1) return i;
-                                  return idx;
-                                });
-                                const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
-                                setManifestData(updated);
-                                saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#2a0850":"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach oben">⬆</button>
-                            )}
-                            {/* Innerhalb der Liste nach unten */}
-                            {i < arr.length-1 && (
-                              <button onClick={() => {
-                                const items = manifestData[key].split('\n').map(s=>s.trim()).filter(Boolean);
-                                const ck = `_checked_${key}`;
-                                const oldChecked = manifestData[ck] || [];
-                                [items[i], items[i+1]] = [items[i+1], items[i]];
-                                const newChecked = oldChecked.map(idx => {
-                                  if (idx === i) return i+1;
-                                  if (idx === i+1) return i;
-                                  return idx;
-                                });
-                                const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
-                                setManifestData(updated);
-                                saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#2a0850":"#7a6040", padding:"0 2px" }} title="Innerhalb der Liste nach unten">⬇</button>
-                            )}
-
-                            {/* Verschieben zur vorherigen Abteilung (z.B. von "3 Wochen" zu "Heute") */}
-                            {keyIdx > 0 && (
-                              <button onClick={() => {
-                                const prevKey = fieldKeys[keyIdx-1];
-                                const { items, removed, wasChecked, newChecked } = removeManifestItem(manifestData, key, i);
-                                const { text: prevText, checked: prevChecked } = insertManifestItem(
-                                  {...manifestData, [`_checked_${prevKey}`]: manifestData[`_checked_${prevKey}`]},
-                                  prevKey, removed, wasChecked
-                                );
-                                const updated = {
-                                  ...manifestData,
-                                  [key]: items.join('\n'), [`_checked_${key}`]: newChecked,
-                                  [prevKey]: prevText, [`_checked_${prevKey}`]: prevChecked
-                                };
-                                setManifestData(updated);
-                                saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#2a0850":"#5a4a34", padding:"0 2px" }} title="Eine Ebene früher">↑</button>
-                            )}
-                            {/* Verschieben zur nächsten Abteilung (z.B. von "Heute" zu "3 Wochen") */}
-                            {keyIdx < fieldKeys.length-1 && (
-                              <button onClick={() => {
-                                const nextKey = fieldKeys[keyIdx+1];
-                                const { items, removed, wasChecked, newChecked } = removeManifestItem(manifestData, key, i);
-                                const { text: nextText, checked: nextChecked } = insertManifestItem(
-                                  {...manifestData, [`_checked_${nextKey}`]: manifestData[`_checked_${nextKey}`]},
-                                  nextKey, removed, wasChecked, 0
-                                );
-                                const updated = {
-                                  ...manifestData,
-                                  [key]: items.join('\n'), [`_checked_${key}`]: newChecked,
-                                  [nextKey]: nextText, [`_checked_${nextKey}`]: nextChecked
-                                };
-                                setManifestData(updated);
-                                saveManifest(updated);
-                              }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:lightMode?"#2a0850":"#5a4a34", padding:"0 2px" }} title="Eine Ebene später">↓</button>
-                            )}
-                            {/* Löschen */}
-                            <button onClick={() => {
-                              const { items, newChecked } = removeManifestItem(manifestData, key, i);
-                              const ck = `_checked_${key}`;
-                              const updated = {...manifestData, [key]: items.join('\n'), [ck]: newChecked};
-                              setManifestData(updated);
-                              saveManifest(updated);
-                            }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#5a3a2a", padding:"0 2px" }}>✕</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div style={{ textAlign:"center", borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.1)"}`, paddingTop:16 }}>
-              <button onClick={druckeManifest}
-                style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 20px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", letterSpacing:1 }}>
-                🖨️ Zauberzettel drucken
-              </button>
+          <div style={{ paddingBottom:30, minHeight:220, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}>
+            <div style={{ fontSize:40, marginBottom:14 }}>🎯</div>
+            <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Quest</div>
+            <div style={{ fontSize:14, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:420, margin:"0 auto" }}>
+              Diese Abteilung wird gerade neu gedacht.<br/>Bald findest du hier etwas Frisches. ✨
             </div>
           </div>
         )}
