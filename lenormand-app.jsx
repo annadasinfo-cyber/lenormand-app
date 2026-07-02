@@ -1801,7 +1801,7 @@ export default function LenormandApp() {
   // es wird nur gelesen und clientseitig nach Zeit gemischt.
   const loadForumStream = async () => {
     setForumStreamLoading(true);
-    const q = (t, extra) => fetch(`${SUPABASE_URL}/rest/v1/${t}?${extra}`, { headers: dbHeaders() }).then(r => r.json()).catch(() => []);
+    const q = (t, extra) => fetch(`${SUPABASE_URL}/rest/v1/${t}?${extra}`, { headers: dbHeaders(), cache: "no-store" }).then(r => r.json()).catch(() => []);
     try {
       const [posts, replies, events] = await Promise.all([
         q("forum_posts", "select=id,title,body,display_name,user_id,category_id,created_at,matrix_data&order=created_at.desc&limit=25"),
@@ -1872,6 +1872,9 @@ export default function LenormandApp() {
         body: JSON.stringify({ post_id: postId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text })
       });
     } catch {}
+    // Autoritativ vom Server nachladen: sortiert den Beitrag anhand der jüngsten
+    // Antwort verlässlich nach oben (Bumping), unabhängig vom optimistischen Sprung.
+    loadForumStream();
     loadForumCategories();
   };
 
