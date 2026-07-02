@@ -5002,8 +5002,8 @@ export default function LenormandApp() {
         {view === "forum" && !viewedProfileId && (
           <div style={{ maxWidth:"100%", margin:"0 auto" }}>
 
-            {/* Untermenü */}
-            <ForumSubNav />
+            {/* Untermenü — im Stream sitzt es unten direkt über der Status-Box, sonst hier oben */}
+            {!(communityMode === "forum" && forumView === "liste" && forumStartTab === "stream") && <ForumSubNav />}
 
             {/* PROFIL */}
             {communityMode === "profil" && (
@@ -5158,6 +5158,7 @@ export default function LenormandApp() {
 
                 {forumStartTab === "stream" && (
                   <div>
+                    <ForumSubNav />
                     {/* "Was machst du gerade?" — eigener Status in den Feed */}
                     {!isGuest ? (
                       <div style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:12, padding:"12px 14px", marginBottom:16 }}>
