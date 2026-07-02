@@ -1526,6 +1526,13 @@ export default function LenormandApp() {
   const [streamMyLikes, setStreamMyLikes] = React.useState({}); // eventId -> bool (ich habe geliked)
   const [streamReplyDrafts, setStreamReplyDrafts] = React.useState({}); // postId -> Antwort-Entwurf
   const [streamRepliesExpanded, setStreamRepliesExpanded] = React.useState({}); // postId -> alle Antworten zeigen
+  const [showScrollTop, setShowScrollTop] = React.useState(false);
+  React.useEffect(() => {
+    const onScroll = () => setShowScrollTop(window.scrollY > 400);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
   const [forumPosts, setForumPosts] = React.useState([]);
   // Kurse-Bereich: eigene States, gleiche Struktur wie Forum
@@ -5197,6 +5204,10 @@ export default function LenormandApp() {
                       );
                     })}
                     <ForumStatsBar />
+                    {showScrollTop && (
+                      <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} title="Nach oben"
+                        style={{ position:"fixed", bottom:24, right:24, zIndex:50, width:46, height:46, borderRadius:"50%", background:lightMode?"rgba(200,168,224,0.95)":"rgba(42,8,80,0.92)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:lightMode?"#2a0850":gold, cursor:"pointer", fontSize:20, boxShadow:"0 3px 12px rgba(0,0,0,0.28)", display:"flex", alignItems:"center", justifyContent:"center" }}>⬆</button>
+                    )}
                   </div>
                 )}
                 </main>
