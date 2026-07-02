@@ -3891,7 +3891,7 @@ export default function LenormandApp() {
   // kann, ohne dass das Untermenü beim Quiz-Klick verschwindet.
   const ForumSubNav = () => (
     <div style={{ display:"flex", justifyContent:"center", gap:8, marginBottom:20, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
-      {[["profil","👤 Profil"],["forum","📙 Forum"],["kurse","🎓 Kurse"],["quiz","🎓 Quiz"]].map(([m,l]) => {
+      {[["profil","👤 Profil"],["forum","📙 News"],["kurse","🎓 Kurse"],["quiz","🎓 Quiz"]].map(([m,l]) => {
         const isActive = m === "quiz" ? view === "quiz" : (view === "forum" && communityMode === m);
         return (
           <button key={m} onClick={() => {
@@ -5093,15 +5093,53 @@ export default function LenormandApp() {
                     <div style={{ marginTop:18, fontSize:18, opacity:0.45 }}>🌙 ✦ 🐍</div>
                   </div>
                   {isAdmin && (
-                    <div style={{ background:"#f4ecd8", border:"1px solid #d8c8a0", borderRadius:12, padding:"14px 14px 16px", boxShadow:"0 2px 8px rgba(0,0,0,0.10)", marginTop:16 }}>
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                    <div style={{ background:"#f4ecd8", border:"1px solid #d8c8a0", borderRadius:12, padding:"14px 14px 12px", boxShadow:"0 2px 8px rgba(0,0,0,0.10)", marginTop:16 }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
                         <span style={{ fontSize:11, letterSpacing:2, color:"#7a5c2e", textTransform:"uppercase", fontFamily:"Georgia,serif" }}>📌 Heute</span>
                         <span style={{ fontSize:10, color:"#a08a5a" }}>{manifestSaveStatus === "saving" ? "speichert…" : manifestSaveStatus === "saved" ? "✓ gesichert" : manifestSaveStatus === "error" ? "⚠︎" : ""}</span>
                       </div>
+                      <div style={{ fontSize:9, color:"#a08a5a", fontStyle:"italic", marginBottom:6 }}>Was ist jetzt dran? — eine Zeile pro Punkt</div>
                       <textarea value={manifestData.heute} onChange={e => updateManifest("heute", e.target.value)}
-                        placeholder="Notizen für heute…"
-                        rows={12}
-                        style={{ width:"100%", background:"transparent", border:"none", outline:"none", resize:"vertical", color:"#3a2e18", fontFamily:"Georgia,serif", fontSize:12.5, lineHeight:1.7, boxSizing:"border-box" }} />
+                        placeholder={"ausreichend schlafen\nmehr Wasser trinken\neinen Brief schreiben"}
+                        rows={4}
+                        style={{ width:"100%", padding:"8px 10px", background:"rgba(255,255,255,0.45)", border:"1px solid #d8c8a0", borderRadius:6, color:"#3a2e18", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box", resize:"vertical", lineHeight:1.7 }} />
+                      {manifestData.heute && (
+                        <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid #d8c8a0" }}>
+                          {manifestData.heute.split('\n').map(s => s.trim()).filter(Boolean).map((item, i, arr) => {
+                            const checked = (manifestData._checked_heute || []).includes(i);
+                            return (
+                              <div key={i} style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4, padding:"3px 4px", borderRadius:4, background: checked?"rgba(90,154,90,0.12)":"transparent" }}>
+                                <button onClick={() => {
+                                  const current = manifestData._checked_heute || [];
+                                  const newChecked = checked ? current.filter(x => x !== i) : [...current, i];
+                                  updateManifest("_checked_heute", newChecked);
+                                }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:13, padding:0, color: checked?"#5a9a5a":"#7a5c2e" }}>{checked ? "☑️" : "☐"}</button>
+                                <span style={{ flex:1, fontSize:11.5, color: checked?"#8a9a7a":"#3a2e18", textDecoration: checked?"line-through":"none", lineHeight:1.6 }}>{item}</span>
+                                {i > 0 && (
+                                  <button onClick={() => {
+                                    const items = manifestData.heute.split('\n').map(s=>s.trim()).filter(Boolean);
+                                    const oldChecked = manifestData._checked_heute || [];
+                                    [items[i-1], items[i]] = [items[i], items[i-1]];
+                                    const newChecked = oldChecked.map(idx => idx===i ? i-1 : idx===i-1 ? i : idx);
+                                    const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
+                                    setManifestData(updated); saveManifest(updated);
+                                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#a08a5a", padding:"0 2px" }} title="nach oben">⬆</button>
+                                )}
+                                {i < arr.length-1 && (
+                                  <button onClick={() => {
+                                    const items = manifestData.heute.split('\n').map(s=>s.trim()).filter(Boolean);
+                                    const oldChecked = manifestData._checked_heute || [];
+                                    [items[i], items[i+1]] = [items[i+1], items[i]];
+                                    const newChecked = oldChecked.map(idx => idx===i ? i+1 : idx===i+1 ? i : idx);
+                                    const updated = {...manifestData, heute: items.join('\n'), _checked_heute: newChecked};
+                                    setManifestData(updated); saveManifest(updated);
+                                  }} style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:"#a08a5a", padding:"0 2px" }} title="nach unten">⬇</button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </aside>
