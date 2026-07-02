@@ -1256,6 +1256,15 @@ export default function LenormandApp() {
             body: JSON.stringify({ id: newUid, display_name: authName.trim(), role: "pro", pro_trial_until: trialUntil })
           });
         } catch {}
+        // Als 🌱-Ereignis in den Aktivitäts-Stream legen, damit die Community
+        // das neue Mitglied begrüßen (kommentieren) kann.
+        try {
+          await fetch(`${SUPABASE_URL}/rest/v1/activity_events`, {
+            method: "POST",
+            headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json", "Prefer": "return=minimal" },
+            body: JSON.stringify({ user_id: newUid, display_name: authName.trim(), kind: "member", payload: {} })
+          });
+        } catch {}
       }
       setAuthMsg("✉️ Fast geschafft! Bitte bestätige deine E-Mail — dann kannst du dich einloggen."); setAuthView("login");
     }
@@ -1513,6 +1522,10 @@ export default function LenormandApp() {
   const [forumStreamComments, setForumStreamComments] = React.useState({}); // eventId -> [comments]
   const [streamCommentDrafts, setStreamCommentDrafts] = React.useState({}); // eventId -> Textentwurf
   const [streamCommentsOpen, setStreamCommentsOpen] = React.useState({}); // eventId -> bool (Eingabe sichtbar)
+  const [streamLikeCounts, setStreamLikeCounts] = React.useState({}); // eventId -> Anzahl
+  const [streamMyLikes, setStreamMyLikes] = React.useState({}); // eventId -> bool (ich habe geliked)
+  const [streamReplyDrafts, setStreamReplyDrafts] = React.useState({}); // postId -> Antwort-Entwurf
+  const [streamRepliesExpanded, setStreamRepliesExpanded] = React.useState({}); // postId -> alle Antworten zeigen
   const [forumActiveCategory, setForumActiveCategory] = React.useState(null);
   const [forumPosts, setForumPosts] = React.useState([]);
   // Kurse-Bereich: eigene States, gleiche Struktur wie Forum
@@ -1790,44 +1803,34 @@ export default function LenormandApp() {
     setForumStreamLoading(true);
     const q = (t, extra) => fetch(`${SUPABASE_URL}/rest/v1/${t}?${extra}`, { headers: dbHeaders() }).then(r => r.json()).catch(() => []);
     try {
-      const [posts, replies, postLikes, replyLikes, members, events] = await Promise.all([
-        q("forum_posts", "select=id,title,body,display_name,user_id,category_id,created_at,matrix_data&order=created_at.desc&limit=20"),
-        q("forum_replies", "select=id,post_id,body,display_name,user_id,created_at&order=created_at.desc&limit=20"),
-        q("forum_post_likes", "select=post_id,user_id,created_at&order=created_at.desc&limit=15"),
-        q("forum_reply_likes", "select=reply_id,user_id,created_at&order=created_at.desc&limit=15"),
-        q("profiles", "select=id,display_name,created_at&order=created_at.desc&limit=10"),
-        q("activity_events", "select=id,user_id,display_name,kind,payload,created_at&order=created_at.desc&limit=15"),
+      const [posts, replies, events] = await Promise.all([
+        q("forum_posts", "select=id,title,body,display_name,user_id,category_id,created_at,matrix_data&order=created_at.desc&limit=25"),
+        q("forum_replies", "select=id,post_id,body,display_name,user_id,created_at&order=created_at.desc&limit=60"),
+        q("activity_events", "select=id,user_id,display_name,kind,payload,created_at&order=created_at.desc&limit=20"),
       ]);
       const arr = x => Array.isArray(x) ? x : [];
-      // Namensauflösung (für Like-Akteure, die nicht schon als display_name auf der Zeile stehen)
-      const nameById = {};
-      arr(members).forEach(p => { if (p.id) nameById[p.id] = p.display_name; });
-      const likeUserIds = [...new Set([...arr(postLikes), ...arr(replyLikes)].map(l => l.user_id).filter(Boolean))].filter(id => !nameById[id]);
-      if (likeUserIds.length) arr(await q("profiles", `id=in.(${likeUserIds.join(",")})&select=id,display_name`)).forEach(p => { nameById[p.id] = p.display_name; });
-      // Beitrags-Titel/Kategorie-Auflösung
       const postById = {};
       arr(posts).forEach(p => { postById[p.id] = p; });
-      // reply_id -> post_id (für Reply-Likes)
-      const replyById = {};
-      arr(replies).forEach(r => { replyById[r.id] = r; });
-      const missingReplyIds = [...new Set(arr(replyLikes).map(l => l.reply_id).filter(id => id && !replyById[id]))];
-      if (missingReplyIds.length) arr(await q("forum_replies", `id=in.(${missingReplyIds.join(",")})&select=id,post_id`)).forEach(r => { replyById[r.id] = r; });
-      // fehlende Beiträge (für Likes/Antworten auf ältere Beiträge) nachladen
-      const neededPostIds = new Set();
-      arr(replies).forEach(r => r.post_id && neededPostIds.add(r.post_id));
-      arr(postLikes).forEach(l => l.post_id && neededPostIds.add(l.post_id));
-      arr(replyLikes).forEach(l => { const rep = replyById[l.reply_id]; if (rep && rep.post_id) neededPostIds.add(rep.post_id); });
-      const missingPostIds = [...neededPostIds].filter(id => !postById[id]);
-      if (missingPostIds.length) arr(await q("forum_posts", `id=in.(${missingPostIds.join(",")})&select=id,title,category_id`)).forEach(p => { postById[p.id] = p; });
+      // Beiträge, die durch eine neue Antwort "hochgespült" werden (Bumping), aber nicht
+      // unter den 25 neuesten stecken, gezielt nachladen — so steigt auch ein 3 Wochen
+      // alter Beitrag wieder nach oben, wenn jemand darunter antwortet.
+      const missingPostIds = [...new Set(arr(replies).map(r => r.post_id).filter(id => id && !postById[id]))];
+      if (missingPostIds.length) arr(await q("forum_posts", `id=in.(${missingPostIds.join(",")})&select=id,title,body,display_name,user_id,category_id,created_at,matrix_data`)).forEach(p => { postById[p.id] = p; });
+      // Antworten pro Beitrag gruppieren (älteste zuerst für die Anzeige)
+      const repliesByPost = {};
+      arr(replies).slice().reverse().forEach(r => { (repliesByPost[r.post_id] = repliesByPost[r.post_id] || []).push(r); });
       const catName = id => { const c = forumCategories.find(c => c.id === id); return c ? c.name : ""; };
       const items = [];
-      arr(posts).forEach(p => items.push({ key: "p" + p.id, kind: "post", actor: p.display_name || "Mitglied", when: p.created_at, post: p, title: p.title, body: p.body, category: catName(p.category_id), isMatrix: !!p.matrix_data }));
-      arr(replies).forEach(r => { const p = postById[r.post_id]; items.push({ key: "r" + r.id, kind: "reply", actor: r.display_name || "Mitglied", when: r.created_at, body: r.body, postId: r.post_id, postTitle: p ? p.title : "einen Beitrag" }); });
-      arr(postLikes).forEach(l => { const p = postById[l.post_id]; items.push({ key: "pl" + l.post_id + l.user_id + l.created_at, kind: "like", actor: nameById[l.user_id] || "Jemand", when: l.created_at, postId: l.post_id, postTitle: p ? p.title : "einen Beitrag" }); });
-      arr(replyLikes).forEach(l => { const rep = replyById[l.reply_id]; const p = rep ? postById[rep.post_id] : null; items.push({ key: "rl" + l.reply_id + l.user_id + l.created_at, kind: "like", actor: nameById[l.user_id] || "Jemand", when: l.created_at, postId: rep ? rep.post_id : null, postTitle: p ? p.title : "eine Antwort" }); });
-      arr(members).forEach(p => items.push({ key: "m" + p.id, kind: "member", actor: p.display_name || "Ein neues Mitglied", when: p.created_at }));
-      arr(events).forEach(e => items.push({ key: "e" + e.id, eventId: e.id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, payload: e.payload || {} }));
-      items.sort((a, b) => new Date(b.when) - new Date(a.when));
+      // Post-Karten mit Inline-Antworten + Bumping (die jüngste Aktivität bestimmt die Reihenfolge)
+      Object.values(postById).forEach(p => {
+        const reps = repliesByPost[p.id] || [];
+        const lastReply = reps.length ? reps[reps.length - 1].created_at : null;
+        const sortWhen = lastReply && new Date(lastReply) > new Date(p.created_at) ? lastReply : p.created_at;
+        items.push({ key: "p" + p.id, kind: "post", actor: p.display_name || "Mitglied", when: p.created_at, sortWhen, post: p, title: p.title, body: p.body, category: catName(p.category_id), isMatrix: !!p.matrix_data, replies: reps, lastReplyWhen: lastReply });
+      });
+      // System-Ereignisse (Status, Highscore, neues Mitglied) als eigene Karten
+      arr(events).forEach(e => items.push({ key: "e" + e.id, eventId: e.id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, sortWhen: e.created_at, payload: e.payload || {} }));
+      items.sort((a, b) => new Date(b.sortWhen) - new Date(a.sortWhen));
       const sliced = items.slice(0, 30);
       setForumStream(sliced);
       loadStreamComments(sliced.map(i => i.eventId).filter(Boolean));
@@ -1847,6 +1850,31 @@ export default function LenormandApp() {
     } catch {}
   };
 
+  // Inline-Antwort auf eine Post-Karte im Stream — hebt den Beitrag sofort nach oben (Bumping).
+  const addStreamReply = async (postId) => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    const text = (streamReplyDrafts[postId] || "").trim();
+    if (!text) return;
+    setStreamReplyDrafts(prev => ({ ...prev, [postId]: "" }));
+    const optimistic = { id: "tmp-" + Date.now(), post_id: postId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, created_at: new Date().toISOString() };
+    setForumStream(prev => {
+      const list = prev.map(it => (it.kind === "post" && it.post && it.post.id === postId)
+        ? { ...it, replies: [...(it.replies || []), optimistic], sortWhen: optimistic.created_at, lastReplyWhen: optimistic.created_at }
+        : it);
+      list.sort((a, b) => new Date(b.sortWhen) - new Date(a.sortWhen));
+      return list;
+    });
+    setStreamRepliesExpanded(prev => ({ ...prev, [postId]: true }));
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/forum_replies`, {
+        method: "POST", headers: {...dbHeaders(), "Prefer": "return=minimal"},
+        body: JSON.stringify({ post_id: postId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text })
+      });
+    } catch {}
+    loadForumCategories();
+  };
+
   // Statusbeitrag ("Was machst du gerade?") als activity_event in den Stream legen.
   const postStreamStatus = async () => {
     const uid = getUserId();
@@ -1864,8 +1892,7 @@ export default function LenormandApp() {
   };
 
   // Kommentar zu einem Stream-Ereignis abgeben (optimistisch).
-  const addStreamComment = async (eventId) => {
-    const uid = getUserId();
+  const addStreamComment = async (eventId) => {    const uid = getUserId();
     if (!uid) { setView("forum-login-noetig"); return; }
     const text = (streamCommentDrafts[eventId] || "").trim();
     if (!text) return;
@@ -4808,6 +4835,7 @@ export default function LenormandApp() {
                 <main style={{ minWidth:0 }}>
                 {/* Umschalter: Aktivitäts-Stream (Start) oder Kategorienliste. Das Forum
                     bleibt vollständig als Container erhalten — der Stream ist nur das Startbild. */}
+                {isAdmin && (
                 <div style={{ display:"flex", gap:8, marginBottom:16 }}>
                   {[["stream","🌊 Stream"],["kategorien","📁 Kategorien"]].map(([t,l]) => (
                     <button key={t} onClick={() => setForumStartTab(t)}
@@ -4816,6 +4844,7 @@ export default function LenormandApp() {
                     </button>
                   ))}
                 </div>
+                )}
 
                 {forumStartTab === "kategorien" && (<>
                 <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
@@ -4967,10 +4996,48 @@ export default function LenormandApp() {
                             <span style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", marginLeft:"auto", whiteSpace:"nowrap" }}>{streamTimeAgo(ev.when)}</span>
                           </div>
                           {ev.kind === "post" && (
-                            <div onClick={openTarget} style={{ marginTop:8, cursor:"pointer" }}>
+                            <div style={{ marginTop:8 }}>
                               <div style={{ fontSize:14, color:gold, marginBottom:5, fontWeight:"bold" }}>{ev.title}</div>
-                              <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6, maxHeight:240, overflow:"hidden", position:"relative" }}>
-                                {renderTextWithVideos(ev.body || "")}
+                              {ev.body && (
+                                <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6 }}>
+                                  {renderTextWithVideos(ev.body)}
+                                </div>
+                              )}
+                              {ev.isMatrix && ev.post?.matrix_data && (
+                                <div style={{ marginTop:10 }}>
+                                  <ForumMatrixGrid data={ev.post.matrix_data} gold={gold} lightMode={lightMode} />
+                                </div>
+                              )}
+                              <div style={{ marginTop:10, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.12)"}`, paddingTop:8 }}>
+                                {(() => {
+                                  const reps = ev.replies || [];
+                                  const expanded = streamRepliesExpanded[ev.post.id];
+                                  const shown = expanded ? reps : reps.slice(-2);
+                                  return (<>
+                                    {reps.length > 2 && !expanded && (
+                                      <button onClick={() => setStreamRepliesExpanded(prev => ({...prev, [ev.post.id]: true}))}
+                                        style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", marginBottom:8, display:"block" }}>▸ alle {reps.length} Antworten anzeigen</button>
+                                    )}
+                                    {shown.map(c => (
+                                      <div key={c.id} style={{ fontSize:12, marginBottom:7, lineHeight:1.5 }}>
+                                        <span style={{ fontWeight:"bold", color:gold }}>{c.display_name} </span>
+                                        <span style={{ color:lightMode?"#6a4a90":"#7a6040", fontSize:9 }}>{streamTimeAgo(c.created_at)}</span>
+                                        <div style={{ color:lightMode?"#2a0850":"#c8b89a", marginTop:2 }}>{renderTextWithVideos(c.body || "")}</div>
+                                      </div>
+                                    ))}
+                                  </>);
+                                })()}
+                                {!isGuest ? (
+                                  <div style={{ display:"flex", gap:6, marginTop:6 }}>
+                                    <input value={streamReplyDrafts[ev.post.id] || ""} onChange={e => setStreamReplyDrafts(prev => ({...prev, [ev.post.id]: e.target.value}))}
+                                      onKeyDown={e => { if (e.key === "Enter") addStreamReply(ev.post.id); }}
+                                      placeholder="Antworten…"
+                                      style={{ flex:1, minWidth:0, padding:"6px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12, outline:"none", boxSizing:"border-box" }} />
+                                    <button onClick={() => addStreamReply(ev.post.id)} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 12px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", flexShrink:0 }}>➤</button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => setView("forum-login-noetig")} style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, padding:0, fontFamily:"Georgia,serif", marginTop:4 }}>💬 Anmelden zum Antworten</button>
+                                )}
                               </div>
                             </div>
                           )}
@@ -4983,9 +5050,6 @@ export default function LenormandApp() {
                             <div style={{ marginTop:6, fontSize:13.5, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.6 }}>
                               {renderTextWithVideos(ev.payload.text)}
                             </div>
-                          )}
-                          {clickable && (
-                            <div onClick={openTarget} style={{ marginTop:8, fontSize:11, color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer" }}>→ zum Beitrag</div>
                           )}
                           {ev.eventId && (
                             <div style={{ marginTop:10, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.12)"}`, paddingTop:8 }}>
