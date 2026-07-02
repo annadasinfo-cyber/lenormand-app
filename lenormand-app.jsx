@@ -4137,7 +4137,7 @@ export default function LenormandApp() {
         onClick: () => { setView("quiz"); setQuizCards(null); setQuizAnswer(null); setQuizScore({right:0,wrong:0}); setCurrentStreak(0); } },
     ];
     return (
-      <div style={{ display:"flex", justifyContent:"flex-end", gap:8, marginBottom:14, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
+      <div style={{ display:"flex", justifyContent:"flex-start", gap:8, marginBottom:8, overflowX:"auto", WebkitOverflowScrolling:"touch", paddingBottom:4, paddingLeft:2, paddingRight:2 }}>
         {items.map(it => (
           <button key={it.key} onClick={it.onClick}
             style={{ background:it.active?(lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.15)"):"rgba(200,169,110,0.03)", border:`1px solid ${it.active?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:it.active?gold:"#7a6040", padding:"7px 14px", borderRadius:8, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", letterSpacing:0.5, transition:"all 0.2s", whiteSpace:"nowrap", flexShrink:0 }}>
