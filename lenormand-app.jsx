@@ -7413,7 +7413,7 @@ export default function LenormandApp() {
             style={{ background:"rgba(200,169,110,0.12)", border:"1px solid rgba(200,169,110,0.4)", color:lightMode?"#5a1080":"#c8a96e", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             ✨ Frag Anna
           </a>
-          <a href="https://lenormand-app-tau.vercel.app/#post-46b6002c-33b5-4fde-b9d9-ba920d8b55f3" target="_blank" rel="noopener noreferrer"
+          <a href="https://lenormand-app-tau.vercel.app/#post-6e0c1574-97d2-40ca-8ff2-dfb9507f71e6" target="_blank" rel="noopener noreferrer"
             style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#7a6040", padding:"8px 18px", borderRadius:20, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textDecoration:"none", letterSpacing:1 }}>
             🐞 Fehler melden
           </a>
