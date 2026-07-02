@@ -4963,7 +4963,7 @@ export default function LenormandApp() {
             {/* KATEGORIEN-LISTE */}
             {forumView === "liste" && (
               <div className="lenformum-grid">
-                <style>{`.lenformum-grid{display:grid;grid-template-columns:220px minmax(0,1fr) 220px;gap:20px;align-items:start}.lenformum-side-left{position:sticky;top:12px}@media(max-width:900px){.lenformum-grid{grid-template-columns:1fr}.lenformum-side-right{display:none}.lenformum-side-left{position:static}}`}</style>
+                <style>{`.lenformum-grid{display:grid;grid-template-columns:clamp(220px,20vw,320px) minmax(0,1fr) clamp(220px,20vw,320px);gap:14px;align-items:start}.lenformum-side-left{position:sticky;top:12px}@media(max-width:900px){.lenformum-grid{grid-template-columns:1fr}.lenformum-side-right{display:none}.lenformum-side-left{position:static}}`}</style>
 
                 {/* LINKS: Profil-Karte (am Handy oben) */}
                 <aside className="lenformum-side-left">
