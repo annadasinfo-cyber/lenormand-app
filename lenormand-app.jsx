@@ -4998,7 +4998,7 @@ export default function LenormandApp() {
                           {ev.kind === "post" && (
                             <div style={{ marginTop:8 }}>
                               <div style={{ fontSize:14, color:gold, marginBottom:5, fontWeight:"bold" }}>{ev.title}</div>
-                              {ev.body && (
+                              {ev.body && !ev.isMatrix && (
                                 <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6 }}>
                                   {renderTextWithVideos(ev.body)}
                                 </div>
