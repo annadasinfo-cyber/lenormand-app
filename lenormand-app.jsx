@@ -1814,19 +1814,23 @@ export default function LenormandApp() {
     setForumStreamLoading(true);
     const q = (t, extra) => fetch(`${SUPABASE_URL}/rest/v1/${t}?${extra}`, { headers: dbHeaders(), cache: "no-store" }).then(r => r.json()).catch(() => []);
     try {
-      const [posts, replies, events] = await Promise.all([
+      const [posts, replies, events, kurseCats] = await Promise.all([
         q("forum_posts", "select=id,title,body,display_name,user_id,category_id,created_at,matrix_data&order=created_at.desc&limit=25"),
         q("forum_replies", "select=id,post_id,body,display_name,user_id,created_at,reply_to_id&order=created_at.desc&limit=60"),
         q("activity_events", "select=id,user_id,display_name,kind,payload,created_at&order=created_at.desc&limit=20"),
+        q("forum_categories", "section=eq.kurse&select=id"),
       ]);
       const arr = x => Array.isArray(x) ? x : [];
+      // Kurs-Inhalte (nur für pro_full) dürfen NIE im öffentlichen Stream (für alle Member) auftauchen.
+      const kurseCatIds = new Set(arr(kurseCats).map(c => c.id));
+      const isKursePost = p => p && kurseCatIds.has(p.category_id);
       const postById = {};
-      arr(posts).forEach(p => { postById[p.id] = p; });
+      arr(posts).filter(p => !isKursePost(p)).forEach(p => { postById[p.id] = p; });
       // Beiträge, die durch eine neue Antwort "hochgespült" werden (Bumping), aber nicht
       // unter den 25 neuesten stecken, gezielt nachladen — so steigt auch ein 3 Wochen
       // alter Beitrag wieder nach oben, wenn jemand darunter antwortet.
       const missingPostIds = [...new Set(arr(replies).map(r => r.post_id).filter(id => id && !postById[id]))];
-      if (missingPostIds.length) arr(await q("forum_posts", `id=in.(${missingPostIds.join(",")})&select=id,title,body,display_name,user_id,category_id,created_at,matrix_data`)).forEach(p => { postById[p.id] = p; });
+      if (missingPostIds.length) arr(await q("forum_posts", `id=in.(${missingPostIds.join(",")})&select=id,title,body,display_name,user_id,category_id,created_at,matrix_data`)).filter(p => !isKursePost(p)).forEach(p => { postById[p.id] = p; });
       // Antworten pro Beitrag gruppieren (älteste zuerst für die Anzeige)
       const repliesByPost = {};
       arr(replies).slice().reverse().forEach(r => { (repliesByPost[r.post_id] = repliesByPost[r.post_id] || []).push(r); });
@@ -2429,12 +2433,14 @@ export default function LenormandApp() {
     } catch { setForumError("Konnte nicht gespeichert werden. Versuch's gleich noch mal."); }
   };
 
-  const createForumReply = async () => {
+  const createForumReply = async (postIdArg) => {
     if (!forumReplyText.trim()) return;
     const uid = getUserId();
+    const postId = postIdArg || forumActivePost?.id;
+    if (!postId) return;
     try {
       const payload = {
-        post_id: forumActivePost.id,
+        post_id: postId,
         user_id: uid || null,
         display_name: uid ? (userDisplayName || "Mitglied") : (forumNewName.trim() || "Anonym"),
         body: forumReplyText.trim(),
@@ -2449,7 +2455,7 @@ export default function LenormandApp() {
         setForumReplyText("");
         setForumReplyToId(null);
         setForumReplyToName("");
-        loadForumReplies(forumActivePost.id);
+        loadForumReplies(postId);
       }
     } catch {}
   };
