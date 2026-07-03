@@ -3024,6 +3024,10 @@ export default function LenormandApp() {
   //  aus den Pro-Bereichen ausgesperrt — "Zutritt nur für Pro-Mitglieder".)
   const isPro = userRole === "pro" || isProFull;
 
+  // Im eigentlichen Schreib-Bereich (3x3-Matrix + Textboxen) sollen die Seitenleisten weg,
+  // damit maximaler Platz zum Arbeiten bleibt. Die Projektauswahl behält den Rahmen.
+  const writingFullWidth = view === "tagebuch" && dailyMode === "writing" && (writingView === "picking" || writingView === "writing");
+
   // Kann diese Kategorie überhaupt gesehen werden, je nach Sichtbarkeits-Stufe + eigener Rolle?
   // Alle Kategorien werden in der Übersicht angezeigt (auch für Gäste, als Appetit-Macher) —
   // forumCanEnterCategory entscheidet, ob man tatsächlich hineinklicken kann, oder ob
@@ -4503,9 +4507,9 @@ export default function LenormandApp() {
       )}
 
       <div style={{ maxWidth:"100%", margin:"0 auto", padding:"24px 24px 60px" }}>
-        <div className="lenapp-grid">
-          <style>{`.lenapp-grid{display:grid;grid-template-columns:clamp(220px,20vw,320px) minmax(0,1fr) clamp(220px,20vw,320px);gap:14px;align-items:start}.lenapp-side-left{position:sticky;top:12px}.lenapp-side-right{position:sticky;top:12px}@media(max-width:900px){.lenapp-grid{grid-template-columns:1fr}.lenapp-side-right{display:none}.lenapp-side-left{position:static}}`}</style>
-          <aside className="lenapp-side-left">{renderLeftRail()}</aside>
+        <div className={writingFullWidth ? "lenapp-grid lenapp-grid-full" : "lenapp-grid"}>
+          <style>{`.lenapp-grid{display:grid;grid-template-columns:clamp(220px,20vw,320px) minmax(0,1fr) clamp(220px,20vw,320px);gap:14px;align-items:start}.lenapp-grid-full{grid-template-columns:1fr}.lenapp-side-left{position:sticky;top:12px}.lenapp-side-right{position:sticky;top:12px}@media(max-width:900px){.lenapp-grid{grid-template-columns:1fr}.lenapp-side-right{display:none}.lenapp-side-left{position:static}}`}</style>
+          {!writingFullWidth && <aside className="lenapp-side-left">{renderLeftRail()}</aside>}
           <main style={{ minWidth:0 }}>
 
         {/* ── KOMBINATIONEN ── */}
@@ -5585,8 +5589,30 @@ export default function LenormandApp() {
                   <div>
                     <button onClick={() => { setKurseView("liste"); setKurseActiveCategory(null); setKursePosts([]); }}
                       style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Kursen</button>
-                    <div style={{ fontSize:22, color:gold, marginBottom:4 }}>{kurseActiveCategory.icon} {kurseActiveCategory.name}</div>
-                    {kurseActiveCategory.description && <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginBottom:16 }}>{kurseActiveCategory.description}</div>}
+                    {isAdmin && forumEditingCategoryId === kurseActiveCategory.id ? (
+                      <div style={{ marginBottom:16 }}>
+                        <CategoryEditBox lightMode={lightMode} gold={gold}
+                          initialName={kurseActiveCategory.name}
+                          initialDescription={kurseActiveCategory.description || ""}
+                          initialIcon={kurseActiveCategory.icon || "🎓"}
+                          initialVisibility={kurseActiveCategory.visibility}
+                          initialGuestPost={!!kurseActiveCategory.guest_can_post}
+                          onSave={async (fields) => {
+                            await saveEditForumCategory(kurseActiveCategory.id, fields);
+                            const payload = { name: fields.name.trim(), description: fields.description.trim(), icon: (fields.icon || "🎓").trim().slice(0,4), visibility: fields.visibility, guest_can_post: fields.guestPost };
+                            setKurseActiveCategory(prev => ({...prev, ...payload}));
+                            setKurseCategories(prev => prev.map(c => c.id === kurseActiveCategory.id ? {...c, ...payload} : c));
+                          }}
+                          onCancel={() => setForumEditingCategoryId(null)}
+                        />
+                      </div>
+                    ) : (<>
+                      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:4 }}>
+                        <div style={{ fontSize:22, color:gold }}>{kurseActiveCategory.icon} {kurseActiveCategory.name}</div>
+                        {isAdmin && <button onClick={() => setForumEditingCategoryId(kurseActiveCategory.id)} title="Kurs bearbeiten" style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:14 }}>✎</button>}
+                      </div>
+                      {kurseActiveCategory.description && <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginBottom:16 }}>{kurseActiveCategory.description}</div>}
+                    </>)}
 
                     {isAdmin && (
                       <div style={{ marginBottom:16 }}>
@@ -5652,7 +5678,18 @@ export default function LenormandApp() {
                       {forumEditingPostId === kurseActivePost.id ? (
                         <InlinePostEditBox lightMode={lightMode}
                           initialTitle={kurseActivePost.title} initialBody={kurseActivePost.body}
-                          onSave={(newTitle, newBody) => saveEditForumPost(kurseActivePost.id, newTitle, newBody)}
+                          onSave={async (newTitle, newBody) => {
+                            if (!newTitle.trim()) return;
+                            try {
+                              await fetch(`${SUPABASE_URL}/rest/v1/forum_posts?id=eq.${kurseActivePost.id}`, {
+                                method: "PATCH", headers: dbHeaders(),
+                                body: JSON.stringify({ title: newTitle.trim(), body: newBody.trim() })
+                              });
+                              setKursePosts(prev => prev.map(p => p.id === kurseActivePost.id ? {...p, title:newTitle.trim(), body:newBody.trim()} : p));
+                              setKurseActivePost(prev => ({...prev, title:newTitle.trim(), body:newBody.trim()}));
+                              setForumEditingPostId(null);
+                            } catch {}
+                          }}
                           onCancel={() => setForumEditingPostId(null)}
                         />
                       ) : (<>
@@ -6189,7 +6226,7 @@ export default function LenormandApp() {
                           <button onClick={() => loadProject(proj)} style={{ flex:1, background:"none", border:"none", color:gold, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif", textAlign:"left" }}>
                             ✍️ {proj.name}
                           </button>
-                          <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{new Date(proj.updated_at).toLocaleDateString('de-DE')}</span>
+                          <span style={{ fontSize:9, color:lightMode?"#2a0850":"#5a4a34" }}>{new Date(proj.updated_at).toLocaleString('de-DE', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
                           <button onClick={() => deleteProject(proj.id)} style={{ background:"none", border:"none", color:"#5a3a2a", cursor:"pointer", fontSize:11 }}>✕</button>
                         </div>
                       ))}
@@ -6544,7 +6581,11 @@ export default function LenormandApp() {
                     </div>
                     <div style={{ fontSize:9, marginBottom:8, color: writingSaveStatus==="saved" ? "#5a9a5a" : writingSaveStatus==="saving" ? "#9a8060" : writingSaveStatus==="error" ? "#c87a6a" : "transparent", minHeight:13 }}>
                       {writingSaveStatus==="saving" && "Speichert…"}
-                      {writingSaveStatus==="saved" && "✓ Gespeichert"}
+                      {writingSaveStatus==="saved" && (() => {
+                        const p = savedProjects.find(pr => pr.id === writingProjectId);
+                        const t = p && p.updated_at ? new Date(p.updated_at).toLocaleTimeString('de-DE', {hour:'2-digit', minute:'2-digit'}) : null;
+                        return t ? `✓ Gespeichert um ${t} Uhr` : "✓ Gespeichert";
+                      })()}
                       {writingSaveStatus==="error" && ("⚠ Nicht gespeichert" + (writingSaveError ? ": " + writingSaveError : " — bitte Internetverbindung prüfen"))}
                     </div>
 
@@ -7287,7 +7328,7 @@ export default function LenormandApp() {
           </div>
         )}
           </main>
-          <aside className="lenapp-side-right">{renderRightRail()}</aside>
+          {!writingFullWidth && <aside className="lenapp-side-right">{renderRightRail()}</aside>}
         </div>
       </div>
 
