@@ -1530,6 +1530,7 @@ export default function LenormandApp() {
   const [streamReplyDrafts, setStreamReplyDrafts] = React.useState({}); // postId -> Antwort-Entwurf
   const [streamReplyTo, setStreamReplyTo] = React.useState({}); // postId -> {id, name} Ziel-Antwort (für verschachtelte Antworten)
   const [streamRepliesExpanded, setStreamRepliesExpanded] = React.useState({}); // postId -> alle Antworten zeigen
+  const [streamPostExpanded, setStreamPostExpanded] = React.useState({}); // postId -> langer Beitragstext ausgeklappt
   const [showScrollTop, setShowScrollTop] = React.useState(false);
   React.useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);
@@ -5317,11 +5318,23 @@ export default function LenormandApp() {
                                   </div>
                                 )}
                                 <div style={{ fontSize:14, color:gold, marginBottom:5, fontWeight:"bold" }}>{ev.title}</div>
-                                {ev.body && !ev.isMatrix && (
-                                  <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6 }}>
-                                    {renderTextWithVideos(ev.body)}
-                                  </div>
-                                )}
+                                {ev.body && !ev.isMatrix && (() => {
+                                  const LIMIT = 400;
+                                  const expanded = streamPostExpanded[ev.post.id];
+                                  const long = ev.body.length > LIMIT;
+                                  const shown = (!long || expanded) ? ev.body : ev.body.slice(0, LIMIT).trimEnd() + "…";
+                                  return (
+                                    <div style={{ fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6 }}>
+                                      {renderTextWithVideos(shown)}
+                                      {long && (
+                                        <button onClick={() => setStreamPostExpanded(prev => ({...prev, [ev.post.id]: !expanded}))}
+                                          style={{ background:"transparent", border:"none", color:gold, cursor:"pointer", fontSize:11.5, fontFamily:"Georgia,serif", padding:0, marginTop:4, display:"block" }}>
+                                          {expanded ? "▲ weniger anzeigen" : "▼ mehr lesen"}
+                                        </button>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                                 {ev.isMatrix && ev.post?.matrix_data && (
                                   <div style={{ marginTop:10 }}>
                                     <ForumMatrixGrid data={ev.post.matrix_data} gold={gold} lightMode={lightMode} />
