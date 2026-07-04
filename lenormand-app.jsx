@@ -1542,6 +1542,7 @@ export default function LenormandApp() {
   // Kurse-Bereich: eigene States, gleiche Struktur wie Forum
   // Kategorie = Kurs, Beitrag = Lektion, Antworten = Fragen/Diskussion
   const [kurseCategories, setKurseCategories] = React.useState([]);
+  const [kurseMerkliste, setKurseMerkliste] = React.useState(new Set()); // category_ids in "Meine Kurse"
   const [kurseView, setKurseView] = React.useState("liste");
   const [kurseActiveCategory, setKurseActiveCategory] = React.useState(null);
   const [kursePosts, setKursePosts] = React.useState([]);
@@ -1773,6 +1774,58 @@ export default function LenormandApp() {
     } catch {}
   };
 
+  // Kurse umsortieren (Admin): tauscht sort_order mit dem Nachbarn und speichert beide.
+  const moveKurseCategory = async (catId, dir) => {
+    const idx = kurseCategories.findIndex(c => c.id === catId);
+    const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= kurseCategories.length) return;
+    const a = kurseCategories[idx], b = kurseCategories[swapIdx];
+    const aOrder = (a.sort_order != null) ? a.sort_order : idx;
+    const bOrder = (b.sort_order != null) ? b.sort_order : swapIdx;
+    const newList = kurseCategories.map(c =>
+      c.id === a.id ? { ...a, sort_order: bOrder } : c.id === b.id ? { ...b, sort_order: aOrder } : c
+    ).sort((x, y) => ((x.sort_order != null ? x.sort_order : 0) - (y.sort_order != null ? y.sort_order : 0)));
+    setKurseCategories(newList);
+    try {
+      await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${a.id}`, { method:"PATCH", headers: dbHeaders(), body: JSON.stringify({ sort_order: bOrder }) }),
+        fetch(`${SUPABASE_URL}/rest/v1/forum_categories?id=eq.${b.id}`, { method:"PATCH", headers: dbHeaders(), body: JSON.stringify({ sort_order: aOrder }) }),
+      ]);
+    } catch {}
+  };
+
+  // "Meine Kurse": Kurse, die man geöffnet (auto) oder per ★ angepinnt (manuell) hat.
+  const loadKurseMerkliste = async () => {
+    const uid = getUserId();
+    if (!uid) { setKurseMerkliste(new Set()); return; }
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/kurse_merkliste?user_id=eq.${uid}&select=category_id`, {headers: dbHeaders()});
+      const data = await r.json();
+      setKurseMerkliste(new Set(Array.isArray(data) ? data.map(x => x.category_id) : []));
+    } catch {}
+  };
+  const addKurseMerk = async (catId) => {
+    const uid = getUserId();
+    if (!uid || kurseMerkliste.has(catId)) return;
+    setKurseMerkliste(prev => new Set(prev).add(catId));
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/kurse_merkliste`, {
+        method:"POST", headers:{...dbHeaders(), "Prefer":"resolution=merge-duplicates"},
+        body: JSON.stringify({ user_id: uid, category_id: catId })
+      });
+    } catch {}
+  };
+  const toggleKurseMerk = async (catId) => {
+    const uid = getUserId();
+    if (!uid) return;
+    if (kurseMerkliste.has(catId)) {
+      setKurseMerkliste(prev => { const n = new Set(prev); n.delete(catId); return n; });
+      try { await fetch(`${SUPABASE_URL}/rest/v1/kurse_merkliste?user_id=eq.${uid}&category_id=eq.${catId}`, {method:"DELETE", headers:dbHeaders()}); } catch {}
+    } else {
+      addKurseMerk(catId);
+    }
+  };
+
   const loadKursePosts = async (categoryId) => {
     try {
       // Lektionen in fester Reihenfolge — älteste zuerst, damit Lektion 1 oben steht
@@ -1785,6 +1838,7 @@ export default function LenormandApp() {
   React.useEffect(() => {
     loadForumCategories();
     loadKurseCategories();
+    loadKurseMerkliste();
   }, [forumReadPostIds, session]);
 
   const loadForumPosts = async (categoryId) => {
@@ -1814,15 +1868,17 @@ export default function LenormandApp() {
     setForumStreamLoading(true);
     const q = (t, extra) => fetch(`${SUPABASE_URL}/rest/v1/${t}?${extra}`, { headers: dbHeaders(), cache: "no-store" }).then(r => r.json()).catch(() => []);
     try {
-      const [posts, replies, events, kurseCats] = await Promise.all([
+      const [posts, replies, events, cats] = await Promise.all([
         q("forum_posts", "select=id,title,body,display_name,user_id,category_id,created_at,matrix_data&order=created_at.desc&limit=25"),
         q("forum_replies", "select=id,post_id,body,display_name,user_id,created_at,reply_to_id&order=created_at.desc&limit=60"),
         q("activity_events", "select=id,user_id,display_name,kind,payload,created_at&order=created_at.desc&limit=20"),
-        q("forum_categories", "section=eq.kurse&select=id"),
+        q("forum_categories", "select=id,name,icon,section"),
       ]);
       const arr = x => Array.isArray(x) ? x : [];
-      // Kurs-Inhalte (nur für pro_full) dürfen NIE im öffentlichen Stream (für alle Member) auftauchen.
-      const kurseCatIds = new Set(arr(kurseCats).map(c => c.id));
+      // Kategorien frisch mitladen — sonst fallen manchmal Emojis raus (Timing-Race mit
+      // dem State), und die Section brauchen wir, um Kurs-Inhalte aus dem Stream zu filtern.
+      const catById = {}; arr(cats).forEach(c => { catById[c.id] = c; });
+      const kurseCatIds = new Set(arr(cats).filter(c => c.section === "kurse").map(c => c.id));
       const isKursePost = p => p && kurseCatIds.has(p.category_id);
       const postById = {};
       arr(posts).filter(p => !isKursePost(p)).forEach(p => { postById[p.id] = p; });
@@ -1834,8 +1890,8 @@ export default function LenormandApp() {
       // Antworten pro Beitrag gruppieren (älteste zuerst für die Anzeige)
       const repliesByPost = {};
       arr(replies).slice().reverse().forEach(r => { (repliesByPost[r.post_id] = repliesByPost[r.post_id] || []).push(r); });
-      const catName = id => { const c = forumCategories.find(c => c.id === id); return c ? c.name : ""; };
-      const catIcon = id => { const c = forumCategories.find(c => c.id === id); return c && c.icon ? c.icon : ""; };
+      const catName = id => (catById[id] && catById[id].name) || "";
+      const catIcon = id => (catById[id] && catById[id].icon) || "";
       const items = [];
       // Post-Karten mit Inline-Antworten + Bumping (die jüngste Aktivität bestimmt die Reihenfolge)
       Object.values(postById).forEach(p => {
@@ -1846,10 +1902,26 @@ export default function LenormandApp() {
       });
       // System-Ereignisse (Status, Highscore, neues Mitglied) als eigene Karten
       arr(events).forEach(e => items.push({ key: "e" + e.id, eventId: e.id, userId: e.user_id, kind: e.kind, actor: e.display_name || "Mitglied", when: e.created_at, sortWhen: e.created_at, payload: e.payload || {} }));
+      // Kommentare zu den Ereigniskarten frisch mitladen und die Karte anhand des
+      // jüngsten Kommentars nach oben holen (Bumping wie bei Beiträgen).
+      const eventIds = items.filter(i => i.eventId).map(i => i.eventId);
+      let commentsByEvent = {};
+      if (eventIds.length) {
+        const cms = await q("activity_comments", `event_id=in.(${eventIds.join(",")})&order=created_at.asc`);
+        arr(cms).forEach(c => { (commentsByEvent[c.event_id] = commentsByEvent[c.event_id] || []).push(c); });
+      }
+      setForumStreamComments(commentsByEvent);
+      items.forEach(it => {
+        if (it.eventId) {
+          const cl = commentsByEvent[it.eventId];
+          if (cl && cl.length) {
+            const last = cl[cl.length - 1].created_at;
+            if (new Date(last) > new Date(it.sortWhen)) it.sortWhen = last;
+          }
+        }
+      });
       items.sort((a, b) => new Date(b.sortWhen) - new Date(a.sortWhen));
-      const sliced = items.slice(0, 30);
-      setForumStream(sliced);
-      loadStreamComments(sliced.map(i => i.eventId).filter(Boolean));
+      setForumStream(items.slice(0, 30));
     } catch {}
     setForumStreamLoading(false);
   };
@@ -2007,14 +2079,23 @@ export default function LenormandApp() {
     const parentId = target ? target.id : null;
     setStreamCommentDrafts(prev => ({ ...prev, [eventId]: "" }));
     setStreamCommentReplyTo(prev => { const n = {...prev}; delete n[eventId]; return n; });
-    const optimistic = { id: "tmp-" + Date.now(), event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, created_at: new Date().toISOString(), parent_id: parentId };
+    const now = new Date().toISOString();
+    const optimistic = { id: "tmp-" + Date.now(), event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, created_at: now, parent_id: parentId };
     setForumStreamComments(prev => ({ ...prev, [eventId]: [...(prev[eventId] || []), optimistic] }));
+    // Ereigniskarte sofort nach oben holen (Bumping)
+    setForumStream(prev => {
+      const list = prev.map(it => it.eventId === eventId ? { ...it, sortWhen: now } : it);
+      list.sort((a, b) => new Date(b.sortWhen) - new Date(a.sortWhen));
+      return list;
+    });
     try {
       await fetch(`${SUPABASE_URL}/rest/v1/activity_comments`, {
         method: "POST", headers: {...dbHeaders(), "Prefer": "return=minimal"},
-        body: JSON.stringify({ event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, parent_id: parentId })
+        body: JSON.stringify({ event_id: eventId, user_id: uid, display_name: userDisplayName || "Mitglied", body: text, ...(parentId ? { parent_id: parentId } : {}) })
       });
     } catch {}
+    // Autoritativ nachladen: bestätigt Speicherung + Reihenfolge verlässlich.
+    loadForumStream();
   };
 
   // Rekursiv: einen Kommentar samt seiner Unter-Kommentare (verschachtelt) rendern.
@@ -5567,26 +5648,48 @@ export default function LenormandApp() {
                         Noch keine Kurse vorhanden — bald geht's los! 🌙
                       </div>
                     )}
-                    {kurseCategories.map(cat => (
-                      <div key={cat.id} onClick={() => { setKurseActiveCategory(cat); setKurseView("kategorie"); loadKursePosts(cat.id); }}
-                        style={{ display:"flex", alignItems:"center", gap:14, background:"rgba(200,169,110,0.03)", border:`1px solid rgba(200,169,110,0.2)`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
-                        <span style={{ fontSize:28, flexShrink:0 }}>{cat.icon || "🎓"}</span>
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:14, color:gold, marginBottom:3 }}>{cat.name}</div>
-                          {cat.description && <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{cat.description}</div>}
-                          <div style={{ fontSize:10, color:lightMode?"#2a0850":"#5a4a34", marginTop:3 }}>{cat.postCount || 0} {cat.postCount === 1 ? "Lektion" : "Lektionen"}</div>
+                    {(() => {
+                      const card = (cat, showReorder) => (
+                        <div key={cat.id} onClick={() => { addKurseMerk(cat.id); setKurseActiveCategory(cat); setKurseView("kategorie"); loadKursePosts(cat.id); }}
+                          style={{ display:"flex", alignItems:"center", gap:14, background:"rgba(200,169,110,0.03)", border:`1px solid rgba(200,169,110,0.2)`, borderRadius:10, padding:"14px 16px", marginBottom:10, cursor:"pointer" }}>
+                          <span style={{ fontSize:28, flexShrink:0 }}>{cat.icon || "🎓"}</span>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:14, color:gold, marginBottom:3 }}>{cat.name}</div>
+                            {cat.description && <div style={{ fontSize:11, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic" }}>{cat.description}</div>}
+                            <div style={{ fontSize:10, color:lightMode?"#2a0850":"#5a4a34", marginTop:3 }}>{cat.postCount || 0} {cat.postCount === 1 ? "Lektion" : "Lektionen"}</div>
+                          </div>
+                          <button onClick={e => { e.stopPropagation(); toggleKurseMerk(cat.id); }} title={kurseMerkliste.has(cat.id) ? "Aus meinen Kursen entfernen" : "Zu meinen Kursen"}
+                            style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:16, color: kurseMerkliste.has(cat.id) ? gold : (lightMode?"#9a8ab0":"#7a6a54"), flexShrink:0, lineHeight:1 }}>{kurseMerkliste.has(cat.id) ? "★" : "☆"}</button>
+                          {isAdmin && showReorder && (
+                            <div style={{ display:"flex", flexDirection:"column", flexShrink:0 }}>
+                              <button onClick={e => { e.stopPropagation(); moveKurseCategory(cat.id, "up"); }} title="nach oben"
+                                style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, lineHeight:1, padding:"1px 3px" }}>⬆</button>
+                              <button onClick={e => { e.stopPropagation(); moveKurseCategory(cat.id, "down"); }} title="nach unten"
+                                style={{ background:"transparent", border:"none", color:lightMode?"#6a4a90":"#9a8060", cursor:"pointer", fontSize:11, lineHeight:1, padding:"1px 3px" }}>⬇</button>
+                            </div>
+                          )}
+                          {isAdmin && (
+                            <button onClick={e => { e.stopPropagation(); setForumEditingCategoryId(cat.id); }} title="Kurs bearbeiten"
+                              style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
+                          )}
+                          {isAdmin && (
+                            <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kurs "${cat.name}" wirklich löschen?`)) deleteForumCategory(cat.id); }}
+                              style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
+                          )}
+                          <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontSize:16 }}>→</span>
                         </div>
-                        {isAdmin && (
-                          <button onClick={e => { e.stopPropagation(); setForumEditingCategoryId(cat.id); }} title="Kurs bearbeiten"
-                            style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12 }}>✎</button>
-                        )}
-                        {isAdmin && (
-                          <button onClick={e => { e.stopPropagation(); if(window.confirm(`Kurs "${cat.name}" wirklich löschen?`)) deleteForumCategory(cat.id); }}
-                            style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:14 }}>✕</button>
-                        )}
-                        <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontSize:16 }}>→</span>
-                      </div>
-                    ))}
+                      );
+                      const meine = kurseCategories.filter(c => kurseMerkliste.has(c.id));
+                      const weitere = kurseCategories.filter(c => !kurseMerkliste.has(c.id));
+                      return (<>
+                        {meine.length > 0 && (<>
+                          <div style={{ fontSize:10, letterSpacing:2, color:gold, textTransform:"uppercase", marginBottom:8 }}>★ Meine Kurse</div>
+                          {meine.map(cat => card(cat, false))}
+                          {weitere.length > 0 && <div style={{ fontSize:10, letterSpacing:2, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", margin:"20px 0 8px" }}>Alle Kurse</div>}
+                        </>)}
+                        {weitere.map(cat => card(cat, true))}
+                      </>);
+                    })()}
                   </div>
                 )}
 
