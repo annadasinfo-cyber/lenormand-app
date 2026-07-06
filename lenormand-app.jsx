@@ -1827,6 +1827,36 @@ export default function LenormandApp() {
     }
   };
 
+  // Ganzen Kurs (alle Lektionen) als sauberes Druck-Dokument öffnen und drucken.
+  const printKurs = () => {
+    const cat = kurseActiveCategory;
+    if (!cat) return;
+    const lessons = kursePosts || [];
+    const esc = s => (s == null ? "" : String(s)).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const nl2br = s => esc(s).replace(/\n/g, "<br>");
+    const lessonsHtml = lessons.map((l, i) => `
+      <div class="lesson"><h2>${i + 1}. ${esc(l.title)}</h2><div class="body">${nl2br(l.body)}</div></div>`).join("");
+    const html = `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><title>${esc(cat.name)}</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;color:#2a2a2a;max-width:720px;margin:0 auto;padding:32px;line-height:1.65}
+  h1{font-size:24px;color:#3a2a5a;border-bottom:2px solid #c8a96e;padding-bottom:12px;margin-bottom:4px}
+  .desc{font-style:italic;color:#666;margin-bottom:24px}
+  .lesson{page-break-inside:avoid;margin-bottom:26px}
+  h2{font-size:17px;color:#7a5c2e;margin:22px 0 6px}
+  .body{font-size:13px}
+  .foot{margin-top:40px;padding-top:12px;border-top:1px solid #ddd;font-size:10px;color:#999;text-align:center;letter-spacing:1px}
+</style></head><body>
+  <h1>${esc(cat.icon || "")} ${esc(cat.name)}</h1>
+  ${cat.description ? `<div class="desc">${esc(cat.description)}</div>` : ""}
+  ${lessonsHtml || "<p>Keine Lektionen.</p>"}
+  <div class="foot">LENORMANDIA · ${esc(cat.name)} · ${new Date().toLocaleDateString('de-DE')}</div>
+  <script>window.onload=function(){setTimeout(function(){window.print();},250);}</script>
+</body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+    else { alert("Bitte Pop-ups für diese Seite erlauben, um den Kurs zu drucken."); }
+  };
+
   const loadKursePosts = async (categoryId) => {
     try {
       // Lektionen in fester Reihenfolge — älteste zuerst, damit Lektion 1 oben steht
@@ -5735,6 +5765,15 @@ export default function LenormandApp() {
                       </div>
                       {kurseActiveCategory.description && <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", fontStyle:"italic", marginBottom:16 }}>{kurseActiveCategory.description}</div>}
                     </>)}
+
+                    {kursePosts.length > 0 && (
+                      <div style={{ marginBottom:16 }}>
+                        <button onClick={printKurs} title="Ganzen Kurs mit allen Lektionen drucken"
+                          style={{ background:lightMode?"rgba(200,168,224,0.14)":"rgba(200,169,110,0.08)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
+                          🖨️ Ganzen Kurs drucken
+                        </button>
+                      </div>
+                    )}
 
                     {isAdmin && (
                       <div style={{ marginBottom:16 }}>
