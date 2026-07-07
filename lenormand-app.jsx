@@ -1998,6 +1998,23 @@ export default function LenormandApp() {
   React.useEffect(() => {
     if ((view === "tagebuch" && dailyMode === "quest") || (view === "forum" && communityMode === "profil")) loadQuests();
   }, [view, dailyMode, communityMode, session]);
+  const deleteQuest = async (questId) => {
+    const uid = getUserId();
+    if (!uid) return;
+    try { await fetch(`${SUPABASE_URL}/rest/v1/quests?id=eq.${questId}`, { method:"DELETE", headers: dbHeaders() }); } catch {}
+    setQuestView("liste"); setActiveQuest(null);
+    await loadQuests();
+  };
+  const leaveQuest = async (questId) => {
+    const uid = getUserId();
+    if (!uid) return;
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/quest_days?quest_id=eq.${questId}&user_id=eq.${uid}`, { method:"DELETE", headers: dbHeaders() });
+      await fetch(`${SUPABASE_URL}/rest/v1/quest_participation?quest_id=eq.${questId}&user_id=eq.${uid}`, { method:"DELETE", headers: dbHeaders() });
+    } catch {}
+    setQuestView("liste"); setActiveQuest(null);
+    await loadQuests();
+  };
 
   React.useEffect(() => {
     loadForumCategories();
@@ -7581,6 +7598,15 @@ export default function LenormandApp() {
                         ))}
                       </div>
                     )}
+                    <div style={{ marginTop:24, paddingTop:14, borderTop:`1px solid ${lightMode?"rgba(200,168,224,0.2)":"rgba(200,169,110,0.1)"}`, textAlign:"center" }}>
+                      {activeQuest.owner_id === getUserId() ? (
+                        <button onClick={() => { if(window.confirm(`Quest „${activeQuest.title}" wirklich komplett löschen? Auch für alle, die mitmachen.`)) deleteQuest(activeQuest.id); }}
+                          style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>🗑 Quest löschen</button>
+                      ) : (
+                        <button onClick={() => { if(window.confirm(`Quest „${activeQuest.title}" verlassen? Dein Fortschritt geht dabei verloren.`)) leaveQuest(activeQuest.id); }}
+                          style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif" }}>Quest verlassen</button>
+                      )}
+                    </div>
                   </div>
                 );
               }
