@@ -1429,6 +1429,8 @@ export default function LenormandApp() {
   const [questDays, setQuestDays] = React.useState([]); // meine abgehakten Tage im aktiven Quest
   const [questReflectionDraft, setQuestReflectionDraft] = React.useState("");
   const [newQuestTitle, setNewQuestTitle] = React.useState("");
+  const [newQuestReward, setNewQuestReward] = React.useState("");
+  const [newQuestConsequence, setNewQuestConsequence] = React.useState("");
   const [newQuestDuration, setNewQuestDuration] = React.useState(30);
   const [questBusy, setQuestBusy] = React.useState(false);
   const [questProgress, setQuestProgress] = React.useState({}); // quest_id -> Anzahl abgehakter Tage (meine)
@@ -1915,9 +1917,10 @@ export default function LenormandApp() {
     if (!title) return;
     setQuestBusy(true);
     try {
+      const cheatDays = Math.max(1, Math.floor(newQuestDuration / 30));
       const r = await fetch(`${SUPABASE_URL}/rest/v1/quests`, {
         method:"POST", headers:{...dbHeaders(), "Prefer":"return=representation"},
-        body: JSON.stringify({ title, duration_days: newQuestDuration, owner_id: uid, display_name: userDisplayName || "Mitglied", is_template: false })
+        body: JSON.stringify({ title, duration_days: newQuestDuration, owner_id: uid, display_name: userDisplayName || "Mitglied", is_template: false, reward: newQuestReward.trim() || null, consequence: newQuestConsequence.trim() || null, cheat_days: cheatDays })
       });
       const data = await r.json();
       if (data && data[0]) {
@@ -1925,7 +1928,7 @@ export default function LenormandApp() {
           method:"POST", headers:{...dbHeaders(), "Prefer":"resolution=merge-duplicates"},
           body: JSON.stringify({ quest_id: data[0].id, user_id: uid, display_name: userDisplayName || "Mitglied" })
         });
-        setNewQuestTitle("");
+        setNewQuestTitle(""); setNewQuestReward(""); setNewQuestConsequence("");
         await loadQuests();
         openQuest(data[0]);
       }
@@ -1944,14 +1947,22 @@ export default function LenormandApp() {
       openQuest(quest);
     } catch {}
   };
-  const completeQuestDay = async () => {
+  const completeQuestDay = async (useCheat) => {
     const uid = getUserId();
     if (!uid || !activeQuest || questBusy) return;
     const nextDay = questDays.length + 1;
     if (nextDay > activeQuest.duration_days) return;
     const today = new Date().toISOString().slice(0,10);
-    if (questDays.some(d => (d.done_date||"").slice(0,10) === today)) {
+    const alreadyToday = questDays.some(d => (d.done_date||"").slice(0,10) === today);
+    const part = questParticipation.find(p => p.quest_id === activeQuest.id);
+    const cheatUsed = (part && part.cheat_used) || 0;
+    const cheatAllowed = activeQuest.cheat_days || 0;
+    if (alreadyToday && !useCheat) {
       alert("Heute hast du deinen Tag schon abgehakt. Morgen geht's weiter. 🌙");
+      return;
+    }
+    if (alreadyToday && useCheat && cheatUsed >= cheatAllowed) {
+      alert("Keine Schummeltage mehr übrig. 🙈");
       return;
     }
     setQuestBusy(true);
@@ -1961,6 +1972,11 @@ export default function LenormandApp() {
         body: JSON.stringify({ quest_id: activeQuest.id, user_id: uid, day_number: nextDay, done_date: today, reflection: questReflectionDraft.trim() || null })
       });
       setQuestReflectionDraft("");
+      if (alreadyToday && useCheat) {
+        await fetch(`${SUPABASE_URL}/rest/v1/quest_participation?quest_id=eq.${activeQuest.id}&user_id=eq.${uid}`, {
+          method:"PATCH", headers: dbHeaders(), body: JSON.stringify({ cheat_used: cheatUsed + 1 })
+        });
+      }
       fetch(`${SUPABASE_URL}/rest/v1/activity_events`, {
         method:"POST", headers:{...dbHeaders(), "Prefer":"return=minimal"},
         body: JSON.stringify({ user_id: uid, display_name: userDisplayName || "Mitglied", kind:"quest_day", payload:{ quest_title: activeQuest.title, day_number: nextDay, total: activeQuest.duration_days } })
@@ -4728,12 +4744,12 @@ export default function LenormandApp() {
       {/* Banner — nur für Gäste, Mitglieder und Test-Pro */}
       {!isProFull && !isAdmin && !isMod && (
       <div style={{ maxWidth:"100%", margin:"0 auto", padding:"10px 24px 0" }}>
-        <a href="https://www.amazon.de/s?k=lenormand+karten+bedeutung+lernen+anna+benoir" target="_blank" rel="noopener noreferrer" style={{ display:"block", textDecoration:"none" }}>
+        <a href="https://www.amazon.de/dp/B0H7VHK8PB" target="_blank" rel="noopener noreferrer" style={{ display:"block", textDecoration:"none" }}>
           <div style={{ width:"100%", height:90, borderRadius:8, overflow:"hidden", border:`1px solid ${lightMode?"rgba(100,50,140,0.2)":"rgba(200,169,110,0.15)"}`, background: lightMode?"linear-gradient(to right, #e8d8f8, #d0b8e8, #c8a8e0)":"linear-gradient(to right, #1a0a2a, #2a1040, #1a0a2a)", display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 24px", gap:16 }}>
             <div style={{ fontSize:22 }}>📚🐍✨</div>
             <div style={{ flex:1, textAlign:"center" }}>
-              <div style={{ fontSize:13, color:lightMode?"#3a1060":"#c8a96e", fontFamily:"Georgia,serif", letterSpacing:1, marginBottom:3 }}>Lenormand Karten Bedeutung Lernen</div>
-              <div style={{ fontSize:10, color:lightMode?"#6a3a8a":"#9a8060", letterSpacing:2, textTransform:"uppercase" }}>Ausmalen & Lernen · Jetzt bei Amazon</div>
+              <div style={{ fontSize:13, color:lightMode?"#3a1060":"#c8a96e", fontFamily:"Georgia,serif", letterSpacing:1, marginBottom:3 }}>Das Lenormand-Malbuch</div>
+              <div style={{ fontSize:10, color:lightMode?"#6a3a8a":"#9a8060", letterSpacing:2, textTransform:"uppercase" }}>Ausmalen & Lernen · NEU bei Amazon 🎉</div>
             </div>
             <div style={{ fontSize:11, color:lightMode?"#3a1060":"#c8a96e", fontFamily:"Georgia,serif", whiteSpace:"nowrap" }}>→ Amazon</div>
           </div>
@@ -7496,6 +7512,9 @@ export default function LenormandApp() {
                 const finished = done >= total;
                 const today = new Date().toISOString().slice(0,10);
                 const checkedToday = questDays.some(d => (d.done_date||"").slice(0,10) === today);
+                const part = questParticipation.find(p => p.quest_id === activeQuest.id);
+                const cheatUsed = (part && part.cheat_used) || 0;
+                const cheatLeft = Math.max(0, (activeQuest.cheat_days || 0) - cheatUsed);
                 return (
                   <div>
                     <button onClick={() => { setQuestView("liste"); setActiveQuest(null); loadQuests(); }} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Quests</button>
@@ -7520,6 +7539,13 @@ export default function LenormandApp() {
                         );
                       })}
                     </div>
+                    {(activeQuest.reward || activeQuest.consequence || (activeQuest.cheat_days||0) > 0) && (
+                      <div style={{ background:lightMode?"rgba(200,168,224,0.06)":"rgba(200,169,110,0.02)", border:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:12, padding:"12px 14px", marginBottom:18, fontSize:12, lineHeight:1.6, color:lightMode?"#2a0850":"#c8b89a" }}>
+                        {activeQuest.reward && <div style={{ marginBottom:6 }}>🎁 <b style={{color:gold}}>Preis:</b> {activeQuest.reward}</div>}
+                        {activeQuest.consequence && <div style={{ marginBottom:6 }}>⚡ <b style={{color:gold}}>Konsequenz:</b> {activeQuest.consequence}</div>}
+                        {(activeQuest.cheat_days||0) > 0 && <div style={{ fontSize:11, color:lightMode?"#6a4a90":"#9a8060" }}>🎭 Schummeltage: {cheatLeft} von {activeQuest.cheat_days} übrig</div>}
+                      </div>
+                    )}
                     {finished ? (
                       <div style={{ background:lightMode?"rgba(200,168,224,0.15)":"rgba(200,169,110,0.08)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, borderRadius:12, padding:"18px", textAlign:"center", marginBottom:20 }}>
                         <div style={{ fontSize:30, marginBottom:8 }}>🏅</div>
@@ -7527,14 +7553,20 @@ export default function LenormandApp() {
                         <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", marginTop:4 }}>Dein Badge liegt jetzt in deinem Profil. ✨</div>
                       </div>
                     ) : checkedToday ? (
-                      <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:20, textAlign:"center" }}>Tag {done} für heute erledigt. 🌙 Morgen geht's mit Tag {nextDay} weiter.</div>
+                      <div style={{ marginBottom:20, textAlign:"center" }}>
+                        <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:10 }}>Tag {done} für heute erledigt. 🌙 Morgen geht's mit Tag {nextDay} weiter.</div>
+                        {cheatLeft > 0 && (
+                          <button onClick={() => completeQuestDay(true)} disabled={questBusy}
+                            style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(200,168,224,0.5)":"rgba(200,169,110,0.3)"}`, color:lightMode?"#6a4a90":"#9a8060", padding:"7px 16px", borderRadius:8, cursor:"pointer", fontSize:11.5, fontFamily:"Georgia,serif" }}>🎭 Schummeltag nutzen ({cheatLeft} übrig)</button>
+                        )}
+                      </div>
                     ) : (
                       <div style={{ background:lightMode?"rgba(200,168,224,0.08)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.4)":"rgba(200,169,110,0.2)"}`, borderRadius:12, padding:"14px 16px", marginBottom:20 }}>
                         <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", marginBottom:8 }}>Tag {nextDay} · Wie war er? (optional)</div>
                         <textarea value={questReflectionDraft} onChange={e => setQuestReflectionDraft(e.target.value)} rows={3}
                           placeholder="Deine Reflexion zu diesem Tag…"
                           style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12.5, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6, marginBottom:10 }} />
-                        <button onClick={completeQuestDay} disabled={questBusy}
+                        <button onClick={() => completeQuestDay(false)} disabled={questBusy}
                           style={{ background:lightMode?"rgba(200,168,224,0.22)":"rgba(200,169,110,0.15)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"9px 22px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>✓ Tag {nextDay} abhaken</button>
                       </div>
                     )}
@@ -7567,6 +7599,15 @@ export default function LenormandApp() {
                           style={{ background:newQuestDuration===d?(lightMode?"rgba(200,168,224,0.22)":"rgba(200,169,110,0.15)"):"transparent", border:`1px solid ${newQuestDuration===d?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:newQuestDuration===d?gold:"#7a6040", padding:"8px 20px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>{d} Tage</button>
                       ))}
                     </div>
+                    <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", marginBottom:6 }}>🎁 Dein Preis, wenn du durchhältst:</div>
+                    <textarea value={newQuestReward} onChange={e => setNewQuestReward(e.target.value)} rows={2}
+                      placeholder="z. B. ein Wellness-Tag, das Buch, das ich mir gönne…"
+                      style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5, marginBottom:14 }} />
+                    <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", marginBottom:6 }}>⚡ Deine Konsequenz, wenn nicht: 😏</div>
+                    <textarea value={newQuestConsequence} onChange={e => setNewQuestConsequence(e.target.value)} rows={2}
+                      placeholder="z. B. eine Woche kein Netflix, 20 € in die Spardose…"
+                      style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5, marginBottom:14 }} />
+                    <div style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", fontStyle:"italic", margin:"0 0 8px" }}>🎭 Du bekommst {Math.max(1, Math.floor(newQuestDuration/30))} Schummeltag{Math.max(1, Math.floor(newQuestDuration/30))>1?"e":""} (einer pro 30 Tage) — für Tage, an denen das Leben dazwischenkommt.</div>
                     <div style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", fontStyle:"italic", marginBottom:16 }}>Das runde Logo zeigt vorerst die Initiale deines Titels — Bild-Upload kommt später.</div>
                     <button onClick={createQuest} disabled={questBusy || !newQuestTitle.trim()}
                       style={{ background:newQuestTitle.trim()?(lightMode?"rgba(200,168,224,0.22)":"rgba(200,169,110,0.15)"):"transparent", border:`1px solid ${newQuestTitle.trim()?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:newQuestTitle.trim()?gold:"#7a6040", padding:"10px 26px", borderRadius:8, cursor:newQuestTitle.trim()?"pointer":"default", fontSize:14, fontFamily:"Georgia,serif" }}>🎯 Quest starten</button>
