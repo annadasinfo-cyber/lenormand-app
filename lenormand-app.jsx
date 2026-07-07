@@ -1421,6 +1421,17 @@ export default function LenormandApp() {
   React.useEffect(() => { sessionStorage.setItem("lenni_dailyMode", dailyMode); }, [dailyMode]);
   React.useEffect(() => { sessionStorage.setItem("lenni_communityMode", communityMode); }, [communityMode]);
   const [writingView, setWritingView] = React.useState("projekt");
+  // Quest-Tracker (Habit-Tracker mit Reflexion + Badge)
+  const [quests, setQuests] = React.useState([]); // alle Quests (Vorlagen + eigene)
+  const [questParticipation, setQuestParticipation] = React.useState([]); // meine Teilnahmen
+  const [questView, setQuestView] = React.useState("liste"); // "liste" | "neu" | "detail"
+  const [activeQuest, setActiveQuest] = React.useState(null);
+  const [questDays, setQuestDays] = React.useState([]); // meine abgehakten Tage im aktiven Quest
+  const [questReflectionDraft, setQuestReflectionDraft] = React.useState("");
+  const [newQuestTitle, setNewQuestTitle] = React.useState("");
+  const [newQuestDuration, setNewQuestDuration] = React.useState(30);
+  const [questBusy, setQuestBusy] = React.useState(false);
+  const [questProgress, setQuestProgress] = React.useState({}); // quest_id -> Anzahl abgehakter Tage (meine)
   const [writingProjekt, setWritingProjekt] = React.useState("");
   const [writingBemerkung, setWritingBemerkung] = React.useState("");
   const [writingHook, setWritingHook] = React.useState("");
@@ -1865,6 +1876,112 @@ export default function LenormandApp() {
       if (Array.isArray(data)) setKursePosts(data);
     } catch {}
   };
+
+  // ── QUESTS (Habit-Tracker mit Reflexion + Badge) ──
+  const loadQuests = async () => {
+    const uid = getUserId();
+    try {
+      const [qr, pr, dr] = await Promise.all([
+        fetch(`${SUPABASE_URL}/rest/v1/quests?order=created_at.desc`, {headers: dbHeaders()}).then(r=>r.json()).catch(()=>[]),
+        uid ? fetch(`${SUPABASE_URL}/rest/v1/quest_participation?user_id=eq.${uid}`, {headers: dbHeaders()}).then(r=>r.json()).catch(()=>[]) : Promise.resolve([]),
+        uid ? fetch(`${SUPABASE_URL}/rest/v1/quest_days?user_id=eq.${uid}&select=quest_id`, {headers: dbHeaders()}).then(r=>r.json()).catch(()=>[]) : Promise.resolve([]),
+      ]);
+      setQuests(Array.isArray(qr) ? qr : []);
+      setQuestParticipation(Array.isArray(pr) ? pr : []);
+      const prog = {};
+      (Array.isArray(dr) ? dr : []).forEach(d => { prog[d.quest_id] = (prog[d.quest_id] || 0) + 1; });
+      setQuestProgress(prog);
+    } catch {}
+  };
+  const loadQuestDays = async (questId) => {
+    const uid = getUserId();
+    if (!uid) { setQuestDays([]); return; }
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/quest_days?quest_id=eq.${questId}&user_id=eq.${uid}&order=day_number.asc`, {headers: dbHeaders()});
+      const data = await r.json();
+      setQuestDays(Array.isArray(data) ? data : []);
+    } catch {}
+  };
+  const openQuest = (quest) => {
+    setActiveQuest(quest);
+    setQuestView("detail");
+    setQuestReflectionDraft("");
+    loadQuestDays(quest.id);
+  };
+  const createQuest = async () => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    const title = newQuestTitle.trim();
+    if (!title) return;
+    setQuestBusy(true);
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/quests`, {
+        method:"POST", headers:{...dbHeaders(), "Prefer":"return=representation"},
+        body: JSON.stringify({ title, duration_days: newQuestDuration, owner_id: uid, display_name: userDisplayName || "Mitglied", is_template: false })
+      });
+      const data = await r.json();
+      if (data && data[0]) {
+        await fetch(`${SUPABASE_URL}/rest/v1/quest_participation`, {
+          method:"POST", headers:{...dbHeaders(), "Prefer":"resolution=merge-duplicates"},
+          body: JSON.stringify({ quest_id: data[0].id, user_id: uid, display_name: userDisplayName || "Mitglied" })
+        });
+        setNewQuestTitle("");
+        await loadQuests();
+        openQuest(data[0]);
+      }
+    } catch {}
+    setQuestBusy(false);
+  };
+  const joinQuest = async (quest) => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/quest_participation`, {
+        method:"POST", headers:{...dbHeaders(), "Prefer":"resolution=merge-duplicates"},
+        body: JSON.stringify({ quest_id: quest.id, user_id: uid, display_name: userDisplayName || "Mitglied" })
+      });
+      await loadQuests();
+      openQuest(quest);
+    } catch {}
+  };
+  const completeQuestDay = async () => {
+    const uid = getUserId();
+    if (!uid || !activeQuest || questBusy) return;
+    const nextDay = questDays.length + 1;
+    if (nextDay > activeQuest.duration_days) return;
+    const today = new Date().toISOString().slice(0,10);
+    if (questDays.some(d => (d.done_date||"").slice(0,10) === today)) {
+      alert("Heute hast du deinen Tag schon abgehakt. Morgen geht's weiter. 🌙");
+      return;
+    }
+    setQuestBusy(true);
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/quest_days`, {
+        method:"POST", headers:{...dbHeaders(), "Prefer":"return=minimal"},
+        body: JSON.stringify({ quest_id: activeQuest.id, user_id: uid, day_number: nextDay, done_date: today, reflection: questReflectionDraft.trim() || null })
+      });
+      setQuestReflectionDraft("");
+      fetch(`${SUPABASE_URL}/rest/v1/activity_events`, {
+        method:"POST", headers:{...dbHeaders(), "Prefer":"return=minimal"},
+        body: JSON.stringify({ user_id: uid, display_name: userDisplayName || "Mitglied", kind:"quest_day", payload:{ quest_title: activeQuest.title, day_number: nextDay, total: activeQuest.duration_days } })
+      }).catch(()=>{});
+      if (nextDay === activeQuest.duration_days) {
+        await fetch(`${SUPABASE_URL}/rest/v1/quest_participation?quest_id=eq.${activeQuest.id}&user_id=eq.${uid}`, {
+          method:"PATCH", headers: dbHeaders(), body: JSON.stringify({ badge_awarded: true })
+        });
+        fetch(`${SUPABASE_URL}/rest/v1/activity_events`, {
+          method:"POST", headers:{...dbHeaders(), "Prefer":"return=minimal"},
+          body: JSON.stringify({ user_id: uid, display_name: userDisplayName || "Mitglied", kind:"quest_done", payload:{ quest_title: activeQuest.title, total: activeQuest.duration_days } })
+        }).catch(()=>{});
+      }
+      await loadQuestDays(activeQuest.id);
+      await loadQuests();
+    } catch {}
+    setQuestBusy(false);
+  };
+  React.useEffect(() => {
+    if ((view === "tagebuch" && dailyMode === "quest") || (view === "forum" && communityMode === "profil")) loadQuests();
+  }, [view, dailyMode, communityMode, session]);
 
   React.useEffect(() => {
     loadForumCategories();
@@ -5144,6 +5261,25 @@ export default function LenormandApp() {
                       style={{ background:"rgba(200,169,110,0.12)", border:`1px solid ${gold}`, color:gold, padding:"8px 20px", borderRadius:7, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>
                       ✎ Profil bearbeiten
                     </button>
+                    {(() => {
+                      const badges = questParticipation.filter(p => p.badge_awarded).map(p => quests.find(q => q.id === p.quest_id)).filter(Boolean);
+                      if (!badges.length) return null;
+                      return (
+                        <div style={{ marginTop:24, paddingTop:18, borderTop:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.15)"}` }}>
+                          <div style={{ fontSize:10, letterSpacing:2, color:gold, textTransform:"uppercase", marginBottom:12 }}>🏅 Errungene Badges</div>
+                          <div style={{ display:"flex", flexWrap:"wrap", gap:12, justifyContent:"center" }}>
+                            {badges.map(q => (
+                              <div key={q.id} style={{ width:64, textAlign:"center" }}>
+                                <div style={{ width:52, height:52, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`2px solid ${lightMode?"#c8a8e0":gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:gold, fontFamily:"Georgia,serif", margin:"0 auto 4px", overflow:"hidden" }}>
+                                  {q.image_url ? <img src={q.image_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : (q.title||"?").trim().charAt(0).toUpperCase()}
+                                </div>
+                                <div style={{ fontSize:9, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.2 }}>{q.title}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -5303,7 +5439,7 @@ export default function LenormandApp() {
                       <div style={{ textAlign:"center", color:lightMode?"#2a0850":"#7a6040", fontSize:13, padding:"30px 0" }}>Noch keine Aktivität. Sei die Erste! ✨</div>
                     )}
                     {forumStream.map(ev => {
-                      const icon = ev.kind === "post" ? (ev.isMatrix ? "🃏" : (ev.categoryIcon || "🕯️")) : ev.kind === "reply" ? "💬" : ev.kind === "like" ? "⭐" : ev.kind === "member" ? "🌱" : ev.kind === "quiz_highscore" ? "🏆" : ev.kind === "status" ? "🌸" : "✨";
+                      const icon = ev.kind === "post" ? (ev.isMatrix ? "🃏" : (ev.categoryIcon || "🕯️")) : ev.kind === "reply" ? "💬" : ev.kind === "like" ? "⭐" : ev.kind === "member" ? "🌱" : ev.kind === "quiz_highscore" ? "🏆" : ev.kind === "status" ? "🌸" : ev.kind === "quest_day" ? "🎯" : ev.kind === "quest_done" ? "🏅" : "✨";
                       const openTarget = () => {
                         if (ev.kind === "post" && ev.post) { const cat = forumCategories.find(c => c.id === ev.post.category_id); setForumActiveCategory(cat || {id: ev.post.category_id}); openForumPost(ev.post); }
                         else if (ev.postId) { loadAndOpenPostById(ev.postId); }
@@ -5317,6 +5453,8 @@ export default function LenormandApp() {
                       else if (ev.kind === "member") headline = <>ist neu dabei 🌱</>;
                       else if (ev.kind === "quiz_highscore") headline = <>hat einen neuen Highscore: <span style={{color:gold}}>{ev.payload?.score}</span>{ev.payload?.mode ? <> ({quizModeLabel[ev.payload.mode] || ev.payload.mode})</> : ""}</>;
                       else if (ev.kind === "status") headline = <>schreibt:</>;
+                      else if (ev.kind === "quest_day") headline = <>hat Tag <span style={{color:gold}}>{ev.payload?.day_number}</span> im Quest <span style={{color:gold}}>„{ev.payload?.quest_title}"</span> geschafft{ev.payload?.total ? <> (von {ev.payload.total})</> : ""}</>;
+                      else if (ev.kind === "quest_done") headline = <>hat den Quest <span style={{color:gold}}>„{ev.payload?.quest_title}"</span> abgeschlossen 🏅</>;
                       else headline = <>hat etwas getan</>;
                       return (
                         <div key={ev.key}
@@ -7341,12 +7479,139 @@ export default function LenormandApp() {
 
         {/* ── QUEST (Platzhalter) ── */}
         {view === "tagebuch" && dailyMode === "quest" && (
-          <div style={{ paddingBottom:30, minHeight:220, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", textAlign:"center" }}>
-            <div style={{ fontSize:40, marginBottom:14 }}>🎯</div>
-            <div style={{ fontSize:10, letterSpacing:4, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:12 }}>Quest</div>
-            <div style={{ fontSize:14, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.8, fontStyle:"italic", maxWidth:420, margin:"0 auto" }}>
-              Diese Abteilung wird gerade neu gedacht.<br/>Bald findest du hier etwas Frisches. ✨
-            </div>
+          <div style={{ paddingBottom:30 }}>
+            {(() => {
+              const joinedIds = new Set(questParticipation.map(p => p.quest_id));
+              const initial = q => (q.title || "?").trim().charAt(0).toUpperCase() || "?";
+              const logo = (q, size) => (
+                <div style={{ width:size, height:size, borderRadius:"50%", background:"rgba(200,169,110,0.12)", border:`2px solid ${lightMode?"#c8a8e0":gold}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.42, color:gold, fontFamily:"Georgia,serif", flexShrink:0, overflow:"hidden" }}>
+                  {q.image_url ? <img src={q.image_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/> : initial(q)}
+                </div>
+              );
+
+              if (questView === "detail" && activeQuest) {
+                const done = questDays.length;
+                const total = activeQuest.duration_days;
+                const nextDay = done + 1;
+                const finished = done >= total;
+                const today = new Date().toISOString().slice(0,10);
+                const checkedToday = questDays.some(d => (d.done_date||"").slice(0,10) === today);
+                return (
+                  <div>
+                    <button onClick={() => { setQuestView("liste"); setActiveQuest(null); loadQuests(); }} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück zu den Quests</button>
+                    <div style={{ display:"flex", alignItems:"center", gap:14, marginBottom:16 }}>
+                      {logo(activeQuest, 64)}
+                      <div>
+                        <div style={{ fontSize:18, color:gold, fontWeight:"bold" }}>{activeQuest.title}</div>
+                        <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060" }}>{total} Tage · {done}/{total} geschafft {finished && "· 🏅"}</div>
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginBottom:20 }}>
+                      {Array.from({length: total}, (_, i) => i+1).map(n => {
+                        const isDone = n <= done;
+                        const isNext = n === nextDay && !finished;
+                        return (
+                          <div key={n} style={{ width:30, height:30, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontFamily:"Georgia,serif",
+                            background: isDone ? (lightMode?"rgba(200,168,224,0.5)":"rgba(200,169,110,0.25)") : "transparent",
+                            border:`1px solid ${isNext ? gold : (lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)")}`,
+                            color: isDone ? gold : (lightMode?"#6a4a90":"#7a6040"), fontWeight: isNext?"bold":"normal" }}>
+                            {isDone ? "✓" : n}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {finished ? (
+                      <div style={{ background:lightMode?"rgba(200,168,224,0.15)":"rgba(200,169,110,0.08)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, borderRadius:12, padding:"18px", textAlign:"center", marginBottom:20 }}>
+                        <div style={{ fontSize:30, marginBottom:8 }}>🏅</div>
+                        <div style={{ fontSize:14, color:gold }}>Geschafft! Alle {total} Tage.</div>
+                        <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", marginTop:4 }}>Dein Badge liegt jetzt in deinem Profil. ✨</div>
+                      </div>
+                    ) : checkedToday ? (
+                      <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:20, textAlign:"center" }}>Tag {done} für heute erledigt. 🌙 Morgen geht's mit Tag {nextDay} weiter.</div>
+                    ) : (
+                      <div style={{ background:lightMode?"rgba(200,168,224,0.08)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.4)":"rgba(200,169,110,0.2)"}`, borderRadius:12, padding:"14px 16px", marginBottom:20 }}>
+                        <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", marginBottom:8 }}>Tag {nextDay} · Wie war er? (optional)</div>
+                        <textarea value={questReflectionDraft} onChange={e => setQuestReflectionDraft(e.target.value)} rows={3}
+                          placeholder="Deine Reflexion zu diesem Tag…"
+                          style={{ width:"100%", padding:"8px 10px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:12.5, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6, marginBottom:10 }} />
+                        <button onClick={completeQuestDay} disabled={questBusy}
+                          style={{ background:lightMode?"rgba(200,168,224,0.22)":"rgba(200,169,110,0.15)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"9px 22px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>✓ Tag {nextDay} abhaken</button>
+                      </div>
+                    )}
+                    {questDays.filter(d => d.reflection).length > 0 && (
+                      <div>
+                        <div style={{ fontSize:10, letterSpacing:2, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", marginBottom:10 }}>Rückblick</div>
+                        {questDays.slice().reverse().filter(d => d.reflection).map(d => (
+                          <div key={d.id} style={{ marginBottom:10, paddingBottom:10, borderBottom:`1px solid ${lightMode?"rgba(200,168,224,0.2)":"rgba(200,169,110,0.1)"}` }}>
+                            <div style={{ fontSize:10, color:gold, marginBottom:2 }}>Tag {d.day_number} · {new Date(d.done_date).toLocaleDateString('de-DE')}</div>
+                            <div style={{ fontSize:12, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6 }}>{d.reflection}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (questView === "neu") {
+                return (
+                  <div>
+                    <button onClick={() => setQuestView("liste")} style={{ background:"transparent", border:"none", color:lightMode?"#2a0850":"#9a8060", cursor:"pointer", fontSize:12, marginBottom:14, padding:0, fontFamily:"Georgia,serif" }}>← zurück</button>
+                    <div style={{ fontSize:16, color:gold, marginBottom:16 }}>Neuen Quest anlegen</div>
+                    <input value={newQuestTitle} onChange={e => setNewQuestTitle(e.target.value)} placeholder={'Titel (z. B. „30 Tage Morgenritual")'}
+                      style={{ width:"100%", padding:"10px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box", marginBottom:16 }} />
+                    <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", marginBottom:8 }}>Dauer wählen:</div>
+                    <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+                      {[10,30,90].map(d => (
+                        <button key={d} onClick={() => setNewQuestDuration(d)}
+                          style={{ background:newQuestDuration===d?(lightMode?"rgba(200,168,224,0.22)":"rgba(200,169,110,0.15)"):"transparent", border:`1px solid ${newQuestDuration===d?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:newQuestDuration===d?gold:"#7a6040", padding:"8px 20px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>{d} Tage</button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", fontStyle:"italic", marginBottom:16 }}>Das runde Logo zeigt vorerst die Initiale deines Titels — Bild-Upload kommt später.</div>
+                    <button onClick={createQuest} disabled={questBusy || !newQuestTitle.trim()}
+                      style={{ background:newQuestTitle.trim()?(lightMode?"rgba(200,168,224,0.22)":"rgba(200,169,110,0.15)"):"transparent", border:`1px solid ${newQuestTitle.trim()?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:newQuestTitle.trim()?gold:"#7a6040", padding:"10px 26px", borderRadius:8, cursor:newQuestTitle.trim()?"pointer":"default", fontSize:14, fontFamily:"Georgia,serif" }}>🎯 Quest starten</button>
+                  </div>
+                );
+              }
+
+              const meine = quests.filter(q => joinedIds.has(q.id));
+              const andere = quests.filter(q => !joinedIds.has(q.id));
+              const row = (q, joined) => {
+                const prog = questProgress[q.id] || 0;
+                const part = questParticipation.find(p => p.quest_id === q.id);
+                return (
+                  <div key={q.id} onClick={() => joined ? openQuest(q) : null}
+                    style={{ display:"flex", alignItems:"center", gap:12, background:"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:12, padding:"12px 14px", marginBottom:10, cursor: joined?"pointer":"default" }}>
+                    {logo(q, 44)}
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:14, color:gold }}>{q.title}</div>
+                      <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>{q.duration_days} Tage{joined ? ` · Tag ${prog}/${q.duration_days}` : ""}{part && part.badge_awarded ? " · 🏅" : ""}</div>
+                    </div>
+                    {joined
+                      ? <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontSize:16 }}>→</span>
+                      : <button onClick={e => { e.stopPropagation(); joinQuest(q); }} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:11, fontFamily:"Georgia,serif", flexShrink:0 }}>Beitreten</button>}
+                  </div>
+                );
+              };
+              return (
+                <div>
+                  <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+                    <div style={{ fontSize:11, letterSpacing:2, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase" }}>🎯 Quests</div>
+                    {!isGuest && <button onClick={() => { setNewQuestTitle(""); setNewQuestDuration(30); setQuestView("neu"); }} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>+ Neuer Quest</button>}
+                  </div>
+                  {isGuest && <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:16 }}>Melde dich an, um Quests zu starten und mitzumachen.</div>}
+                  {meine.length > 0 && (<>
+                    <div style={{ fontSize:10, letterSpacing:2, color:gold, textTransform:"uppercase", marginBottom:8 }}>Meine Quests</div>
+                    {meine.map(q => row(q, true))}
+                  </>)}
+                  {andere.length > 0 && (<>
+                    <div style={{ fontSize:10, letterSpacing:2, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase", margin:"20px 0 8px" }}>Entdecken</div>
+                    {andere.map(q => row(q, false))}
+                  </>)}
+                  {quests.length === 0 && <div style={{ fontSize:13, color:lightMode?"#2a0850":"#9a8060", textAlign:"center", padding:"30px 0", fontStyle:"italic" }}>Noch keine Quests. Leg den ersten an! ✨</div>}
+                </div>
+              );
+            })()}
           </div>
         )}
 
