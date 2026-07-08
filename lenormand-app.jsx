@@ -1429,11 +1429,13 @@ export default function LenormandApp() {
   const [questDays, setQuestDays] = React.useState([]); // meine abgehakten Tage im aktiven Quest
   const [questReflectionDraft, setQuestReflectionDraft] = React.useState("");
   const [newQuestTitle, setNewQuestTitle] = React.useState("");
+  const [newQuestDescription, setNewQuestDescription] = React.useState("");
   const [newQuestReward, setNewQuestReward] = React.useState("");
   const [newQuestConsequence, setNewQuestConsequence] = React.useState("");
   const [newQuestDuration, setNewQuestDuration] = React.useState(30);
   const [questBusy, setQuestBusy] = React.useState(false);
   const [questProgress, setQuestProgress] = React.useState({}); // quest_id -> Anzahl abgehakter Tage (meine)
+  const [questCounts, setQuestCounts] = React.useState({}); // quest_id -> Anzahl Teilnehmer gesamt
   const [writingProjekt, setWritingProjekt] = React.useState("");
   const [writingBemerkung, setWritingBemerkung] = React.useState("");
   const [writingHook, setWritingHook] = React.useState("");
@@ -1883,16 +1885,20 @@ export default function LenormandApp() {
   const loadQuests = async () => {
     const uid = getUserId();
     try {
-      const [qr, pr, dr] = await Promise.all([
+      const [qr, pr, dr, cr] = await Promise.all([
         fetch(`${SUPABASE_URL}/rest/v1/quests?order=created_at.desc`, {headers: dbHeaders()}).then(r=>r.json()).catch(()=>[]),
         uid ? fetch(`${SUPABASE_URL}/rest/v1/quest_participation?user_id=eq.${uid}`, {headers: dbHeaders()}).then(r=>r.json()).catch(()=>[]) : Promise.resolve([]),
         uid ? fetch(`${SUPABASE_URL}/rest/v1/quest_days?user_id=eq.${uid}&select=quest_id`, {headers: dbHeaders()}).then(r=>r.json()).catch(()=>[]) : Promise.resolve([]),
+        fetch(`${SUPABASE_URL}/rest/v1/quest_participation?select=quest_id`, {headers: dbHeaders()}).then(r=>r.json()).catch(()=>[]),
       ]);
       setQuests(Array.isArray(qr) ? qr : []);
       setQuestParticipation(Array.isArray(pr) ? pr : []);
       const prog = {};
       (Array.isArray(dr) ? dr : []).forEach(d => { prog[d.quest_id] = (prog[d.quest_id] || 0) + 1; });
       setQuestProgress(prog);
+      const counts = {};
+      (Array.isArray(cr) ? cr : []).forEach(p => { counts[p.quest_id] = (counts[p.quest_id] || 0) + 1; });
+      setQuestCounts(counts);
     } catch {}
   };
   const loadQuestDays = async (questId) => {
@@ -1920,7 +1926,7 @@ export default function LenormandApp() {
       const cheatDays = Math.max(1, Math.floor(newQuestDuration / 30));
       const r = await fetch(`${SUPABASE_URL}/rest/v1/quests`, {
         method:"POST", headers:{...dbHeaders(), "Prefer":"return=representation"},
-        body: JSON.stringify({ title, duration_days: newQuestDuration, owner_id: uid, display_name: userDisplayName || "Mitglied", is_template: false, reward: newQuestReward.trim() || null, consequence: newQuestConsequence.trim() || null, cheat_days: cheatDays })
+        body: JSON.stringify({ title, description: newQuestDescription.trim() || null, duration_days: newQuestDuration, owner_id: uid, display_name: userDisplayName || "Mitglied", is_template: false, reward: newQuestReward.trim() || null, consequence: newQuestConsequence.trim() || null, cheat_days: cheatDays })
       });
       const data = await r.json();
       if (data && data[0]) {
@@ -1928,7 +1934,7 @@ export default function LenormandApp() {
           method:"POST", headers:{...dbHeaders(), "Prefer":"resolution=merge-duplicates"},
           body: JSON.stringify({ quest_id: data[0].id, user_id: uid, display_name: userDisplayName || "Mitglied" })
         });
-        setNewQuestTitle(""); setNewQuestReward(""); setNewQuestConsequence("");
+        setNewQuestTitle(""); setNewQuestDescription(""); setNewQuestReward(""); setNewQuestConsequence("");
         await loadQuests();
         openQuest(data[0]);
       }
@@ -4625,17 +4631,17 @@ export default function LenormandApp() {
             transform:"translate(-50%,-50%)",
             textAlign:"center",
             animation:"recordPulse 0.6s ease-in-out infinite",
-            background:"rgba(8,5,18,0.85)",
-            border:"2px solid #c8a96e",
+            background: lightMode ? "rgba(244,236,250,0.97)" : "rgba(8,5,18,0.85)",
+            border:`2px solid ${lightMode ? "#c8a8e0" : "#c8a96e"}`,
             borderRadius:16,
             padding:"24px 40px",
-            boxShadow:"0 0 40px rgba(200,169,110,0.4)"
+            boxShadow: lightMode ? "0 0 40px rgba(200,168,224,0.45)" : "0 0 40px rgba(200,169,110,0.4)"
           }}>
             <div style={{ fontSize:40, marginBottom:8 }}>🏆</div>
-            <div style={{ fontSize:22, color:"#c8a96e", fontFamily:"Georgia,serif", letterSpacing:2, marginBottom:4 }}>
+            <div style={{ fontSize:22, color: lightMode ? "#2a0850" : "#c8a96e", fontFamily:"Georgia,serif", letterSpacing:2, marginBottom:4 }}>
               NEUER REKORD!
             </div>
-            <div style={{ fontSize:13, color:"#a09070", fontFamily:"Georgia,serif" }}>
+            <div style={{ fontSize:13, color: lightMode ? "#6a4a90" : "#a09070", fontFamily:"Georgia,serif" }}>
               {quizMode === "kombis" ? "Kombinationen" : quizMode === "zeit" ? "Zeitrahmen" : "Personen"}
             </div>
           </div>
@@ -7542,6 +7548,11 @@ export default function LenormandApp() {
                         <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060" }}>{total} Tage · {done}/{total} geschafft {finished && "· 🏅"}</div>
                       </div>
                     </div>
+                    {activeQuest.description && (
+                      <div style={{ background:lightMode?"rgba(200,168,224,0.08)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.35)":"rgba(200,169,110,0.18)"}`, borderRadius:10, padding:"12px 14px", marginBottom:16, fontSize:12.5, color:lightMode?"#2a0850":"#c8b89a", lineHeight:1.6 }}>
+                        <b style={{color:gold}}>📋 Tägliche Aufgabe:</b> {activeQuest.description}
+                      </div>
+                    )}
                     <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginBottom:20 }}>
                       {Array.from({length: total}, (_, i) => i+1).map(n => {
                         const isDone = n <= done;
@@ -7625,6 +7636,10 @@ export default function LenormandApp() {
                           style={{ background:newQuestDuration===d?(lightMode?"rgba(200,168,224,0.22)":"rgba(200,169,110,0.15)"):"transparent", border:`1px solid ${newQuestDuration===d?(lightMode?"#c8a8e0":gold):"rgba(200,169,110,0.2)"}`, color:newQuestDuration===d?gold:"#7a6040", padding:"8px 20px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>{d} Tage</button>
                       ))}
                     </div>
+                    <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", marginBottom:6 }}>📋 Was muss man tun, um einen Tag abzuschließen?</div>
+                    <textarea value={newQuestDescription} onChange={e => setNewQuestDescription(e.target.value)} rows={2}
+                      placeholder="z. B. 10 Minuten meditieren · ein Glas Wasser mehr · eine Seite schreiben…"
+                      style={{ width:"100%", padding:"9px 12px", background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:8, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.5, marginBottom:14 }} />
                     <div style={{ fontSize:12, color:lightMode?"#2a0850":"#7a6040", marginBottom:6 }}>🎁 Dein Preis, wenn du durchhältst:</div>
                     <textarea value={newQuestReward} onChange={e => setNewQuestReward(e.target.value)} rows={2}
                       placeholder="z. B. ein Wellness-Tag, das Buch, das ich mir gönne…"
@@ -7652,7 +7667,7 @@ export default function LenormandApp() {
                     {logo(q, 44)}
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ fontSize:14, color:gold }}>{q.title}</div>
-                      <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>{q.duration_days} Tage{joined ? ` · Tag ${prog}/${q.duration_days}` : ""}{part && part.badge_awarded ? " · 🏅" : ""}</div>
+                      <div style={{ fontSize:11, color:lightMode?"#2a0850":"#9a8060" }}>{q.duration_days} Tage{joined ? ` · Tag ${prog}/${q.duration_days}` : ""} · {(questCounts[q.id] || 0)} dabei{part && part.badge_awarded ? " · 🏅" : ""}</div>
                     </div>
                     {joined
                       ? <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontSize:16 }}>→</span>
@@ -7664,9 +7679,14 @@ export default function LenormandApp() {
                 <div>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
                     <div style={{ fontSize:11, letterSpacing:2, color:lightMode?"#2a0850":"#7a6040", textTransform:"uppercase" }}>🎯 Quests</div>
-                    {!isGuest && <button onClick={() => { setNewQuestTitle(""); setNewQuestDuration(30); setQuestView("neu"); }} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>+ Neuer Quest</button>}
+                    {!isGuest && <button onClick={() => { setNewQuestTitle(""); setNewQuestDescription(""); setNewQuestReward(""); setNewQuestConsequence(""); setNewQuestDuration(30); setQuestView("neu"); }} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"6px 14px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>+ Neuer Quest</button>}
                   </div>
                   {isGuest && <div style={{ fontSize:12, color:lightMode?"#2a0850":"#9a8060", fontStyle:"italic", marginBottom:16 }}>Melde dich an, um Quests zu starten und mitzumachen.</div>}
+                  <div style={{ background:lightMode?"rgba(200,168,224,0.08)":"rgba(200,169,110,0.03)", border:`1px solid ${lightMode?"rgba(200,168,224,0.3)":"rgba(200,169,110,0.15)"}`, borderRadius:12, padding:"14px 16px", marginBottom:20, fontSize:11.5, color:lightMode?"#2a0850":"#9a8060", lineHeight:1.7 }}>
+                    🎁 Deinen <b>Preis</b> schenkst du dir selbst — als Belohnung fürs Durchhalten.<br/>
+                    🤝 Trittst du einer Quest bei, gelten die <b>Konsequenzen der Gründerin/des Gründers</b>.<br/>
+                    👀 Legst du selbst eine an, denk dran: <b>jeder kann die Konsequenz lesen</b> — halt sie machbar, wenn du willst, dass Leute mitmachen. 😄
+                  </div>
                   {meine.length > 0 && (<>
                     <div style={{ fontSize:10, letterSpacing:2, color:gold, textTransform:"uppercase", marginBottom:8 }}>Meine Quests</div>
                     {meine.map(q => row(q, true))}
