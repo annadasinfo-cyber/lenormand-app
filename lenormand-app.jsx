@@ -1546,6 +1546,7 @@ export default function LenormandApp() {
   const [streamReplyTo, setStreamReplyTo] = React.useState({}); // postId -> {id, name} Ziel-Antwort (für verschachtelte Antworten)
   const [streamRepliesExpanded, setStreamRepliesExpanded] = React.useState({}); // postId -> alle Antworten zeigen
   const [streamPostExpanded, setStreamPostExpanded] = React.useState({}); // postId -> langer Beitragstext ausgeklappt
+  const [streamLikes, setStreamLikes] = React.useState({}); // targetId -> {count, mine}
   const [showScrollTop, setShowScrollTop] = React.useState(false);
   React.useEffect(() => {
     const onScroll = () => setShowScrollTop(window.scrollY > 400);
@@ -2108,7 +2109,22 @@ export default function LenormandApp() {
         }
       });
       items.sort((a, b) => new Date(b.sortWhen) - new Date(a.sortWhen));
-      setForumStream(items.slice(0, 30));
+      const sliced = items.slice(0, 30);
+      setForumStream(sliced);
+      // Likes (Sternchen) für alle sichtbaren Karten laden
+      const targetIds = sliced.map(it => it.post ? it.post.id : it.eventId).filter(Boolean);
+      let likeMap = {};
+      if (targetIds.length) {
+        const lk = await q("stream_likes", `target_id=in.(${targetIds.join(",")})&select=target_id,user_id`);
+        const myUid = getUserId();
+        arr(lk).forEach(l => {
+          const m = likeMap[l.target_id] || { count:0, mine:false };
+          m.count++;
+          if (myUid && l.user_id === myUid) m.mine = true;
+          likeMap[l.target_id] = m;
+        });
+      }
+      setStreamLikes(likeMap);
     } catch {}
     setForumStreamLoading(false);
   };
@@ -2239,6 +2255,22 @@ export default function LenormandApp() {
         {kids.map(k => renderStreamReplyNode(allReplies, postId, k, Math.min(depth + 1, 5)))}
       </div>
     );
+  };
+
+  // Sternchen-Like auf beliebige Feed-Karte (Beitrag oder Ereignis) umschalten.
+  const toggleStreamLike = async (targetId) => {
+    const uid = getUserId();
+    if (!uid) { setView("forum-login-noetig"); return; }
+    const cur = streamLikes[targetId] || { count:0, mine:false };
+    const mine = cur.mine;
+    setStreamLikes(prev => ({ ...prev, [targetId]: { count: Math.max(0, cur.count + (mine ? -1 : 1)), mine: !mine } }));
+    try {
+      if (mine) {
+        await fetch(`${SUPABASE_URL}/rest/v1/stream_likes?target_id=eq.${targetId}&user_id=eq.${uid}`, { method:"DELETE", headers: dbHeaders() });
+      } else {
+        await fetch(`${SUPABASE_URL}/rest/v1/stream_likes`, { method:"POST", headers:{...dbHeaders(), "Prefer":"resolution=merge-duplicates"}, body: JSON.stringify({ target_id: targetId, user_id: uid }) });
+      }
+    } catch {}
   };
 
   // Statusbeitrag ("Was machst du gerade?") als activity_event in den Stream legen.
@@ -5456,6 +5488,13 @@ export default function LenormandApp() {
                 {forumStartTab === "stream" && (
                   <div>
                     <ForumSubNav />
+                    {isGuest ? (
+                      <div style={{ textAlign:"center", padding:"40px 20px" }}>
+                        <div style={{ fontSize:34, marginBottom:14 }}>🕯️</div>
+                        <div style={{ fontSize:14, color:lightMode?"#2a0850":"#d4c4a0", lineHeight:1.7, maxWidth:360, margin:"0 auto 16px" }}>Der News-Feed ist unser Treffpunkt für Mitglieder. Melde dich an, um mitzulesen und mitzumachen.</div>
+                        <button onClick={() => setView("forum-login-noetig")} style={{ background:lightMode?"rgba(200,168,224,0.18)":"rgba(200,169,110,0.12)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:gold, padding:"9px 22px", borderRadius:8, cursor:"pointer", fontSize:13, fontFamily:"Georgia,serif" }}>Anmelden</button>
+                      </div>
+                    ) : (<>
                     {/* "Was machst du gerade?" — eigener Status in den Feed */}
                     {!isGuest ? (
                       <div style={{ background:lightMode?"rgba(200,168,224,0.10)":"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(200,168,224,0.45)":"rgba(200,169,110,0.25)"}`, borderRadius:12, padding:"12px 14px", marginBottom:16 }}>
@@ -5479,6 +5518,8 @@ export default function LenormandApp() {
                     )}
                     {forumStream.map(ev => {
                       const icon = ev.kind === "post" ? (ev.isMatrix ? "🃏" : (ev.categoryIcon || "🕯️")) : ev.kind === "reply" ? "💬" : ev.kind === "like" ? "⭐" : ev.kind === "member" ? "🌱" : ev.kind === "quiz_highscore" ? "🏆" : ev.kind === "status" ? "🌸" : ev.kind === "quest_day" ? "🎯" : ev.kind === "quest_done" ? "🏅" : "✨";
+                      const likeTargetId = ev.post ? ev.post.id : ev.eventId;
+                      const lk = streamLikes[likeTargetId] || { count:0, mine:false };
                       const openTarget = () => {
                         if (ev.kind === "post" && ev.post) { const cat = forumCategories.find(c => c.id === ev.post.category_id); setForumActiveCategory(cat || {id: ev.post.category_id}); openForumPost(ev.post); }
                         else if (ev.postId) { loadAndOpenPostById(ev.postId); }
@@ -5502,6 +5543,12 @@ export default function LenormandApp() {
                             <span style={{ fontSize:16 }}>{icon}</span>
                             <span style={{ fontSize:13, color:lightMode?"#2a0850":"#d4c4a0" }}><span style={{ fontWeight:"bold" }}>{ev.actor}</span> {headline}</span>
                             <span style={{ fontSize:10, color:lightMode?"#6a4a90":"#7a6040", marginLeft:"auto", whiteSpace:"nowrap" }}>{streamTimeAgo(ev.when)}</span>
+                            {likeTargetId && (
+                              <button onClick={() => toggleStreamLike(likeTargetId)} title="Gefällt mir"
+                                style={{ background:"transparent", border:"none", cursor:"pointer", fontSize:14, color: lk.mine ? gold : (lightMode?"#9a8ab0":"#7a6a54"), padding:0, display:"inline-flex", alignItems:"center", gap:2, whiteSpace:"nowrap", lineHeight:1 }}>
+                                {lk.mine ? "★" : "☆"}{lk.count > 0 && <span style={{fontSize:11}}>{lk.count}</span>}
+                              </button>
+                            )}
                             {ev.eventId && (isMod || ev.userId === getUserId()) && (
                               <button onClick={() => { if(window.confirm("Wirklich löschen?")) deleteStreamEvent(ev.eventId); }} title="Löschen" style={{ background:"transparent", border:"none", color:"#9a6050", cursor:"pointer", fontSize:12, padding:0 }}>✕</button>
                             )}
@@ -5631,6 +5678,7 @@ export default function LenormandApp() {
                       <button onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} title="Nach oben"
                         style={{ position:"fixed", bottom:24, right:24, zIndex:50, width:46, height:46, borderRadius:"50%", background:lightMode?"rgba(200,168,224,0.95)":"rgba(42,8,80,0.92)", border:`1px solid ${lightMode?"#c8a8e0":gold}`, color:lightMode?"#2a0850":gold, cursor:"pointer", fontSize:20, boxShadow:"0 3px 12px rgba(0,0,0,0.28)", display:"flex", alignItems:"center", justifyContent:"center" }}>⬆</button>
                     )}
+                    </>)}
                   </div>
                 )}
               </div>
