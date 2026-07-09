@@ -5,6 +5,32 @@ import React from "react";
 const SUPABASE_URL = "https://tlgogogaielulbzwmmkt.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRsZ29nb2dhaWVsdWxiendtbWt0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MzEwNjksImV4cCI6MjA5NzEwNzA2OX0.-Di1dQgE1-3sgYBJk5N76eiVzUk2TgFTnaE1YOB4__E";
 
+// Lädt eine Audiodatei in den öffentlichen Storage-Bucket "kurse-audio" und liefert die
+// öffentliche URL zurück. Wird vom Upload-Knopf im Lektions-Editor genutzt: die URL wird
+// danach in den Lektionstext eingefügt, und renderTextWithVideos macht daraus einen Player.
+// Braucht einmalig den Bucket + Policies in Supabase (siehe kurse_audio_storage.sql).
+async function uploadKurseAudio(file) {
+  let token = null;
+  try { token = JSON.parse(localStorage.getItem("sb_session") || "null")?.access_token || null; } catch {}
+  const clean = (file.name || "audio").replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80);
+  const path = `lektionen/${Date.now()}_${clean}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/kurse-audio/${path}`, {
+    method: "POST",
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${token || SUPABASE_KEY}`,
+      "Content-Type": file.type || "audio/mpeg",
+      "x-upsert": "true",
+    },
+    body: file,
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    throw new Error(t || `Upload fehlgeschlagen (${res.status})`);
+  }
+  return `${SUPABASE_URL}/storage/v1/object/public/kurse-audio/${path}`;
+}
+
 const supabase = (() => {
   const headers = { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`, "Content-Type": "application/json" };
   const authUrl = `${SUPABASE_URL}/auth/v1`;
@@ -346,12 +372,37 @@ class ContentErrorBoundary extends React.Component {
 function InlinePostEditBox({ initialTitle, initialBody, onSave, onCancel, lightMode }) {
   const [title, setTitle] = useState(initialTitle);
   const [body, setBody] = useState(initialBody);
+  // Audio-Upload: "" = bereit, "up" = lädt gerade, sonst = Fehlermeldung
+  const [audioState, setAudioState] = useState("");
+  const audioInputRef = useRef(null);
+  const handleAudioPick = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (audioInputRef.current) audioInputRef.current.value = ""; // gleiche Datei erneut wählbar
+    if (!file) return;
+    setAudioState("up");
+    try {
+      const url = await uploadKurseAudio(file);
+      // URL in eigener Zeile anhängen -> renderTextWithVideos macht daraus den Player
+      setBody(prev => (prev && !prev.endsWith("\n") ? prev + "\n" : prev) + url + "\n");
+      setAudioState("");
+    } catch (err) {
+      setAudioState("Fehler: " + (err.message || "Upload ging schief"));
+    }
+  };
   return (
     <div>
       <input type="text" value={title} onChange={e => setTitle(e.target.value)} autoFocus
         style={{ width:"100%", padding:"8px 10px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:6, color:lightMode?"#5a1080":"#c8a96e", fontFamily:"Georgia,serif", fontSize:14, outline:"none", boxSizing:"border-box" }} />
       <textarea value={body} onChange={e => setBody(e.target.value)} rows={4}
         style={{ width:"100%", padding:"9px 12px", marginBottom:8, background:"rgba(200,169,110,0.04)", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, borderRadius:7, color:lightMode?"#2a0850":"#d4c4a0", fontFamily:"Georgia,serif", fontSize:13, outline:"none", boxSizing:"border-box", resize:"none", lineHeight:1.6 }} />
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+        <input ref={audioInputRef} type="file" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" onChange={handleAudioPick} style={{ display:"none" }} />
+        <button type="button" onClick={() => audioInputRef.current && audioInputRef.current.click()} disabled={audioState === "up"}
+          style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.25)"}`, color:lightMode?"#5a1080":"#c8a96e", padding:"6px 12px", borderRadius:6, cursor:audioState==="up"?"default":"pointer", fontSize:12, fontFamily:"Georgia,serif", opacity:audioState==="up"?0.6:1 }}>
+          {audioState === "up" ? "⏳ lädt hoch…" : "🎵 Audio hochladen"}
+        </button>
+        {audioState && audioState !== "up" && <span style={{ fontSize:11, color:"#c07a6a" }}>{audioState}</span>}
+      </div>
       <div style={{ display:"flex", gap:8 }}>
         <button onClick={() => onSave(title, body)} style={{ background:"rgba(200,169,110,0.12)", border:"1px solid #c8a96e", color:lightMode?"#5a1080":"#c8a96e", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Speichern</button>
         <button onClick={onCancel} style={{ background:"transparent", border:`1px solid ${lightMode?"rgba(80,30,120,0.3)":"rgba(200,169,110,0.2)"}`, color:lightMode?"#2a0850":"#9a8060", padding:"6px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontFamily:"Georgia,serif" }}>Abbrechen</button>
@@ -382,7 +433,7 @@ function CategoryEditBox({ initialName, initialDescription, initialIcon, initial
         <span style={{ fontSize:22 }}>{icon}</span>
       </div>
       <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-        {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"]].map(([v,l]) => (
+        {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"],["mod","🛡️ Mods & Admins"]].map(([v,l]) => (
           <button key={v} onClick={() => setVisibility(v)} style={{ flex:1, background:visibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${visibility===v?gold:"rgba(200,169,110,0.2)"}`, color:visibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
         ))}
       </div>
@@ -3340,6 +3391,7 @@ export default function LenormandApp() {
   // stattdessen der Login-Bildschirm kommt.
   const forumCanEnterCategory = (cat) => {
     if (cat.visibility === "guest") return true;
+    if (cat.visibility === "mod") return isMod; // nur Mods & Admins (z.B. Gateway-Tapes)
     if (cat.visibility === "pro") return isPro;
     return !isGuest; // "member"-Sichtbarkeit: alles außer Gast
   };
@@ -4285,6 +4337,9 @@ export default function LenormandApp() {
   };
   // Direkte Videodateien (mp4/webm/ogg/mov) — werden wie ein Video mit Steuerung eingebettet.
   const isVideoFileUrl = (url) => /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
+  // Direkte Audiodateien (mp3/m4a/wav/…) — werden als schlichter Audio-Player eingebettet.
+  // ".ogg" bleibt bewusst beim Video oben, um dessen bestehendes Verhalten nicht zu ändern.
+  const isAudioFileUrl = (url) => /\.(mp3|m4a|wav|aac|oga|opus|flac)(\?.*)?$/i.test(url);
   // Erkennt normale Bild-Links (jpg/jpeg/png/webp/svg), genau wie isGifUrl — als
   // Übergangslösung, bis es einen echten Bild-Upload gibt. Funktioniert mit jedem Link
   // zu einer Bilddatei, der im Text steht (z.B. von einem eigenen Hosting), nicht nur
@@ -4343,6 +4398,13 @@ export default function LenormandApp() {
             <iframe src={`https://giphy.com/embed/${giphyId}`} title="GIF"
               style={{ width:"100%", height:280, border:"none" }} allowFullScreen />
           </div>
+        );
+      }
+      // Direkte Audiodateien als Player einbetten (mp3/m4a/…) — z.B. die Gateway-Tapes.
+      if (isUrl && isAudioFileUrl(part)) {
+        return (
+          <audio key={i} src={part} controls preload="none"
+            style={{ width:"100%", margin:"10px 0", display:"block" }} />
         );
       }
       // Direkte Videodateien einbetten (mp4/webm/…) — mit Steuerung, spielt inline.
@@ -5406,7 +5468,7 @@ export default function LenormandApp() {
                       <span style={{ fontSize:22 }}>{forumNewCatIcon}</span>
                     </div>
                     <div style={{ display:"flex", gap:8, marginBottom:8 }}>
-                      {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"]].map(([v,l]) => (
+                      {[["guest","🌍 Alle (auch Gäste)"],["member","👥 Nur Mitglieder"],["pro","⭐ Nur Pro"],["mod","🛡️ Mods & Admins"]].map(([v,l]) => (
                         <button key={v} onClick={() => setForumNewCatVisibility(v)} style={{ flex:1, background:forumNewCatVisibility===v?"rgba(200,169,110,0.15)":"transparent", border:`1px solid ${forumNewCatVisibility===v?gold:"rgba(200,169,110,0.2)"}`, color:forumNewCatVisibility===v?gold:"#7a6040", padding:"6px 8px", borderRadius:5, cursor:"pointer", fontSize:10, fontFamily:"Georgia,serif" }}>{l}</button>
                       ))}
                     </div>
@@ -5947,8 +6009,11 @@ export default function LenormandApp() {
                           <span style={{ color:lightMode?"#2a0850":"#5a4a34", fontSize:16 }}>→</span>
                         </div>
                       );
-                      const meine = kurseCategories.filter(c => kurseMerkliste.has(c.id));
-                      const weitere = kurseCategories.filter(c => !kurseMerkliste.has(c.id));
+                      // Mod-/Admin-Kurse (z.B. Gateway-Tapes) sind für alle anderen komplett
+                      // unsichtbar — nicht nur beim Reinklicken gesperrt, sondern gar nicht gelistet.
+                      const sichtbar = kurseCategories.filter(c => c.visibility !== "mod" || isMod);
+                      const meine = sichtbar.filter(c => kurseMerkliste.has(c.id));
+                      const weitere = sichtbar.filter(c => !kurseMerkliste.has(c.id));
                       return (<>
                         {meine.length > 0 && (<>
                           <div style={{ fontSize:10, letterSpacing:2, color:gold, textTransform:"uppercase", marginBottom:8 }}>★ Meine Kurse</div>
